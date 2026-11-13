@@ -271,23 +271,25 @@ body::before {
   margin-top: 2px;
 }
 
-/* ── 5. FILIGRAN-STYLE SITE HEADER ────────────────────────────────────────── */
+/* ── 5. PROFESSIONAL ENTERPRISE SITE HEADER ──────────────────────────────── */
 #header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(0, 2, 12, 0.85);
-  backdrop-filter: blur(16px);
+  background: rgba(0, 2, 12, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 32px;
-  height: 64px;
+  padding: 0 36px;
+  height: 68px;
   transition: all 0.2s ease;
 }
 body:not(.dark-theme) #header {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
 .brand-section {
@@ -296,26 +298,22 @@ body:not(.dark-theme) #header {
   gap: 12px;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
 }
 .brand-shield-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(51, 120, 255, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
-  border: 1px solid rgba(111, 215, 255, 0.4);
+  background: linear-gradient(135deg, rgba(51, 120, 255, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%);
+  border: 1px solid rgba(111, 215, 255, 0.35);
   border-radius: 8px;
-  box-shadow: 0 0 12px rgba(51, 120, 255, 0.35);
+  box-shadow: 0 0 14px rgba(51, 120, 255, 0.3);
+  transition: transform 0.2s ease;
 }
-.brand-shield-icon svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--accent-cyan);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.brand-section:hover .brand-shield-icon {
+  transform: scale(1.05);
 }
 
 .brand-titles {
@@ -328,126 +326,182 @@ body:not(.dark-theme) #header {
   gap: 8px;
 }
 .brand-name {
-  font-size: 16px;
+  font-size: 16.5px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--text-primary);
 }
-.brand-tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 9999px;
-  background: rgba(51, 120, 255, 0.12);
-  border: 1px solid rgba(51, 120, 255, 0.3);
-  color: var(--accent-cyan);
-  font-family: var(--font-mono);
-  letter-spacing: 0.5px;
-}
 .brand-subtitle {
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--text-tertiary);
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
+  margin-top: 1px;
 }
 
 /* Nav links in center */
 .header-nav {
   display: none;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 @media (min-width: 992px) {
   .header-nav { display: flex; }
 }
 .nav-link {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
-  padding: 6px 14px;
-  border-radius: 9999px;
+  padding: 8px 16px;
+  border-radius: 8px;
   transition: all 0.2s ease;
+  letter-spacing: -0.1px;
 }
 .nav-link:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+}
+body:not(.dark-theme) .nav-link:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
-.header-status-area {
+/* Right Actions Container */
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-/* Filigran Pulsing Status Badge */
-.status-indicator-badge {
+/* Log In / Sign Up Secondary Pill Button */
+.nav-link-auth-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #34D399;
-  padding: 5px 12px;
-  border-radius: 9999px;
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 600;
-  font-family: var(--font-mono);
-  letter-spacing: 0.4px;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  padding: 7px 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(111, 215, 255, 0.25);
+  background: rgba(51, 120, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
 }
-.status-dot-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10B981;
-  box-shadow: 0 0 8px #10B981;
-  animation: pulseDot 2s infinite ease-in-out;
+.nav-link-auth-btn:hover {
+  background: rgba(51, 120, 255, 0.18);
+  border-color: var(--accent-cyan);
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(51, 120, 255, 0.25);
+  transform: translateY(-1px);
 }
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+body:not(.dark-theme) .nav-link-auth-btn {
+  background: rgba(51, 120, 255, 0.06);
+  border-color: rgba(51, 120, 255, 0.2);
+  color: var(--primary);
+}
+body:not(.dark-theme) .nav-link-auth-btn:hover {
+  background: rgba(51, 120, 255, 0.12);
+  color: var(--primary-hover);
 }
 
-/* Header Action Buttons */
+/* Theme Toggle Button */
 .header-action-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--accent-navy-btn);
-  border: 1px solid rgba(51, 120, 255, 0.35);
-  color: var(--text-primary);
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 .header-action-btn:hover {
-  background: var(--accent-navy-btn-hover);
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 14px -2px rgba(51, 120, 255, 0.4);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--bg-card-hover);
 }
-.header-action-btn svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
+body:not(.dark-theme) .header-action-btn {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #475569;
 }
-.header-action-btn.speaking {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: #EF4444;
-  color: #EF4444;
-  animation: pulseDot 1.5s infinite;
+body:not(.dark-theme) .header-action-btn:hover {
+  color: #0F172A;
+  background: #F8FAFC;
 }
 
-/* Filigran Signature Gradient Button */
+/* Minimalist Icon-Only Theme Toggle */
+.header-theme-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  user-select: none;
+}
+.header-theme-icon-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-cyan);
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(51, 120, 255, 0.3);
+}
+.header-theme-icon-btn:active {
+  transform: translateY(0);
+}
+body:not(.dark-theme) .header-theme-icon-btn {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0F172A;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+body:not(.dark-theme) .header-theme-icon-btn:hover {
+  background: #F8FAFC;
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(51, 120, 255, 0.2);
+}
+
+/* Primary CTA Launch Button */
 .btn-filigran-gradient {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(180deg, #3378FF 0%, #1550DD 100%);
+  background: linear-gradient(135deg, #3378FF 0%, #1550DD 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #FFFFFF !important;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(51, 120, 255, 0.35);
+  letter-spacing: 0.2px;
+}
+.btn-filigran-gradient:hover {
+  background: linear-gradient(135deg, #4A8CFF 0%, #1E5CFF 100%);
+  box-shadow: 0 6px 20px rgba(51, 120, 255, 0.5);
+  transform: translateY(-1px);
+  color: #FFFFFF !important;
+}
   color: #FFFFFF;
   border: 1px solid rgba(111, 215, 255, 0.6);
   border-radius: 9999px;
@@ -1569,4 +1623,232 @@ body:not(.dark-theme) #footer {
   font-size: 10.5px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+}
+
+/* ── 15. OPERATOR AUTHORIZATION & CLEARANCE UI ───────────────────────────── */
+.header-clearance-pill {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.header-clearance-pill.clearance-l4 {
+  background: var(--color-critical-bg);
+  border: 1px solid var(--color-critical-border);
+  color: var(--color-critical);
+}
+.header-clearance-pill.clearance-l3 {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+}
+.header-clearance-pill.clearance-l2 {
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  color: var(--accent-cyan);
+}
+
+/* Auth Modal Overlay */
+.auth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 2, 12, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.auth-modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.auth-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 28px 24px;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(51, 120, 255, 0.2);
+  transform: scale(0.96);
+  transition: transform 0.25s ease;
+}
+.auth-modal-overlay.show .auth-modal-card {
+  transform: scale(1);
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+.auth-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-role-btn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+.modal-role-btn:hover {
+  border-color: var(--primary);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+
+/* Auth Tabs Navigation */
+.auth-tabs-nav {
+  display: flex;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+.auth-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+.auth-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+.auth-tab-btn.active {
+  background: var(--primary);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(51, 120, 255, 0.4);
+}
+
+/* ── 16. BOTTOM THEME MODE SWITCHER FORM & FLOATING DOCK ─────────────────── */
+.bottom-theme-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bottom-theme-label {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.theme-segmented-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.theme-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+.theme-seg-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+body:not(.dark-theme) .theme-seg-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.theme-seg-btn.active {
+  background: var(--primary);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(51, 120, 255, 0.35);
+}
+
+/* Floating Bottom Theme Toggle Dock */
+.floating-theme-dock {
+  position: fixed;
+  bottom: 22px;
+  right: 24px;
+  z-index: 1000;
+}
+.floating-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(13, 18, 36, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 120, 255, 0.35);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 0 12px rgba(51, 120, 255, 0.2);
+  transition: all 0.25s ease;
+  font-family: var(--font-sans);
+}
+.floating-theme-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.7), 0 0 20px rgba(51, 120, 255, 0.4);
+}
+body:not(.dark-theme) .floating-theme-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: #0F172A;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+body:not(.dark-theme) .floating-theme-btn:hover {
+  background: #FFFFFF;
+  border-color: var(--primary);
+  box-shadow: 0 12px 28px rgba(51, 120, 255, 0.25);
 }

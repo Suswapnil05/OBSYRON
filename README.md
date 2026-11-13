@@ -140,6 +140,16 @@ Returns complete Evidence DNA record (raw telemetry, host clock skew offset, nor
 ### `POST /api/upload`
 Uploads custom `.json` or `.csv` log file and generates attack graph in real time.
 
+### `POST /api/auth/login`
+Authenticates a SOC operator, validates NIST 800-61 clearance levels, and issues a cryptographic session token.
+- **Pre-configured Operator Profiles (Passcode: `obsyron2026`):**
+  - `analyst_lead`: **Cmdr. Maya Thorne** — Level 4 (Top Secret / SCI, Full Containment & Export)
+  - `soc_tier2`: **Analyst Rohan Verma** — Level 3 (Secret / OpSec, Incident Responder)
+  - `sec_auditor`: **Auditor Alex Mercer** — Level 2 (Confidential, Read-Only Audit)
+
+### `GET /login`
+Dedicated fullscreen SOC Operator Authorization Portal with 1-click tactical clearance selector and FIDO2/CAC smartcard simulation.
+
 ---
 
 ## 6. Directory Structure

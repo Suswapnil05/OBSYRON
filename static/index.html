@@ -40,8 +40,6 @@
     <div class="brand-titles">
       <div class="brand-row">
         <span class="brand-name">OBSYRON</span>
-        <span class="brand-tag">XTM 2.0</span>
-        <span class="brand-tag" style="border-color:rgba(51,120,255,0.4);color:var(--accent-cyan)">HACKINNOVISION 2026</span>
       </div>
       <div class="brand-subtitle">EXTENDED THREAT MANAGEMENT // TRACK C</div>
     </div>
@@ -56,22 +54,16 @@
     <a href="#mitre-alliances" class="nav-link">MITRE Alliances</a>
   </nav>
 
-  <div class="header-status-area">
-    <div class="status-indicator-badge">
-      <div class="status-dot-pulse"></div>
-      ACTIVE SOC PIPELINE (350 EPS)
-    </div>
-    
-    <button id="btn-theme" class="header-action-btn" onclick="toggleTheme()" title="Switch Light / Dark mode">
-      <span id="theme-icon">🌙</span>
-      <span id="theme-text">Dark Mode</span>
-    </button>
+  <div class="header-actions">
+    <a href="/login" id="nav-link-auth" class="nav-link-auth-btn" title="Log in or create an operator account">
+      <span id="header-auth-icon">🔒</span>
+      <span id="header-auth-label">Log In / Sign Up</span>
+      <span id="header-auth-badge" class="header-clearance-pill" style="display:none">GUEST</span>
+    </a>
 
-    <button id="btn-audio" class="header-action-btn" onclick="toggleAudioBriefing()" title="Play spoken incident summary using Web Speech API">
-      <svg viewBox="0 0 24 24">
-        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-      </svg>
-      <span id="btn-audio-text">Audio Briefing</span>
+    <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
+    <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode" aria-label="Toggle theme">
+      <span id="theme-icon">🌙</span>
     </button>
 
     <a href="#cockpit" class="btn-filigran-gradient" onclick="runAnalysis()">
@@ -528,16 +520,166 @@
     </div>
 
     <div class="footer-bottom">
-      <div>
-        &copy; 2026 OBSYRON Cyber Forensics · Built for <strong>HackInnovision 2026 (NIT Rourkela)</strong> · Track C: Cyber Investigation
+      <div class="footer-info-block">
+        <div>&copy; 2026 OBSYRON Cyber Forensics · Built for <strong>HackInnovision 2026 (NIT Rourkela)</strong> · Track C: Cyber Investigation</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="status-dot-pulse" style="width:6px;height:6px"></span>
+          <span>100% Standalone Localhost · Zero External Cloud Dependencies</span>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="status-dot-pulse" style="width:6px;height:6px"></span>
-        <span>100% Standalone Localhost · Zero External Cloud Dependencies</span>
-      </div>
+
+      <!-- ── BOTTOM THEME MODE SWITCHER FORM ── -->
+      <form class="bottom-theme-form" onsubmit="event.preventDefault()">
+        <span class="bottom-theme-label">INTERFACE MODE:</span>
+        <div class="theme-segmented-group">
+          <button type="button" class="theme-seg-btn active" id="seg-dark" onclick="setTheme('dark')" title="Switch to Obsidian Midnight Theme">
+            <span>🌙</span>
+            <span>Dark</span>
+          </button>
+          <button type="button" class="theme-seg-btn" id="seg-light" onclick="setTheme('light')" title="Switch to Crisp Enterprise Light Theme">
+            <span>☀️</span>
+            <span>Light</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </footer>
+
+<!-- ── OPERATOR AUTHORIZATION MODAL ────────────────────────────────────── -->
+<div id="auth-modal" class="auth-modal-overlay" onclick="handleAuthModalClick(event)">
+  <div class="auth-modal-card">
+    <button class="auth-modal-close" onclick="closeAuthModal()" title="Close">&times;</button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div class="brand-shield-icon" style="width:40px;height:40px">
+        <img src="/static/icon.png" alt="Emblem" style="width:24px;height:24px;object-fit:contain">
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.3px">
+          Operator Access Control
+        </div>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--accent-cyan)">
+          LOG IN &amp; SIGN UP GATEWAY // NIST 800-61
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Operator Status Banner -->
+    <div id="modal-active-operator" style="display:none;background:rgba(51,120,255,0.08);border:1px solid rgba(51,120,255,0.25);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="modal-op-avatar" style="font-size:22px">🛡️</span>
+          <div>
+            <div id="modal-op-name" style="font-weight:700;font-size:13px;color:var(--text-primary)">Cmdr. Maya Thorne</div>
+            <div id="modal-op-role" style="font-size:11px;color:var(--text-secondary)">Lead Forensic Director</div>
+          </div>
+        </div>
+        <button class="header-action-btn" style="background:rgba(239,68,68,0.15);border-color:#EF4444;color:#EF4444;padding:4px 10px;font-size:10px" onclick="logoutOperator()">
+          Lock &amp; Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Cyber Tab Switcher -->
+    <div class="auth-tabs-nav" style="margin-bottom:16px">
+      <button type="button" class="auth-tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">
+        <span>🔑 Log In</span>
+      </button>
+      <button type="button" class="auth-tab-btn" id="modal-tab-signup" onclick="switchModalAuthTab('signup')">
+        <span>📝 Sign Up</span>
+      </button>
+    </div>
+
+    <!-- Feedback Area -->
+    <div id="modal-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:12px;font-family:var(--font-mono)"></div>
+
+    <!-- Panel 1: Modal Log In -->
+    <div id="modal-panel-login">
+      <!-- 1-Click Role Selection -->
+      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent-cyan);font-weight:600;margin-bottom:6px">
+        ⚡ 1-CLICK TACTICAL PRESETS
+      </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('analyst_lead', 'obsyron2026', 'L4')">
+          <span style="font-size:16px">🛡️</span>
+          <span style="font-size:11px;font-weight:700">Lead (L4)</span>
+          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Top Secret</span>
+        </button>
+        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('soc_tier2', 'obsyron2026', 'L3')">
+          <span style="font-size:16px">⚡</span>
+          <span style="font-size:11px;font-weight:700">Responder (L3)</span>
+          <span style="font-size:9.5px;color:var(--color-warning);font-family:var(--font-mono)">Incident Ops</span>
+        </button>
+        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('sec_auditor', 'obsyron2026', 'L2')">
+          <span style="font-size:16px">🔍</span>
+          <span style="font-size:11px;font-weight:700">Auditor (L2)</span>
+          <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono)">Read-Only</span>
+        </button>
+      </div>
+
+      <!-- Quick Form -->
+      <form id="modal-login-form" onsubmit="handleModalLogin(event)">
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign</label>
+          <input type="text" id="modal-input-username" class="cyber-input" style="padding-left:12px;font-size:12px" value="analyst_lead" required autocomplete="username">
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Defense Passcode</label>
+          <input type="password" id="modal-input-password" class="cyber-input" style="padding-left:12px;font-size:12px" value="obsyron2026" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="btn-modal-auth" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
+          <span>Log In to Terminal</span>
+          <span>⚡</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Panel 2: Modal Sign Up -->
+    <div id="modal-panel-signup" style="display:none">
+      <form id="modal-signup-form" onsubmit="handleModalSignup(event)">
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Full Name</label>
+          <input type="text" id="modal-signup-name" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. Maya Thorne" required>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign (Username)</label>
+          <input type="text" id="modal-signup-username" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. m_thorne" required autocomplete="username">
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode (Min. 4 chars)</label>
+          <input type="password" id="modal-signup-password" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="Create passcode" required autocomplete="new-password">
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Clearance Level</label>
+          <select id="modal-signup-clearance" class="cyber-input" style="padding-left:10px;font-size:12px">
+            <option value="L4">Level 4 — Lead Director (Full Control)</option>
+            <option value="L3" selected>Level 3 — Incident Responder</option>
+            <option value="L2">Level 2 — Threat Auditor</option>
+          </select>
+        </div>
+
+        <button type="submit" id="btn-modal-signup" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
+          <span>Create Account &amp; Authorize</span>
+          <span>🛡️</span>
+        </button>
+      </form>
+    </div>
+
+    <div style="margin-top:14px;text-align:center">
+      <a href="/login" style="font-size:11px;color:var(--accent-cyan);text-decoration:none">
+        Open Fullscreen Log In / Sign Up Gateway &rarr;
+      </a>
+    </div>
+
+  </div>
+</div>
 
 <script src="/static/app.js"></script>
 <script>

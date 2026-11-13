@@ -22,7 +22,7 @@ const state = {
   currentEvidenceJson: ''
 };
 
-// ── 0. THEME MANAGEMENT (LIGHT MODE DEFAULT) ───────────────────────────────
+// ── 0. THEME MANAGEMENT ───────────────────────────────────────────────────
 
 function isDarkMode() {
   return document.body.classList.contains('dark-theme');
@@ -39,6 +39,20 @@ function initTheme() {
   updateThemeUI();
 }
 
+function setTheme(mode) {
+  if (mode === 'light') {
+    document.body.classList.remove('dark-theme');
+    localStorage.setItem('obsyron_theme', 'light');
+  } else {
+    document.body.classList.add('dark-theme');
+    localStorage.setItem('obsyron_theme', 'dark');
+  }
+  updateThemeUI();
+  if (state.analysisResult) {
+    renderGraph(state.analysisResult);
+  }
+}
+
 function toggleTheme() {
   const isDark = document.body.classList.toggle('dark-theme');
   localStorage.setItem('obsyron_theme', isDark ? 'dark' : 'light');
@@ -50,10 +64,31 @@ function toggleTheme() {
 
 function updateThemeUI() {
   const dark = isDarkMode();
+
+  // Floating bottom button
+  const floatIcon = document.getElementById('floating-theme-icon');
+  const floatText = document.getElementById('floating-theme-text');
+  if (floatIcon) floatIcon.textContent = dark ? '🌙' : '☀️';
+  if (floatText) floatText.textContent = dark ? 'Dark Mode' : 'Light Mode';
+
+  // Bottom form segmented control buttons
+  const segDark = document.getElementById('seg-dark');
+  const segLight = document.getElementById('seg-light');
+  if (segDark && segLight) {
+    if (dark) {
+      segDark.classList.add('active');
+      segLight.classList.remove('active');
+    } else {
+      segLight.classList.add('active');
+      segDark.classList.remove('active');
+    }
+  }
+
+  // Header theme icon & tooltip
   const icon = document.getElementById('theme-icon');
-  const text = document.getElementById('theme-text');
-  if (icon) icon.textContent = dark ? '☀️' : '🌙';
-  if (text) text.textContent = dark ? 'Light Mode' : 'Dark Mode';
+  const themeBtn = document.getElementById('btn-theme');
+  if (icon) icon.textContent = dark ? '🌙' : '☀️';
+  if (themeBtn) themeBtn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
 }
 
 // ── 1. API INTEGRATION ─────────────────────────────────────────────────────
@@ -899,8 +934,8 @@ function toggleAudioBriefing() {
   if (state.isSpeaking) {
     window.speechSynthesis.cancel();
     state.isSpeaking = false;
-    btn.classList.remove('speaking');
-    btnText.textContent = 'Audio Briefing';
+    if (btn) btn.classList.remove('speaking');
+    if (btnText) btnText.textContent = 'Audio Briefing';
     return;
   }
 
@@ -928,27 +963,310 @@ function toggleAudioBriefing() {
   utter.pitch = 1.0;
   utter.volume = 1.0;
 
-  btn.classList.add('speaking');
-  btnText.textContent = 'Stop Briefing';
+  if (btn) btn.classList.add('speaking');
+  if (btnText) btnText.textContent = 'Stop Briefing';
   state.isSpeaking = true;
 
   utter.onend = () => {
-    btn.classList.remove('speaking');
-    btnText.textContent = 'Audio Briefing';
+    if (btn) btn.classList.remove('speaking');
+    if (btnText) btnText.textContent = 'Audio Briefing';
     state.isSpeaking = false;
   };
   utter.onerror = () => {
-    btn.classList.remove('speaking');
-    btnText.textContent = 'Audio Briefing';
+    if (btn) btn.classList.remove('speaking');
+    if (btnText) btnText.textContent = 'Audio Briefing';
     state.isSpeaking = false;
   };
 
   window.speechSynthesis.speak(utter);
 }
 
-// ── 13. BOOTSTRAP ──────────────────────────────────────────────────────────
+// ── 13. OPERATOR AUTHORIZATION & SESSION STATE ─────────────────────────────
+
+function getActiveOperator() {
+  try {
+    const raw = localStorage.getItem('obsyron_operator');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function initAuth() {
+  const op = getActiveOperator();
+  updateAuthUI(op);
+
+  // Wire navigation & header auth buttons to open modal instead of hard navigating
+  const headerBtn = document.getElementById('btn-header-auth');
+  if (headerBtn) {
+    headerBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openAuthModal();
+    });
+  }
+
+  const navAuth = document.getElementById('nav-link-auth');
+  if (navAuth) {
+    navAuth.addEventListener('click', (e) => {
+      e.preventDefault();
+      openAuthModal();
+    });
+  }
+
+  // Check URL params for ?authorized=1 notification
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('authorized') === '1') {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+
+function updateAuthUI(op) {
+  const iconElem = document.getElementById('header-auth-icon');
+  const labelElem = document.getElementById('header-auth-label');
+  const badgeElem = document.getElementById('header-auth-badge');
+  const navAuth = document.getElementById('nav-link-auth');
+
+  const modalActive = document.getElementById('modal-active-operator');
+  const modalAvatar = document.getElementById('modal-op-avatar');
+  const modalName = document.getElementById('modal-op-name');
+  const modalRole = document.getElementById('modal-op-role');
+
+  if (navAuth) {
+    if (op) {
+      navAuth.textContent = `${op.avatar || '🛡️'} ${op.name || op.username} (${op.clearance_code || 'L4'})`;
+      navAuth.style.color = 'var(--text-primary)';
+    } else {
+      navAuth.textContent = 'Log In / Sign Up';
+      navAuth.style.color = 'var(--accent-cyan)';
+    }
+  }
+
+  if (op) {
+    if (iconElem) iconElem.textContent = op.avatar || '🛡️';
+    if (labelElem) labelElem.textContent = op.name || op.username;
+    if (badgeElem) {
+      badgeElem.style.display = 'inline-block';
+      badgeElem.textContent = op.clearance_code || 'L4';
+      badgeElem.className = 'header-clearance-pill ' + (
+        op.clearance_code === 'L4' ? 'clearance-l4' :
+        op.clearance_code === 'L3' ? 'clearance-l3' : 'clearance-l2'
+      );
+    }
+    if (modalActive) modalActive.style.display = 'block';
+    if (modalAvatar) modalAvatar.textContent = op.avatar || '🛡️';
+    if (modalName) modalName.textContent = op.name || op.username;
+    if (modalRole) modalRole.textContent = `${op.role || 'Forensic Operator'} · ${op.clearance || 'Level 4'}`;
+  } else {
+    if (iconElem) iconElem.textContent = '🔒';
+    if (labelElem) labelElem.textContent = 'Log In / Sign Up';
+    if (badgeElem) {
+      badgeElem.style.display = 'none';
+      badgeElem.className = 'header-clearance-pill';
+    }
+    if (modalActive) modalActive.style.display = 'none';
+  }
+}
+
+function switchModalAuthTab(tab) {
+  const tabLogin = document.getElementById('modal-tab-login');
+  const tabSignup = document.getElementById('modal-tab-signup');
+  const panelLogin = document.getElementById('modal-panel-login');
+  const panelSignup = document.getElementById('modal-panel-signup');
+  const feedback = document.getElementById('modal-feedback');
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.className = '';
+  }
+
+  if (tab === 'signup') {
+    tabLogin.classList.remove('active');
+    tabSignup.classList.add('active');
+    panelLogin.style.display = 'none';
+    panelSignup.style.display = 'block';
+  } else {
+    tabSignup.classList.remove('active');
+    tabLogin.classList.add('active');
+    panelSignup.style.display = 'none';
+    panelLogin.style.display = 'block';
+  }
+}
+
+function openAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.add('show');
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+function handleAuthModalClick(e) {
+  if (e.target.id === 'auth-modal') {
+    closeAuthModal();
+  }
+}
+
+async function quickSwitchRole(uname, pwd, lvl) {
+  const uInput = document.getElementById('modal-input-username');
+  const pInput = document.getElementById('modal-input-password');
+  if (uInput) uInput.value = uname;
+  if (pInput) pInput.value = pwd;
+  await submitAuthLogin(uname, pwd, lvl);
+}
+
+async function handleModalLogin(e) {
+  e.preventDefault();
+  const uname = document.getElementById('modal-input-username').value.trim();
+  const pwd = document.getElementById('modal-input-password').value.trim();
+  await submitAuthLogin(uname, pwd, null);
+}
+
+async function submitAuthLogin(username, password, clearanceOverride) {
+  const feedback = document.getElementById('modal-feedback');
+  const btn = document.getElementById('btn-modal-auth');
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.className = '';
+  }
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username,
+        password: password,
+        clearance_override: clearanceOverride
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Authorization failed.');
+    }
+
+    localStorage.setItem('obsyron_auth_token', data.token);
+    localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
+
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-success-bg)';
+      feedback.style.color = 'var(--color-success)';
+      feedback.style.border = '1px solid var(--color-success-border)';
+      feedback.textContent = `✓ Clearance Granted: ${data.operator.clearance}`;
+    }
+
+    updateAuthUI(data.operator);
+
+    setTimeout(() => {
+      closeAuthModal();
+      if (feedback) feedback.style.display = 'none';
+    }, 700);
+
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.style.border = '1px solid var(--color-critical-border)';
+      feedback.textContent = `❌ ${err.message}`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function handleModalSignup(e) {
+  e.preventDefault();
+  const name = document.getElementById('modal-signup-name').value.trim();
+  const username = document.getElementById('modal-signup-username').value.trim();
+  const password = document.getElementById('modal-signup-password').value.trim();
+  const clearance = document.getElementById('modal-signup-clearance').value;
+
+  const feedback = document.getElementById('modal-feedback');
+  const btn = document.getElementById('btn-modal-signup');
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.className = '';
+  }
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        username: username,
+        password: password,
+        clearance: clearance
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Registration failed.');
+    }
+
+    localStorage.setItem('obsyron_auth_token', data.token);
+    localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
+
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-success-bg)';
+      feedback.style.color = 'var(--color-success)';
+      feedback.style.border = '1px solid var(--color-success-border)';
+      feedback.textContent = `✓ Account Created! Clearance Granted: ${data.operator.clearance}`;
+    }
+
+    updateAuthUI(data.operator);
+
+    setTimeout(() => {
+      closeAuthModal();
+      if (feedback) feedback.style.display = 'none';
+    }, 700);
+
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.style.border = '1px solid var(--color-critical-border)';
+      feedback.textContent = `❌ ${err.message}`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function logoutOperator() {
+  const token = localStorage.getItem('obsyron_auth_token');
+  try {
+    if (token) {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    }
+  } catch (e) {
+    console.warn('Logout network notice:', e);
+  } finally {
+    localStorage.removeItem('obsyron_auth_token');
+    localStorage.removeItem('obsyron_operator');
+    updateAuthUI(null);
+    closeAuthModal();
+  }
+}
+
+// ── 14. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initAuth();
   runAnalysis(state.currentSettings);
 });
