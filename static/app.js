@@ -22,6 +22,40 @@ const state = {
   currentEvidenceJson: ''
 };
 
+// ── 0. THEME MANAGEMENT (LIGHT MODE DEFAULT) ───────────────────────────────
+
+function isDarkMode() {
+  return document.body.classList.contains('dark-theme');
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('obsyron_theme');
+  // Default is LIGHT mode unless user specifically saved 'dark'
+  if (saved === 'dark') {
+    document.body.classList.add('dark-theme');
+  } else {
+    document.body.classList.remove('dark-theme');
+  }
+  updateThemeUI();
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-theme');
+  localStorage.setItem('obsyron_theme', isDark ? 'dark' : 'light');
+  updateThemeUI();
+  if (state.analysisResult) {
+    renderGraph(state.analysisResult);
+  }
+}
+
+function updateThemeUI() {
+  const dark = isDarkMode();
+  const icon = document.getElementById('theme-icon');
+  const text = document.getElementById('theme-text');
+  if (icon) icon.textContent = dark ? '☀️' : '🌙';
+  if (text) text.textContent = dark ? 'Light Mode' : 'Dark Mode';
+}
+
 // ── 1. API INTEGRATION ─────────────────────────────────────────────────────
 
 async function runAnalysis(settings) {
@@ -160,30 +194,67 @@ function entityBadge(type) {
 }
 
 function entityFillColor(type, isMalicious) {
-  if (isMalicious) {
-    const mal = {
-      USER: '#0C2338',
-      DEVICE: '#251518',
-      SERVICE: '#2B1D08',
-      AUTH_ENDPOINT: '#2D1013'
-    };
-    return mal[type] || '#221518';
+  const dark = isDarkMode();
+  if (dark) {
+    if (isMalicious) {
+      const mal = {
+        USER: '#0C2338',
+        DEVICE: '#251518',
+        SERVICE: '#2B1D08',
+        AUTH_ENDPOINT: '#2D1013'
+      };
+      return mal[type] || '#221518';
+    }
+    return '#111622';
+  } else {
+    // Light Mode Fills (clean pastel tints with great readability)
+    if (isMalicious) {
+      const mal = {
+        USER: '#E0F2FE',       // Soft Sky Tint
+        DEVICE: '#FEE2E2',     // Soft Crimson Tint
+        SERVICE: '#FEF3C7',    // Soft Amber Tint
+        AUTH_ENDPOINT: '#FEE2E2' // Soft Crimson Tint
+      };
+      return mal[type] || '#FEE2E2';
+    }
+    return '#F8FAFC';          // Neutral Light Slate
   }
-  return '#111622';
 }
 
 function entityStrokeColor(type) {
-  const map = {
-    USER: '#38BDF8',
-    DEVICE: '#64748B',
-    SERVICE: '#F59E0B',
-    AUTH_ENDPOINT: '#EF4444'
-  };
-  return map[type] || '#64748B';
+  const dark = isDarkMode();
+  if (dark) {
+    const map = {
+      USER: '#38BDF8',
+      DEVICE: '#64748B',
+      SERVICE: '#F59E0B',
+      AUTH_ENDPOINT: '#EF4444'
+    };
+    return map[type] || '#64748B';
+  } else {
+    const map = {
+      USER: '#0284C7',
+      DEVICE: '#64748B',
+      SERVICE: '#D97706',
+      AUTH_ENDPOINT: '#DC2626'
+    };
+    return map[type] || '#64748B';
+  }
 }
 
 function renderGraph(data) {
   const container = document.getElementById('cy');
+  const dark = isDarkMode();
+
+  const nodeTextColor = dark ? '#F8FAFC' : '#0F172A';
+  const edgeLineColor = dark ? '#475569' : '#94A3B8';
+  const edgeCriticalColor = dark ? '#EF4444' : '#DC2626';
+  const edgeInferredColor = dark ? '#F59E0B' : '#D97706';
+  const edgeTextBg = dark ? '#0B0F17' : '#FFFFFF';
+  const edgeTextColor = dark ? '#CBD5E1' : '#0F172A';
+  const selectBorderColor = dark ? '#38BDF8' : '#0284C7';
+  const ancestorColor = dark ? '#38BDF8' : '#0284C7';
+  const descendantColor = dark ? '#EF4444' : '#DC2626';
 
   const elements = [];
   const nodeSet = new Set();
@@ -264,7 +335,7 @@ function renderGraph(data) {
           'label': 'data(label)',
           'text-valign': 'center',
           'text-halign': 'center',
-          'color': '#F8FAFC',
+          'color': nodeTextColor,
           'font-size': 9.5,
           'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
@@ -299,16 +370,16 @@ function renderGraph(data) {
         selector: 'edge',
         style: {
           'width': 2.2,
-          'line-color': '#475569',
-          'target-arrow-color': '#475569',
+          'line-color': edgeLineColor,
+          'target-arrow-color': edgeLineColor,
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'label': 'data(label)',
           'font-size': 8,
           'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
-          'color': '#CBD5E1',
-          'text-background-color': '#0B0F17',
+          'color': edgeTextColor,
+          'text-background-color': edgeTextBg,
           'text-background-opacity': 0.95,
           'text-background-padding': 3,
           'text-wrap': 'wrap',
@@ -320,28 +391,28 @@ function renderGraph(data) {
       {
         selector: 'edge[severity = "CRITICAL"], edge[!is_inferred][confidence >= 0.85]',
         style: {
-          'line-color': '#EF4444',
-          'target-arrow-color': '#EF4444',
+          'line-color': edgeCriticalColor,
+          'target-arrow-color': edgeCriticalColor,
           'width': 2.5,
-          'color': '#FCA5A5',
+          'color': dark ? '#FCA5A5' : '#991B1B',
         }
       },
       {
         selector: 'edge[?is_inferred]',
         style: {
-          'line-color': '#F59E0B',
-          'target-arrow-color': '#F59E0B',
+          'line-color': edgeInferredColor,
+          'target-arrow-color': edgeInferredColor,
           'line-style': 'dashed',
           'line-dash-pattern': [6, 4],
           'width': 2.2,
-          'color': '#FCD34D',
+          'color': dark ? '#FCD34D' : '#92400E',
         }
       },
-      { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#38BDF8' } },
+      { selector: 'node:selected', style: { 'border-width': 3, 'border-color': selectBorderColor } },
       { selector: '.dimmed', style: { 'opacity': 0.16 } },
       { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-      { selector: '.ancestor-highlight', style: { 'border-color': '#38BDF8', 'border-width': 2.8, 'opacity': 1 } },
-      { selector: '.descendant-highlight', style: { 'border-color': '#EF4444', 'border-width': 2.8, 'opacity': 1 } },
+      { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 2.8, 'opacity': 1 } },
+      { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 2.8, 'opacity': 1 } },
     ]
   });
 
@@ -556,7 +627,7 @@ function renderPlaybook(data) {
   const container = document.getElementById('playbook-content');
 
   const affectedHtml = (br.affected_nodes || []).map(n =>
-    `<span style="display:inline-block;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:var(--color-critical);padding:2px 7px;border-radius:3px;font-size:9.5px;font-family:var(--font-mono);font-weight:600;margin:2px">${n}</span>`
+    `<span style="display:inline-block;background:var(--color-critical-bg);border:1px solid var(--color-critical-border);color:var(--color-critical);padding:2px 7px;border-radius:3px;font-size:9.5px;font-family:var(--font-mono);font-weight:600;margin:2px">${n}</span>`
   ).join('');
 
   container.innerHTML = `
@@ -565,7 +636,7 @@ function renderPlaybook(data) {
         <span style="font-size:9.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-tertiary);font-family:var(--font-sans)">Containment Readiness</span>
         <span id="containment-percent" style="font-size:11px;font-family:var(--font-mono);font-weight:700;color:var(--color-success)">0% COMPLETE</span>
       </div>
-      <div class="conf-track" style="height:4px">
+      <div class="conf-track" style="height:5px">
         <div id="containment-progress-bar" style="width:0%;height:100%;background:var(--color-success);border-radius:2px;transition:width 0.25s"></div>
       </div>
     </div>
@@ -601,16 +672,16 @@ function renderQuickActions(data) {
   const ia = data.initial_access || {};
   const el = document.getElementById('quick-actions');
   el.innerHTML = `
-    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical)" onclick="alert('Dispatched: Account session revocation sent to Active Directory for ' + '${ia.patient_zero_account || 'Patient Zero'}')">
+    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical);background:var(--color-critical-bg)" onclick="alert('Dispatched: Account session revocation sent to Active Directory for ' + '${ia.patient_zero_account || 'Patient Zero'}')">
       <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[LOCK]</span> Lock ${ia.patient_zero_account || 'emp_rohan'}
     </button>
-    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical)" onclick="alert('Dispatched: Egress firewall null-route rule pushed for IP 185.220.101.47')">
+    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical);background:var(--color-critical-bg)" onclick="alert('Dispatched: Egress firewall null-route rule pushed for IP 185.220.101.47')">
       <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[BLOCK]</span> Block 185.220.101.47
     </button>
-    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning)" onclick="alert('Dispatched: Service credential rotation triggered for svc_ci_deploy')">
+    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning);background:var(--color-warning-bg)" onclick="alert('Dispatched: Service credential rotation triggered for svc_ci_deploy')">
       <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[ROTATE]</span> Rotate svc_ci_deploy
     </button>
-    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning)" onclick="alert('Dispatched: VLAN network quarantine triggered for host db-prod-01')">
+    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning);background:var(--color-warning-bg)" onclick="alert('Dispatched: VLAN network quarantine triggered for host db-prod-01')">
       <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[ISOLATE]</span> Quarantine db-prod-01
     </button>
   `;
@@ -634,9 +705,9 @@ function renderMatrix(data) {
         ['Compromised', malNodes, 'var(--color-critical)'],
         ['Inferred Bridges', inferredEdges, 'var(--color-warning)'],
       ].map(([label, val, color]) => `
-        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:4px;padding:9px;text-align:center">
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:4px;padding:9px;text-align:center;box-shadow:var(--shadow-sm)">
           <div style="font-size:17px;font-weight:700;color:${color};font-family:var(--font-sans)">${val}</div>
-          <div style="font-size:9.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-sans);font-weight:500">${label}</div>
+          <div style="font-size:9.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-sans);font-weight:600">${label}</div>
         </div>
       `).join('')}
     </div>
@@ -656,8 +727,8 @@ function renderMatrix(data) {
           <div style="flex:1;font-family:var(--font-mono);color:${n.is_malicious ? 'var(--color-critical)' : 'var(--text-secondary)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${n.label}
           </div>
-          <div style="width:70px;background:var(--bg-surface-elevated);border-radius:2px;height:4px;overflow:hidden">
-            <div style="width:${(n.centrality * 100).toFixed(0)}%;height:4px;background:${n.is_malicious ? 'var(--color-critical)' : 'var(--color-info-light)'};border-radius:2px"></div>
+          <div style="width:70px;background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:2px;height:5px;overflow:hidden">
+            <div style="width:${(n.centrality * 100).toFixed(0)}%;height:100%;background:${n.is_malicious ? 'var(--color-critical)' : 'var(--color-info-light)'};border-radius:2px"></div>
           </div>
           <span style="font-size:9.5px;color:var(--text-tertiary);font-family:var(--font-mono)">${(n.centrality * 100).toFixed(1)}%</span>
         </div>
@@ -694,7 +765,7 @@ function renderEvidenceDNA(log) {
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap">
       <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${log.is_inferred ? 'var(--color-warning)' : 'var(--color-info-light)'}">${log.log_id}</span>
       <span style="font-size:10px;color:var(--text-tertiary)">|</span>
-      <span style="font-size:11px;font-weight:600;color:#FFFFFF;font-family:var(--font-mono)">${log.action || ''}</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono)">${log.action || ''}</span>
       ${log.mitre_tag ? `<span class="mitre-tag">${log.mitre_tag}</span>` : ''}
       <span class="chip-${severityColor === 'red' ? 'red' : (severityColor === 'amber' ? 'amber' : 'cyan')}" style="padding:1px 5px;border-radius:3px;font-size:9.5px;font-family:var(--font-mono);font-weight:600">${log.severity || 'LOW'}</span>
       ${log.is_inferred ? '<span class="inferred-tag">INFERRED LATERAL BRIDGE</span>' : ''}
@@ -818,7 +889,7 @@ function toggleAudioBriefing() {
     window.speechSynthesis.cancel();
     state.isSpeaking = false;
     btn.classList.remove('speaking');
-    btnText.textContent = 'Executive Audio Briefing';
+    btnText.textContent = 'Audio Briefing';
     return;
   }
 
@@ -847,17 +918,17 @@ function toggleAudioBriefing() {
   utter.volume = 1.0;
 
   btn.classList.add('speaking');
-  btnText.textContent = 'Stop Audio Briefing';
+  btnText.textContent = 'Stop Briefing';
   state.isSpeaking = true;
 
   utter.onend = () => {
     btn.classList.remove('speaking');
-    btnText.textContent = 'Executive Audio Briefing';
+    btnText.textContent = 'Audio Briefing';
     state.isSpeaking = false;
   };
   utter.onerror = () => {
     btn.classList.remove('speaking');
-    btnText.textContent = 'Executive Audio Briefing';
+    btnText.textContent = 'Audio Briefing';
     state.isSpeaking = false;
   };
 
@@ -867,5 +938,6 @@ function toggleAudioBriefing() {
 // ── 13. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   runAnalysis(state.currentSettings);
 });

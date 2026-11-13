@@ -49,11 +49,17 @@
       <div class="status-dot-pulse"></div>
       ACTIVE SOC PIPELINE (350 EPS)
     </div>
-    <button id="btn-audio" onclick="toggleAudioBriefing()" title="Play spoken incident summary using Web Speech API">
+    
+    <button id="btn-theme" class="header-action-btn" onclick="toggleTheme()" title="Switch between Light and Dark mode">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-text">Dark Mode</span>
+    </button>
+
+    <button id="btn-audio" class="header-action-btn" onclick="toggleAudioBriefing()" title="Play spoken incident summary using Web Speech API">
       <svg viewBox="0 0 24 24">
         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
       </svg>
-      <span id="btn-audio-text">Executive Audio Briefing</span>
+      <span id="btn-audio-text">Audio Briefing</span>
     </button>
   </div>
 </header>
