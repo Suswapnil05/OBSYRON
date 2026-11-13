@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBSYRON // Attack Graph Forensics — HackInnovision 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   OBSYRON — SOC COMMAND DASHBOARD
+   ═══════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B0F19;--card:#111827;--card2:#1a2235;
+  --red:#EF4444;--amber:#F59E0B;--cyan:#38BDF8;
+  --slate:#475569;--green:#22C55E;--purple:#A78BFA;
+  --text:#E5E7EB;--text2:#9CA3AF;--text3:#6B7280;
+  --border:#1F2937;--border2:#374151;
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* HEADER */
+#header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--card);border-bottom:1px solid var(--border2);flex-shrink:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:2px}
+.logo-hex{width:28px;height:28px;background:linear-gradient(135deg,var(--cyan),var(--purple));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center}
+.logo-sub{font-size:11px;color:var(--text3);letter-spacing:1px;font-weight:400}
+.track-badge{background:rgba(56,189,248,0.1);border:1px solid var(--cyan);color:var(--cyan);font-size:10px;padding:3px 8px;border-radius:4px;letter-spacing:1px}
+.header-right{display:flex;align-items:center;gap:10px}
+#btn-audio{background:linear-gradient(135deg,rgba(167,139,250,0.2),rgba(56,189,248,0.2));border:1px solid var(--border2);color:var(--text);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--font);display:flex;align-items:center;gap:6px;transition:all 0.2s}
+#btn-audio:hover{border-color:var(--cyan);color:var(--cyan)}
+#status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* KPI STRIP */
+#kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border2);flex-shrink:0}
+.kpi-card{background:var(--card);padding:10px 16px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-card:nth-child(1)::before{background:var(--slate)}
+.kpi-card:nth-child(2)::before{background:var(--amber)}
+.kpi-card:nth-child(3)::before{background:var(--red)}
+.kpi-card:nth-child(4)::before{background:var(--cyan)}
+.kpi-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:16px;font-weight:700;line-height:1.1}
+.kpi-sub{font-size:10px;color:var(--text2);margin-top:2px;font-family:var(--mono)}
+
+/* MAIN BODY */
+#main-body{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* LEFT RAIL */
+#left-rail{width:220px;background:var(--card);border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:12px}
+.rail-section{margin-bottom:16px}
+.rail-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.rail-btn{width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--font);text-align:left;margin-bottom:4px;transition:all 0.2s;display:flex;align-items:center;gap:6px}
+.rail-btn:hover,.rail-btn.active{background:rgba(56,189,248,0.1);border-color:var(--cyan);color:var(--cyan)}
+.rail-btn.active{font-weight:600}
+.btn-dot{width:6px;height:6px;border-radius:50%}
+
+/* Upload */
+#upload-area{background:var(--card2);border:1px dashed var(--border2);border-radius:6px;padding:10px;text-align:center;cursor:pointer;font-size:10px;color:var(--text3);transition:all 0.2s}
+#upload-area:hover{border-color:var(--cyan);color:var(--cyan)}
+#file-input{display:none}
+
+/* Toggles */
+.toggle-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:11px}
+.toggle-row input[type=checkbox]{width:14px;height:14px;accent-color:var(--cyan);cursor:pointer}
+.toggle-label{color:var(--text2);flex:1;line-height:1.3}
+
+/* Timeline slider */
+#slider-container{margin-bottom:4px}
+#timeline-slider{width:100%;accent-color:var(--cyan);cursor:pointer}
+#timeline-display{font-family:var(--mono);font-size:9px;color:var(--cyan);margin-top:4px;word-break:break-all}
+
+/* Loading */
+#loading-overlay{display:none;position:fixed;inset:0;background:rgba(11,15,25,0.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#loading-overlay.show{display:flex}
+.spinner{width:40px;height:40px;border:3px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:12px;color:var(--cyan);letter-spacing:2px}
+
+/* CENTER + RIGHT WRAPPER */
+#center-right{display:flex;flex:1;min-width:0;overflow:hidden}
+
+/* GRAPH CANVAS */
+#graph-panel{flex:0 0 60%;background:var(--bg);position:relative;overflow:hidden;min-width:0}
+#cy{width:100%;height:100%}
+.graph-label{position:absolute;top:10px;left:10px;font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;background:rgba(11,15,25,0.8);padding:4px 8px;border-radius:4px;border:1px solid var(--border)}
+.legend{position:absolute;bottom:10px;left:10px;background:rgba(17,24,39,0.9);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:9px}
+.legend-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;color:var(--text2)}
+.legend-row:last-child{margin-bottom:0}
+.legend-line{width:20px;height:2px}
+.legend-dash{width:20px;height:0;border-top:2px dashed var(--amber)}
+.legend-dot{width:10px;height:10px;border-radius:50%;border:2px solid}
+
+/* RIGHT PANEL */
+#right-panel{flex:1;background:var(--card);border-left:1px solid var(--border2);overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+#right-panel::-webkit-scrollbar{width:4px}
+#right-panel::-webkit-scrollbar-track{background:var(--bg)}
+#right-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.panel-tabs{display:flex;border-bottom:1px solid var(--border2);flex-shrink:0}
+.tab-btn{flex:1;padding:9px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;background:none;border:none;color:var(--text3);border-bottom:2px solid transparent;transition:all 0.2s;font-family:var(--font)}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tab-pane{display:none;padding:12px;flex:1}
+.tab-pane.active{display:block}
+
+/* XAI Steps */
+.xai-step{background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:10px;margin-bottom:8px;position:relative}
+.xai-step.inferred{border-color:var(--amber);background:rgba(245,158,11,0.05)}
+.xai-step-header{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.step-num{font-size:9px;background:var(--border2);color:var(--text3);padding:2px 6px;border-radius:3px;font-family:var(--mono)}
+.step-title{font-size:12px;font-weight:600;flex:1}
+.mitre-badge{font-size:9px;background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.4);color:#A78BFA;padding:2px 6px;border-radius:3px;font-family:var(--mono)}
+.inferred-badge{font-size:9px;background:rgba(245,158,11,0.2);border:1px solid var(--amber);color:var(--amber);padding:2px 6px;border-radius:3px}
+.xai-narrative{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:8px}
+.citations{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.log-badge{font-size:9px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);color:var(--cyan);padding:2px 7px;border-radius:3px;cursor:pointer;font-family:var(--mono);transition:all 0.2s}
+.log-badge:hover{background:rgba(56,189,248,0.2);border-color:var(--cyan)}
+.log-badge.inferred{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.4);color:var(--amber)}
+.conf-bar-wrap{background:var(--border);border-radius:2px;height:3px;overflow:hidden}
+.conf-bar{height:3px;border-radius:2px;transition:width 0.5s}
+
+/* Containment */
+.containment-item{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:var(--card2);border:1px solid var(--border2);border-radius:5px;margin-bottom:5px;font-size:11px;line-height:1.5}
+.containment-done{text-decoration:line-through;opacity:0.4}
+.check-btn{width:14px;height:14px;border:1px solid var(--border2);border-radius:3px;background:none;cursor:pointer;flex-shrink:0;margin-top:1px;accent-color:var(--green)}
+
+/* Evidence DNA Drawer */
+#evidence-drawer{height:0;overflow:hidden;background:var(--card);border-top:1px solid var(--border2);transition:height 0.3s ease;flex-shrink:0}
+#evidence-drawer.open{height:200px}
+#evidence-content{padding:12px 16px;height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+#evidence-content::-webkit-scrollbar{width:4px}
+#evidence-content::-webkit-scrollbar-thumb{background:var(--border2)}
+.drawer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.drawer-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3)}
+#drawer-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0}
+.evidence-grid{display:grid;grid-template-columns:140px 1fr;gap:3px 12px;font-size:10px;font-family:var(--mono)}
+.ev-label{color:var(--text3)}
+.ev-value{color:var(--text);word-break:break-all}
+.ev-value.red{color:var(--red)}
+.ev-value.amber{color:var(--amber)}
+.ev-value.cyan{color:var(--cyan)}
+.ev-value.green{color:var(--green)}
+.raw-payload{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:9px;font-family:var(--mono);color:var(--text2);max-height:80px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+
+/* Scrollbar global */
+*::-webkit-scrollbar{width:3px;height:3px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Node tooltip */
+#node-tooltip{position:fixed;background:var(--card);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:10px;pointer-events:none;z-index:200;display:none;max-width:200px}
+.tooltip-title{font-weight:600;margin-bottom:4px;font-size:11px}
+.tooltip-row{color:var(--text2);font-family:var(--mono);font-size:9px;margin-bottom:2px}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;font-size:12px}
+.empty-icon{font-size:32px;opacity:0.3}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">ANALYZING LOGS...</div>
+</div>
+
+<!-- Node Tooltip -->
+<div id="node-tooltip">
+  <div class="tooltip-title" id="tt-title"></div>
+  <div class="tooltip-row" id="tt-type"></div>
+  <div class="tooltip-row" id="tt-centrality"></div>
+  <div class="tooltip-row" id="tt-logs"></div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="logo">
+      <div class="logo-hex"></div>
+      OBSYRON
+    </div>
+    <div class="logo-sub">FORENSIC ATTACK GRAPH ENGINE</div>
+    <div class="track-badge">HACKINNOVISION 2026 — TRACK C</div>
+  </div>
+  <div class="header-right">
+    <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)">
+      <div id="status-dot"></div>
+      LIVE
+    </div>
+    <button id="btn-audio" onclick="playAudioBriefing()">&#9654; Play Audio Briefing</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div id="kpi-strip">
+  <div class="kpi-card">
+    <div class="kpi-label">Signal-to-Noise</div>
+    <div class="kpi-value" id="kpi-snr">—</div>
+    <div class="kpi-sub" id="kpi-snr-sub">Awaiting analysis...</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Initial Access Vector</div>
+    <div class="kpi-value" id="kpi-pz" style="color:var(--amber)">—</div>
+    <div class="kpi-sub" id="kpi-pz-sub">Patient Zero</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Blast Radius</div>
+    <div class="kpi-value" id="kpi-br" style="color:var(--red)">—</div>
+    <div class="kpi-sub" id="kpi-br-sub">Downstream assets</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Graph Confidence</div>
+    <div class="kpi-value" id="kpi-conf" style="color:var(--cyan)">—</div>
+    <div class="kpi-sub" id="kpi-conf-sub">Overall certainty</div>
+  </div>
+</div>
+
+<!-- MAIN BODY -->
+<div id="main-body">
+
+  <!-- LEFT RAIL -->
+  <div id="left-rail">
+    <div class="rail-section">
+      <div class="rail-title">Dataset</div>
+      <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
+        <span class="btn-dot" style="background:var(--cyan)"></span>Built-in APT Scenario
+      </button>
+      <div id="upload-area" onclick="document.getElementById('file-input').click()">
+        <div>&#11014; Upload CSV / JSON</div>
+        <div style="font-size:9px;margin-top:3px;color:var(--text3)">Click to browse</div>
+      </div>
+      <input type="file" id="file-input" accept=".json,.csv" onchange="handleFileUpload(this.files[0])">
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-title">Chaos Simulator</div>
+      <label class="toggle-row">
+        <input type="checkbox" id="tog-shuffle" checked onchange="onToggleChange()">
+        <span class="toggle-label">Shuffle Out-of-Order Logs</span>
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="tog-skew" checked onchange="onToggleChange()">
+        <span class="toggle-label">Inject Server Clock Skew</span>
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" id="tog-drop" onchange="onToggleChange()">
+        <span class="toggle-label">Simulate Missing Telemetry (Drop 15%)</span>
+      </label>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-title">Time-Travel Investigation</div>
+      <div id="slider-container">
+        <input type="range" id="timeline-slider" min="0" max="100" value="100" oninput="onSliderInput(this.value)">
+        <div id="timeline-display">Drag to replay timeline</div>
+      </div>
+    </div>
+
+    <div class="rail-section" style="flex:1">
+      <div class="rail-title">Quick Containment</div>
+      <div id="quick-actions" style="font-size:10px;color:var(--text3)">Run analysis to populate</div>
+    </div>
+  </div>
+
+  <!-- CENTER + RIGHT WRAPPER -->
+  <div id="center-right">
+
+    <!-- GRAPH CANVAS -->
+    <div id="graph-panel">
+      <div class="graph-label">&#128308; Dynamic Attack Graph — MITRE ATT&CK Kill Chain</div>
+      <div id="cy"><div class="empty-state"><div class="empty-icon">&#11041;</div><div>Awaiting log analysis...</div></div></div>
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-row"><div class="legend-dot" style="border-color:var(--cyan)"></div>[USER] Compromised Account</div>
+        <div class="legend-row"><div class="legend-dot" style="border-color:var(--slate)"></div>[DEVICE] Workstation/Server</div>
+        <div class="legend-row"><div class="legend-dot" style="border-color:var(--amber)"></div>[SERVICE] Service Account</div>
+        <div class="legend-row"><div class="legend-dot" style="border-color:var(--red)"></div>[EXT_IP] External Endpoint</div>
+        <div class="legend-row"><div class="legend-line" style="background:var(--red)"></div>Confirmed Attack Edge (90-98%)</div>
+        <div class="legend-row"><div class="legend-dash"></div>Inferred Gap Bridge (58-65%)</div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div class="panel-tabs">
+        <button class="tab-btn active" onclick="switchTab('xai')">Root Cause AI</button>
+        <button class="tab-btn" onclick="switchTab('containment')">Containment</button>
+        <button class="tab-btn" onclick="switchTab('stats')">Graph Stats</button>
+      </div>
+      <div id="tab-xai" class="tab-pane active">
+        <div id="xai-content"><div class="empty-state"><div class="empty-icon">&#128269;</div><div>Analysis pending...</div></div></div>
+      </div>
+      <div id="tab-containment" class="tab-pane">
+        <div id="containment-content"><div class="empty-state"><div class="empty-icon">&#128737;</div><div>Run analysis first</div></div></div>
+      </div>
+      <div id="tab-stats" class="tab-pane">
+        <div id="stats-content"><div class="empty-state"><div class="empty-icon">&#128202;</div><div>No data yet</div></div></div>
+      </div>
+    </div>
+
+  </div><!-- end center-right -->
+</div><!-- end main-body -->
+
+<!-- EVIDENCE DNA DRAWER -->
+<div id="evidence-drawer">
+  <div id="evidence-content">
+    <div class="drawer-header">
+      <div class="drawer-title">&#129516; Evidence DNA Inspector</div>
+      <button id="drawer-close" onclick="closeDrawer()">&#10005;</button>
+    </div>
+    <div id="evidence-body">Click any node, edge, or [LOG-ID] badge to inspect raw forensic evidence</div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
