@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // OBSYRON — Autonomous Forensic Investigation & Attack Graph Reconstruction
-// HackInnovision 2026 (Track C) — Complete Dashboard Client Engine
+// HackInnovision 2026 (Track C) — Complete High-Performance Client Engine
 // ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
@@ -16,10 +16,13 @@ const state = {
   },
   currentDataset: 'builtin',
   sliderTimeout: null,
-  isSpeaking: false
+  isPlayingTimeline: false,
+  timelineInterval: null,
+  isSpeaking: false,
+  currentEvidenceJson: ''
 };
 
-// ── 1. API CLIENT METHODS ───────────────────────────────────────────────────
+// ── 1. API COMMUNICATION ───────────────────────────────────────────────────
 
 async function runAnalysis(settings) {
   showLoading(true);
@@ -30,8 +33,7 @@ async function runAnalysis(settings) {
       body: JSON.stringify(settings || state.currentSettings),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Server returned ${res.status}: ${errText}`);
+      throw new Error(`Server returned ${res.status}: ${await res.text()}`);
     }
     const data = await res.json();
     state.analysisResult = data;
@@ -54,7 +56,7 @@ async function fetchSnapshot(timestamp) {
     renderGraph(data);
     renderKPIs(data);
   } catch (err) {
-    console.error('Timeline snapshot fetch failed:', err);
+    console.error('Snapshot fetch error:', err);
   } finally {
     showLoading(false);
   }
@@ -69,7 +71,7 @@ async function fetchEvidence(logId) {
     renderEvidenceDNA(data);
     openDrawer();
   } catch (err) {
-    console.error('Evidence DNA fetch failed for ' + logId + ':', err);
+    console.error('Evidence DNA error for ' + logId + ':', err);
   }
 }
 
@@ -90,63 +92,64 @@ async function handleFileUpload(file) {
     document.getElementById('btn-builtin').classList.remove('active');
     renderAll(data);
   } catch (err) {
-    alert('Upload failed: ' + err.message);
+    alert('Log file upload failed: ' + err.message);
   } finally {
     showLoading(false);
   }
 }
 
-// ── 2. UNIFIED RENDER PIPELINE ──────────────────────────────────────────────
+// ── 2. UNIFIED RENDER DISPATCHER ───────────────────────────────────────────
 
 function renderAll(data) {
   renderKPIs(data);
   renderGraph(data);
   renderXAI(data);
-  renderContainment(data);
-  renderStats(data);
+  renderPlaybook(data);
+  renderMatrix(data);
   initTimelineSlider(data);
   renderQuickActions(data);
 }
 
-// ── 3. TOP KPI STRIP ────────────────────────────────────────────────────────
+// ── 3. TOP KPI STRIP ───────────────────────────────────────────────────────
 
 function renderKPIs(data) {
-  const snrEl = document.getElementById('kpi-snr');
-  const snrSub = document.getElementById('kpi-snr-sub');
-  snrEl.textContent = `${data.raw_log_count} → ${data.malicious_signal_count}`;
-  snrSub.textContent = 'Raw Enterprise Logs → Malicious Signals';
+  document.getElementById('kpi-snr').textContent =
+    `${data.raw_log_count} → ${data.malicious_signal_count}`;
+  document.getElementById('kpi-snr-sub').textContent = 'Raw Enterprise Logs → Malicious Signals';
 
   const ia = data.initial_access || {};
-  const pzEl = document.getElementById('kpi-pz');
-  const pzSub = document.getElementById('kpi-pz-sub');
-  pzEl.textContent = ia.entity || '—';
-  pzSub.textContent = ia.timestamp
+  document.getElementById('kpi-pz').textContent = ia.entity || '—';
+  document.getElementById('kpi-pz-sub').textContent = ia.timestamp
     ? `${ia.mitre_tactic} @ ${formatTimeOnly(ia.timestamp)}`
-    : (ia.mitre_tactic || 'Patient Zero');
+    : (ia.mitre_tactic || 'Patient Zero Identity');
 
   const br = data.blast_radius || {};
-  const brEl = document.getElementById('kpi-br');
-  const brSub = document.getElementById('kpi-br-sub');
-  brEl.textContent = `${br.count || 0} Assets`;
-  brSub.textContent = `${br.affected_nodes ? br.affected_nodes.length : 0} Compromised / Reachable`;
+  document.getElementById('kpi-br').textContent = `${br.count || 0} Assets`;
+  document.getElementById('kpi-br-sub').textContent = `${br.affected_nodes ? br.affected_nodes.length : 0} Downstream Targets Exposed`;
 
   const conf = data.overall_confidence || 0;
   const confEl = document.getElementById('kpi-conf');
+  const chipEl = document.getElementById('kpi-conf-chip');
   const confSub = document.getElementById('kpi-conf-sub');
   const confPct = (conf * 100).toFixed(1);
+
   confEl.textContent = `${confPct}%`;
   if (conf < 0.75) {
     confEl.style.color = 'var(--amber)';
-    confSub.textContent = '⚠️ Inferred Bridge Active (Confidence Penalized)';
+    chipEl.className = 'kpi-chip chip-amber';
+    chipEl.textContent = 'INFERRED GAP BRIDGE';
+    confSub.textContent = '⚠️ Telemetry gap bridged with penalized confidence';
   } else {
     confEl.style.color = 'var(--cyan)';
-    confSub.textContent = 'Multi-Signal Corroborated';
+    chipEl.className = 'kpi-chip chip-cyan';
+    chipEl.textContent = 'CORROBORATED';
+    confSub.textContent = 'Direct multi-signal log corroboration';
   }
 }
 
-// ── 4. CYTOSCAPE ATTACK GRAPH ───────────────────────────────────────────────
+// ── 4. CYTOSCAPE ATTACK GRAPH ──────────────────────────────────────────────
 
-function entityLabelBadge(type) {
+function entityBadge(type) {
   const map = {
     USER: '[USER]',
     DEVICE: '[DEVICE]',
@@ -156,27 +159,27 @@ function entityLabelBadge(type) {
   return map[type] || '[NODE]';
 }
 
-function entityColor(type, isMalicious) {
+function entityFillColor(type, isMalicious) {
   if (isMalicious) {
     const mal = {
-      USER: '#0284C7',
-      DEVICE: '#B91C1C',
-      SERVICE: '#D97706',
-      AUTH_ENDPOINT: '#DC2626'
+      USER: '#0369A1',
+      DEVICE: '#991B1B',
+      SERVICE: '#B45309',
+      AUTH_ENDPOINT: '#B91C1C'
     };
-    return mal[type] || '#DC2626';
+    return mal[type] || '#991B1B';
   }
-  return '#1F2937';
+  return '#1A2234';
 }
 
-function entityBorderColor(type) {
+function entityStrokeColor(type) {
   const map = {
     USER: '#38BDF8',
-    DEVICE: '#475569',
+    DEVICE: '#64748B',
     SERVICE: '#F59E0B',
     AUTH_ENDPOINT: '#EF4444'
   };
-  return map[type] || '#475569';
+  return map[type] || '#64748B';
 }
 
 function renderGraph(data) {
@@ -191,21 +194,21 @@ function renderGraph(data) {
       group: 'nodes',
       data: {
         id: n.id,
-        label: `${entityLabelBadge(n.entity_type)}\n${n.label}`,
+        label: `${entityBadge(n.entity_type)}\n${n.label}`,
         entity_type: n.entity_type,
         is_malicious: n.is_malicious,
         centrality: n.centrality,
         log_ids: n.log_ids || [],
         mitre_tags: n.mitre_tags || [],
-        color: entityBorderColor(n.entity_type),
-        bg: entityColor(n.entity_type, n.is_malicious),
+        color: entityStrokeColor(n.entity_type),
+        bg: entityFillColor(n.entity_type, n.is_malicious),
       }
     });
   });
 
   (data.edges || []).forEach((e, i) => {
     if (!nodeSet.has(e.source) || !nodeSet.has(e.target)) return;
-    // Show malicious, inferred, or high-significance edges on main view
+    // Main view highlights malicious, inferred, and critical steps
     if (!e.mitre_tag && !e.is_inferred && e.severity !== 'CRITICAL' && e.severity !== 'HIGH') {
       return;
     }
@@ -236,7 +239,7 @@ function renderGraph(data) {
   container.innerHTML = '';
 
   if (elements.filter(e => e.group === 'nodes').length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">⬡</div><div>No attack graph nodes found</div></div>';
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:12px">No attack graph nodes found</div>';
     return;
   }
 
@@ -247,8 +250,8 @@ function renderGraph(data) {
       name: 'breadthfirst',
       directed: true,
       roots: elements.filter(e => e.group === 'nodes' && (e.data.id === '185.220.101.47' || e.data.entity_type === 'AUTH_ENDPOINT')).map(e => e.data.id),
-      padding: 30,
-      spacingFactor: 1.35,
+      padding: 35,
+      spacingFactor: 1.4,
       avoidOverlap: true,
       animate: false
     },
@@ -258,64 +261,66 @@ function renderGraph(data) {
         style: {
           'background-color': 'data(bg)',
           'border-color': 'data(color)',
-          'border-width': 2,
+          'border-width': 2.2,
           'label': 'data(label)',
           'text-valign': 'center',
           'text-halign': 'center',
-          'color': '#F3F4F6',
-          'font-size': 9,
+          'color': '#FFFFFF',
+          'font-size': 9.5,
+          'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
           'text-wrap': 'wrap',
-          'width': 94,
-          'height': 52,
+          'width': 98,
+          'height': 54,
           'shape': 'roundrectangle',
-          'text-max-width': 88,
+          'text-max-width': 92,
           'transition-property': 'background-color, border-color, shadow-blur',
           'transition-duration': '0.2s'
         }
       },
       {
         selector: 'node[entity_type = "USER"]',
-        style: { shape: 'ellipse', width: 84, height: 56 }
+        style: { shape: 'ellipse', width: 88, height: 58 }
       },
       {
         selector: 'node[entity_type = "SERVICE"]',
-        style: { shape: 'diamond', width: 104, height: 62 }
+        style: { shape: 'diamond', width: 110, height: 64 }
       },
       {
         selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-        style: { shape: 'hexagon', width: 90, height: 56 }
+        style: { shape: 'hexagon', width: 96, height: 58 }
       },
       {
         selector: 'node[?is_malicious]',
         style: {
-          'shadow-blur': 18,
+          'shadow-blur': 22,
           'shadow-color': 'data(color)',
-          'shadow-opacity': 0.7,
+          'shadow-opacity': 0.8,
           'shadow-offset-x': 0,
           'shadow-offset-y': 0,
-          'border-width': 2.5,
+          'border-width': 2.8,
         }
       },
       {
         selector: 'edge',
         style: {
-          'width': 2.2,
+          'width': 2.4,
           'line-color': '#475569',
           'target-arrow-color': '#475569',
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'label': 'data(label)',
-          'font-size': 7.5,
+          'font-size': 8,
+          'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
-          'color': '#D1D5DB',
-          'text-background-color': '#111827',
-          'text-background-opacity': 0.9,
-          'text-background-padding': 2,
+          'color': '#E2E8F0',
+          'text-background-color': '#0F172A',
+          'text-background-opacity': 0.95,
+          'text-background-padding': 3,
           'text-wrap': 'wrap',
-          'text-max-width': 75,
+          'text-max-width': 80,
           'edge-text-rotation': 'autorotate',
-          'arrow-scale': 1.1
+          'arrow-scale': 1.15
         }
       },
       {
@@ -323,7 +328,7 @@ function renderGraph(data) {
         style: {
           'line-color': '#EF4444',
           'target-arrow-color': '#EF4444',
-          'width': 2.8,
+          'width': 3,
           'color': '#FCA5A5',
         }
       },
@@ -334,13 +339,15 @@ function renderGraph(data) {
           'target-arrow-color': '#F59E0B',
           'line-style': 'dashed',
           'line-dash-pattern': [8, 4],
-          'width': 2.4,
+          'width': 2.5,
           'color': '#FCD34D',
         }
       },
       { selector: 'node:selected', style: { 'border-width': 3.5, 'border-color': '#FFFFFF' } },
-      { selector: '.dimmed', style: { 'opacity': 0.15 } },
+      { selector: '.dimmed', style: { 'opacity': 0.12 } },
       { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
+      { selector: '.ancestor-highlight', style: { 'border-color': '#38BDF8', 'border-width': 3, 'opacity': 1 } },
+      { selector: '.descendant-highlight', style: { 'border-color': '#EF4444', 'border-width': 3, 'opacity': 1 } },
     ]
   });
 
@@ -368,9 +375,9 @@ function renderGraph(data) {
     const bbox = container.getBoundingClientRect();
     showTooltip(
       node.data('label').replace('\n', ' — '),
-      `Entity: ${node.data('entity_type')} | ${node.data('is_malicious') ? '🔴 COMPROMISED' : '✅ Benign'}`,
-      `Centrality: ${(node.data('centrality') * 100).toFixed(1)}% (Pivot Score)`,
-      `Correlated Logs: ${(node.data('log_ids') || []).length}`,
+      `Entity Class: ${node.data('entity_type')} | ${node.data('is_malicious') ? '🔴 COMPROMISED' : '✅ Benign'}`,
+      `Betweenness Centrality: ${(node.data('centrality') * 100).toFixed(1)}% (Internal Pivot Metric)`,
+      `Correlated Audit Logs: ${(node.data('log_ids') || []).length}`,
       bbox.left + pos.x, bbox.top + pos.y
     );
   });
@@ -380,7 +387,7 @@ function renderGraph(data) {
   // Background Tap -> Reset Dimming & Close Drawer
   state.cy.on('tap', function(evt) {
     if (evt.target === state.cy) {
-      state.cy.elements().removeClass('dimmed highlighted');
+      state.cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
       closeDrawer();
     }
   });
@@ -391,12 +398,34 @@ function highlightBlastRadius(node) {
   const cy = state.cy;
   cy.elements().addClass('dimmed');
   node.removeClass('dimmed').addClass('highlighted');
-  node.successors().removeClass('dimmed').addClass('highlighted');
-  node.predecessors().removeClass('dimmed').addClass('highlighted');
+  
+  // Upstream root cause path in Cyan
+  node.predecessors().removeClass('dimmed').addClass('highlighted ancestor-highlight');
+  
+  // Downstream blast radius path in Red
+  node.successors().removeClass('dimmed').addClass('highlighted descendant-highlight');
+  
   node.connectedEdges().removeClass('dimmed').addClass('highlighted');
 }
 
-// ── 5. TIME-TRAVEL INVESTIGATION SLIDER ──────────────────────────────────────
+// Canvas Toolbar Helpers
+function zoomIn() { if (state.cy) state.cy.zoom(state.cy.zoom() * 1.25); }
+function zoomOut() { if (state.cy) state.cy.zoom(state.cy.zoom() * 0.8); }
+function fitGraph() { if (state.cy) state.cy.fit(null, 30); }
+function reLayoutGraph() {
+  if (!state.cy) return;
+  state.cy.layout({
+    name: 'breadthfirst',
+    directed: true,
+    padding: 35,
+    spacingFactor: 1.4,
+    avoidOverlap: true,
+    animate: true,
+    animationDuration: 400
+  }).run();
+}
+
+// ── 5. TIME-TRAVEL INVESTIGATION & SCRUBBER PLAYER ─────────────────────────
 
 function initTimelineSlider(data) {
   state.timelineMin = data.timeline_min;
@@ -423,7 +452,40 @@ function onSliderInput(val) {
   clearTimeout(state.sliderTimeout);
   state.sliderTimeout = setTimeout(() => {
     fetchSnapshot(targetTs);
-  }, 350);
+  }, 300);
+}
+
+function toggleTimelinePlay() {
+  const btn = document.getElementById('btn-play-pause');
+  if (state.isPlayingTimeline) {
+    clearInterval(state.timelineInterval);
+    state.isPlayingTimeline = false;
+    btn.textContent = '▶';
+  } else {
+    state.isPlayingTimeline = true;
+    btn.textContent = '⏸';
+    const slider = document.getElementById('timeline-slider');
+    if (parseInt(slider.value) >= 100) slider.value = 0;
+
+    state.timelineInterval = setInterval(() => {
+      let val = parseInt(slider.value, 10) + 10;
+      if (val > 100) {
+        val = 100;
+        clearInterval(state.timelineInterval);
+        state.isPlayingTimeline = false;
+        btn.textContent = '▶';
+      }
+      slider.value = val;
+      onSliderInput(val);
+    }, 1200);
+  }
+}
+
+function resetTimeline() {
+  if (state.isPlayingTimeline) toggleTimelinePlay();
+  const slider = document.getElementById('timeline-slider');
+  slider.value = 0;
+  onSliderInput(0);
 }
 
 function formatTimestamp(ts) {
@@ -450,13 +512,13 @@ function formatTimeOnly(ts) {
   }
 }
 
-// ── 6. EXPLAINABLE AI & ROOT-CAUSE REPORT ───────────────────────────────────
+// ── 6. ROOT CAUSE EXPLAINABLE AI REPORT ─────────────────────────────────────
 
 function renderXAI(data) {
   const container = document.getElementById('xai-content');
   const steps = data.xai_report || [];
   if (!steps.length) {
-    container.innerHTML = '<div class="empty-state"><div>No Explainable AI data</div></div>';
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">No Explainable AI data available</div>';
     return;
   }
 
@@ -464,25 +526,28 @@ function renderXAI(data) {
     const confPct = Math.round(step.confidence * 100);
     const confColor = step.is_inferred ? '#F59E0B' : (confPct >= 90 ? '#EF4444' : '#38BDF8');
     const citations = (step.log_citations || []).map(lid =>
-      `<span class="log-badge ${lid === 'INFERRED' ? 'inferred' : ''}" onclick="fetchEvidence('${lid}')" title="Click to inspect raw forensic evidence in Evidence DNA Ledger">[${lid}]</span>`
+      `<span class="citation-badge ${lid === 'INFERRED' ? 'inferred' : ''}" onclick="fetchEvidence('${lid}')" title="Inspect raw forensic log">[LOG: ${lid}]</span>`
     ).join('');
 
     return `
-      <div class="xai-step ${step.is_inferred ? 'inferred' : ''}">
-        <div class="xai-step-header">
-          <span class="step-num">STEP ${step.step}</span>
-          <span class="step-title">${step.title}</span>
-          <span class="mitre-badge">${step.mitre}</span>
-          ${step.is_inferred ? '<span class="inferred-badge">INFERRED GAP BRIDGE</span>' : ''}
+      <div class="xai-step-card ${step.is_inferred ? 'inferred-step' : ''}">
+        <div class="xai-card-top">
+          <span class="step-pill">STAGE ${step.step}</span>
+          <span class="step-heading">${step.title}</span>
+          <span class="mitre-tag">${step.mitre}</span>
+          ${step.is_inferred ? '<span class="inferred-tag">INFERRED BRIDGE</span>' : ''}
         </div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:6px;font-family:var(--mono)">${step.mitre_name || ''}</div>
-        <p class="xai-narrative">${step.narrative}</p>
-        <div class="citations">${citations}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-          <div class="conf-bar-wrap" style="flex:1">
-            <div class="conf-bar" style="width:${confPct}%;background:${confColor}"></div>
+        <div style="font-size:9.5px;color:var(--text3);margin-bottom:6px;font-family:var(--mono)">${step.mitre_name || ''}</div>
+        <p class="xai-desc">${step.narrative}</p>
+        <div class="citations-row">
+          <span style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-right:4px">Citations:</span>
+          ${citations}
+        </div>
+        <div class="conf-wrap">
+          <div class="conf-track">
+            <div class="conf-fill" style="width:${confPct}%;background:${confColor}"></div>
           </div>
-          <span style="font-size:9px;color:${confColor};font-family:var(--mono)">${confPct}% Confidence</span>
+          <span class="conf-text" style="color:${confColor}">${confPct}% Certainty</span>
         </div>
       </div>
     `;
@@ -491,58 +556,77 @@ function renderXAI(data) {
 
 // ── 7. CONTAINMENT PLAYBOOK & QUICK ACTIONS ─────────────────────────────────
 
-function renderContainment(data) {
+function renderPlaybook(data) {
   const br = data.blast_radius || {};
   const list = br.containment_checklist || [];
-  const container = document.getElementById('containment-content');
+  const container = document.getElementById('playbook-content');
 
   const affectedHtml = (br.affected_nodes || []).map(n =>
     `<span style="display:inline-block;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#EF4444;padding:2px 8px;border-radius:4px;font-size:9.5px;font-family:var(--mono);margin:2px">${n}</span>`
   ).join('');
 
   container.innerHTML = `
-    <div style="margin-bottom:14px">
-      <div class="rail-title" style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:6px">
-        Exposed Downstream Assets (${br.count || 0})
+    <div class="playbook-progress">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">Containment Readiness</span>
+        <span id="containment-percent" style="font-size:11px;font-family:var(--mono);font-weight:700;color:var(--green)">0% COMPLETE</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">${affectedHtml || '<span style="color:var(--text3);font-size:10px">None detected</span>'}</div>
+      <div class="conf-track" style="height:6px">
+        <div id="containment-progress-bar" style="width:0%;height:100%;background:var(--green);border-radius:3px;transition:width 0.3s"></div>
+      </div>
     </div>
-    <div class="rail-title" style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:8px">
-      Actionable Incident Response Playbook
+
+    <div style="margin-bottom:14px">
+      <div class="rail-title">Downstream Reachable Assets (${br.count || 0})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${affectedHtml || '<span style="color:var(--text3);font-size:10px">None detected</span>'}</div>
     </div>
+
+    <div class="rail-title" style="margin-bottom:8px">Prioritized Response Protocol</div>
     ${list.map((item, i) => `
       <div class="containment-item" id="ci-${i}">
-        <input type="checkbox" class="check-btn" onchange="this.closest('.containment-item').classList.toggle('containment-done', this.checked)">
+        <input type="checkbox" class="check-box" onchange="onPlaybookCheckChange(this)">
         <span>${item}</span>
       </div>
     `).join('')}
   `;
 }
 
+function onPlaybookCheckChange(checkbox) {
+  checkbox.closest('.containment-item').classList.toggle('containment-done', checkbox.checked);
+  const all = document.querySelectorAll('.check-box');
+  const checked = document.querySelectorAll('.check-box:checked');
+  const pct = all.length > 0 ? Math.round((checked.length / all.length) * 100) : 0;
+
+  const bar = document.getElementById('containment-progress-bar');
+  const txt = document.getElementById('containment-percent');
+  if (bar) bar.style.width = `${pct}%`;
+  if (txt) txt.textContent = `${pct}% COMPLETE`;
+}
+
 function renderQuickActions(data) {
   const ia = data.initial_access || {};
   const el = document.getElementById('quick-actions');
   el.innerHTML = `
-    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">Priority Response:</div>
-    <div class="rail-btn" style="font-size:10px;cursor:pointer;border-color:rgba(239,68,68,0.35);color:var(--red)" onclick="alert('Isolating account ${ia.entity || 'Patient Zero'} across Active Directory.')">
+    <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">Fast Actions:</div>
+    <div class="rail-btn" style="cursor:pointer;border-color:rgba(239,68,68,0.4);color:var(--red)" onclick="alert('Action dispatched: Account session revocation sent to Active Directory domain controller for ' + '${ia.entity || 'Patient Zero'}')">
       🔴 Lock ${ia.entity || 'Patient Zero'}
     </div>
-    <div class="rail-btn" style="font-size:10px;cursor:pointer;border-color:rgba(239,68,68,0.35);color:var(--red)" onclick="alert('Block rule dispatched to edge firewalls for 185.220.101.47')">
+    <div class="rail-btn" style="cursor:pointer;border-color:rgba(239,68,68,0.4);color:var(--red)" onclick="alert('Action dispatched: Egress firewall drop rule pushed for IP 185.220.101.47')">
       🔴 Block 185.220.101.47
     </div>
-    <div class="rail-btn" style="font-size:10px;cursor:pointer;border-color:rgba(245,158,11,0.35);color:var(--amber)" onclick="alert('Rotating Kerberos keys & secrets for svc_ci_deploy')">
+    <div class="rail-btn" style="cursor:pointer;border-color:rgba(245,158,11,0.4);color:var(--amber)" onclick="alert('Action dispatched: Service credential rotation triggered for svc_ci_deploy')">
       🟠 Rotate svc_ci_deploy
     </div>
-    <div class="rail-btn" style="font-size:10px;cursor:pointer;border-color:rgba(245,158,11,0.35);color:var(--amber)" onclick="alert('db-prod-01 VLAN isolated. Standby database promoted.')">
+    <div class="rail-btn" style="cursor:pointer;border-color:rgba(245,158,11,0.4);color:var(--amber)" onclick="alert('Action dispatched: VLAN isolation triggered for host db-prod-01')">
       🟠 Quarantine db-prod-01
     </div>
   `;
 }
 
-// ── 8. GRAPH STATISTICS & PIVOT RANKING ─────────────────────────────────────
+// ── 8. FORENSICS MATRIX & PIVOT ANALYTICS ───────────────────────────────────
 
-function renderStats(data) {
-  const container = document.getElementById('stats-content');
+function renderMatrix(data) {
+  const container = document.getElementById('matrix-content');
   const nodes = data.nodes || [];
   const edges = data.edges || [];
   const malNodes = nodes.filter(n => n.is_malicious).length;
@@ -557,30 +641,32 @@ function renderStats(data) {
         ['Compromised', malNodes, 'var(--red)'],
         ['Inferred Bridges', inferredEdges, 'var(--amber)'],
       ].map(([label, val, color]) => `
-        <div style="background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:700;color:${color}">${val}</div>
+        <div style="background:var(--card2);border:1px solid var(--border-light);border-radius:6px;padding:10px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:${color}">${val}</div>
           <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${label}</div>
         </div>
       `).join('')}
     </div>
-    <div class="rail-title" style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:8px">MITRE ATT&CK Matrix Coverage</div>
+
+    <div class="rail-title" style="margin-bottom:8px">MITRE ATT&amp;CK Matrix Coverage</div>
     ${[...mitreSet].map(t => `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:10.5px">
-        <span style="font-family:var(--mono);background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.4);color:#A78BFA;padding:2px 6px;border-radius:3px;font-size:9px">${t}</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:10.5px">
+        <span class="mitre-tag">${t}</span>
         <span style="color:var(--text2)">${mitreNames[t] || t}</span>
       </div>
     `).join('')}
-    <div style="margin-top:14px">
-      <div class="rail-title" style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:8px">Top Compromised Pivot Hosts (Betweenness Centrality)</div>
+
+    <div style="margin-top:16px">
+      <div class="rail-title" style="margin-bottom:8px">Top Compromised Pivot Nodes (Centrality)</div>
       ${nodes.filter(n => n.centrality > 0).sort((a,b) => b.centrality - a.centrality).slice(0, 6).map(n => `
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:10px">
           <div style="flex:1;font-family:var(--mono);color:${n.is_malicious ? 'var(--red)' : 'var(--text2)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${n.label}
           </div>
-          <div style="width:70px;background:var(--border);border-radius:2px;height:4px;overflow:hidden">
+          <div style="width:75px;background:var(--border);border-radius:2px;height:4px;overflow:hidden">
             <div style="width:${(n.centrality * 100).toFixed(0)}%;height:4px;background:${n.is_malicious ? 'var(--red)' : 'var(--cyan)'};border-radius:2px"></div>
           </div>
-          <span style="font-size:9px;color:var(--text3);font-family:var(--mono)">${(n.centrality * 100).toFixed(1)}%</span>
+          <span style="font-size:9.5px;color:var(--text3);font-family:var(--mono)">${(n.centrality * 100).toFixed(1)}%</span>
         </div>
       `).join('')}
     </div>
@@ -589,8 +675,8 @@ function renderStats(data) {
 
 const mitreNames = {
   'T1078': 'Valid Accounts (Initial Access)',
-  'T1087': 'Account Discovery (Recon)',
-  'T1558': 'Steal or Forge Kerberos Tickets (Priv Esc)',
+  'T1087': 'Account Discovery (Reconnaissance)',
+  'T1558': 'Steal/Forge Kerberos Tickets (Privilege Escalation)',
   'T1021': 'Remote Services / SMB (Lateral Movement)',
   'T1048': 'Exfiltration Over Alternative Protocol',
 };
@@ -603,56 +689,71 @@ function renderEvidenceDNA(log) {
   const skewStr = skew >= 0 ? `+${skew}s` : `${skew}s`;
   const severityColor = { CRITICAL: 'red', HIGH: 'amber', MEDIUM: 'cyan', LOW: 'green' }[log.severity] || 'cyan';
 
-  let payload = '';
+  let rawJson = '';
   try {
-    payload = JSON.stringify(JSON.parse(log.raw_payload || '{}'), null, 2);
+    rawJson = JSON.stringify(JSON.parse(log.raw_payload || '{}'), null, 2);
   } catch {
-    payload = log.raw_payload || '{}';
+    rawJson = log.raw_payload || '{}';
   }
+  state.currentEvidenceJson = rawJson;
 
   body.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
       <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:${log.is_inferred ? 'var(--amber)' : 'var(--cyan)'}">${log.log_id}</span>
       <span style="font-size:10px;color:var(--text3)">|</span>
-      <span style="font-size:11px;font-weight:600;color:var(--text)">${log.action || ''}</span>
-      ${log.mitre_tag ? `<span style="font-size:9px;background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.4);color:#A78BFA;padding:2px 7px;border-radius:3px;font-family:var(--mono)">${log.mitre_tag}</span>` : ''}
+      <span style="font-size:11px;font-weight:700;color:#FFFFFF">${log.action || ''}</span>
+      ${log.mitre_tag ? `<span class="mitre-tag">${log.mitre_tag}</span>` : ''}
       <span style="font-size:9px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:var(--${severityColor});padding:2px 7px;border-radius:3px">${log.severity || 'LOW'}</span>
-      ${log.is_inferred ? '<span style="font-size:9px;background:rgba(245,158,11,0.2);border:1px solid var(--amber);color:var(--amber);padding:2px 7px;border-radius:3px">⚠️ INFERRED LATERAL BRIDGE</span>' : ''}
-      <span style="font-size:10px;color:${log.confidence >= 0.85 ? 'var(--red)' : 'var(--amber)'};font-family:var(--mono);margin-left:auto">${log.confidence ? Math.round(log.confidence * 100) + '% Confidence Score' : ''}</span>
+      ${log.is_inferred ? '<span class="inferred-tag">⚠️ INFERRED LATERAL BRIDGE</span>' : ''}
+      <span style="font-size:10px;color:${log.confidence >= 0.85 ? 'var(--red)' : 'var(--amber)'};font-family:var(--mono);margin-left:auto">${log.confidence ? Math.round(log.confidence * 100) + '% Confidence Corroboration' : ''}</span>
     </div>
-    <div class="evidence-grid">
-      <span class="ev-label">Source Host:</span>
-      <span class="ev-value cyan">${log.source_host || 'N/A'}</span>
-      <span class="ev-label">Raw Telemetry:</span>
-      <span class="ev-value">${log.raw_timestamp || 'N/A'} <span style="color:var(--amber)">(Host Clock Skew Offset: ${log.host_skew_sec >= 0 ? '+' : ''}${log.host_skew_sec || 0}s)</span></span>
-      <span class="ev-label">Normalized Master Time:</span>
-      <span class="ev-value cyan">${log.normalized_timestamp || 'N/A'} <span style="color:var(--green)">(Correction Applied: t_norm = t_raw ${skewStr})</span></span>
-      <span class="ev-label">Interaction Path:</span>
-      <span class="ev-value">${log.source || '?'} <span style="color:var(--text3)">──[${log.action}]──&gt;</span> <span style="color:${log.is_malicious ? 'var(--red)' : 'var(--text)'}">${log.target || '?'}</span></span>
-      <span class="ev-label">Protocol &amp; Port:</span>
-      <span class="ev-value">${log.protocol || 'TCP'} / ${log.port || '0'}</span>
-      <span class="ev-label">MITRE ATT&amp;CK Mapping:</span>
-      <span class="ev-value amber">${log.mitre_technique || log.mitre_tag || 'N/A'}</span>
-    </div>
-    <div style="margin-top:8px">
-      <div style="font-size:9px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Forensic Log Payload (Immutable JSON)</div>
-      <div class="raw-payload">${escapeHtml(payload)}</div>
+
+    <div class="ev-split">
+      <div class="ev-grid">
+        <span class="ev-lbl">Source Host:</span>
+        <span class="ev-val cyan">${log.source_host || 'N/A'}</span>
+        
+        <span class="ev-lbl">Raw Ingested Time:</span>
+        <span class="ev-val">${log.raw_timestamp || 'N/A'} <span style="color:var(--amber)">(Host Clock Skew: ${log.host_skew_sec >= 0 ? '+' : ''}${log.host_skew_sec || 0}s)</span></span>
+        
+        <span class="ev-lbl">Normalized Master Time:</span>
+        <span class="ev-val cyan">${log.normalized_timestamp || 'N/A'} <span style="color:var(--green)">(Correction Applied: t_norm = t_raw ${skewStr})</span></span>
+        
+        <span class="ev-lbl">Entity Interaction:</span>
+        <span class="ev-val">${log.source || '?'} <span style="color:var(--text3)">──[${log.action}]──&gt;</span> <span style="color:${log.is_malicious ? 'var(--red)' : 'var(--text)'}">${log.target || '?'}</span></span>
+        
+        <span class="ev-lbl">Protocol &amp; Port:</span>
+        <span class="ev-val">${log.protocol || 'TCP'} / ${log.port || '0'}</span>
+        
+        <span class="ev-lbl">MITRE Mapping:</span>
+        <span class="ev-val amber">${log.mitre_technique || log.mitre_tag || 'N/A'}</span>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Raw Forensics Log Payload</span>
+        </div>
+        <div class="json-box">${escapeHtml(rawJson)}</div>
+      </div>
     </div>
   `;
+}
+
+function copyCurrentEvidence() {
+  if (!state.currentEvidenceJson) return;
+  navigator.clipboard.writeText(state.currentEvidenceJson).then(() => {
+    alert('Forensic JSON copied to clipboard.');
+  });
 }
 
 function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function openDrawer() {
-  document.getElementById('evidence-drawer').classList.add('open');
-}
-function closeDrawer() {
-  document.getElementById('evidence-drawer').classList.remove('open');
-}
+function openDrawer() { document.getElementById('evidence-drawer').classList.add('open'); }
+function closeDrawer() { document.getElementById('evidence-drawer').classList.remove('open'); }
 
-// ── 10. CHAOS SIMULATOR CONTROLS ───────────────────────────────────────────
+// ── 10. CHAOS CONTROLS & TAB SWITCHING ──────────────────────────────────────
 
 function onToggleChange() {
   state.currentSettings = {
@@ -674,19 +775,17 @@ function selectDataset(type) {
   }
 }
 
-// ── 11. TAB NAVIGATION ──────────────────────────────────────────────────────
-
 function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const targetPane = document.getElementById(`tab-${name}`);
-  if (targetPane) targetPane.classList.add('active');
+  const target = document.getElementById(`tab-${name}`);
+  if (target) target.classList.add('active');
   if (window.event && window.event.target) {
     window.event.target.classList.add('active');
   }
 }
 
-// ── 12. HOVER TOOLTIP ───────────────────────────────────────────────────────
+// ── 11. TOOLTIP & LOADING OVERLAY ──────────────────────────────────────────
 
 function showTooltip(title, type, centrality, logs, x, y) {
   const tt = document.getElementById('node-tooltip');
@@ -695,8 +794,8 @@ function showTooltip(title, type, centrality, logs, x, y) {
   document.getElementById('tt-centrality').textContent = centrality;
   document.getElementById('tt-logs').textContent = logs;
   tt.style.display = 'block';
-  tt.style.left = `${Math.min(x + 12, window.innerWidth - 240)}px`;
-  tt.style.top = `${Math.min(y + 12, window.innerHeight - 130)}px`;
+  tt.style.left = `${Math.min(x + 14, window.innerWidth - 260)}px`;
+  tt.style.top = `${Math.min(y + 14, window.innerHeight - 140)}px`;
 }
 
 function hideTooltip() {
@@ -709,23 +808,26 @@ function showLoading(show) {
   if (overlay) overlay.classList.toggle('show', show);
 }
 
-// ── 13. SOC EXECUTIVE AUDIO BRIEFING (OFFLINE WEB SPEECH API) ──────────────
+// ── 12. SOC EXECUTIVE AUDIO BRIEFING (OFFLINE WEB SPEECH API) ──────────────
 
-function playAudioBriefing() {
+function toggleAudioBriefing() {
   if (!state.analysisResult) {
-    alert('Run log analysis first to generate executive briefing.');
+    alert('Please run log analysis first.');
     return;
   }
   if (!window.speechSynthesis) {
-    alert('Speech Synthesis API is not supported in this browser.');
+    alert('Web Speech API is not supported in this browser.');
     return;
   }
+
+  const btn = document.getElementById('btn-audio');
+  const btnText = document.getElementById('btn-audio-text');
 
   if (state.isSpeaking) {
     window.speechSynthesis.cancel();
     state.isSpeaking = false;
-    const btn = document.getElementById('btn-audio');
-    btn.textContent = '▶ Play Audio Briefing';
+    btn.classList.remove('speaking');
+    btnText.textContent = 'Play Executive Briefing';
     return;
   }
 
@@ -735,43 +837,44 @@ function playAudioBriefing() {
   const br = data.blast_radius || {};
   const steps = (data.xai_report || []).filter(s => s.present !== false);
 
-  let script = `OBSYRON Security Operations Center Executive Briefing for HackInnovision 2026 Track C. `;
-  script += `Signal reduction summary: ${data.raw_log_count} raw enterprise telemetry logs were ingested, isolating ${data.malicious_signal_count} high-priority malicious signals amidst background operational noise. `;
-  script += `Initial access vector, Patient Zero, was identified as ${ia.entity || 'external identity'} operating under technique ${ia.mitre_tactic || 'T1078'}. `;
-  script += `Forward reachability calculates a blast radius of ${br.count || 0} downstream enterprise assets currently exposed or compromised. `;
-  script += `Overall reconstructed attack graph confidence stands at ${Math.round((data.overall_confidence || 0) * 100)} percent. `;
-  script += `Chronological kill chain progression: `;
+  let script = `OBSYRON Security Operations Briefing for HackInnovision 2026 Track C. `;
+  script += `Enterprise telemetry reduction: ${data.raw_log_count} raw logs were ingested, isolating ${data.malicious_signal_count} high-priority attack signals. `;
+  script += `Patient Zero initial access vector is confirmed at ${ia.entity || 'external IP'} targeting employee ${ia.patient_zero_account || 'emp_rohan'}. `;
+  script += `Forward reachability calculates a blast radius of ${br.count || 0} downstream assets currently exposed or compromised. `;
+  script += `Reconstructed attack graph certainty stands at ${Math.round((data.overall_confidence || 0) * 100)} percent. `;
+  script += `Kill chain summary: `;
 
   steps.forEach(s => {
-    script += `Step ${s.step}: ${s.title}. ${s.narrative.substring(0, 110)}. `;
+    script += `Stage ${s.step}: ${s.title}. ${s.narrative.substring(0, 115)}. `;
   });
 
-  script += `Prioritized containment actions have been populated in the response playbook. End of briefing.`;
+  script += `Prioritized containment actions are active in the response playbook. End of briefing.`;
 
   const utter = new SpeechSynthesisUtterance(script);
   utter.rate = 0.95;
   utter.pitch = 1.0;
   utter.volume = 1.0;
 
-  const btn = document.getElementById('btn-audio');
-  btn.textContent = '⏹ Stop Audio Briefing';
+  btn.classList.add('speaking');
+  btnText.textContent = 'Stop Executive Briefing';
   state.isSpeaking = true;
 
   utter.onend = () => {
-    btn.textContent = '▶ Play Audio Briefing';
+    btn.classList.remove('speaking');
+    btnText.textContent = 'Play Executive Briefing';
     state.isSpeaking = false;
   };
   utter.onerror = () => {
-    btn.textContent = '▶ Play Audio Briefing';
+    btn.classList.remove('speaking');
+    btnText.textContent = 'Play Executive Briefing';
     state.isSpeaking = false;
   };
 
   window.speechSynthesis.speak(utter);
 }
 
-// ── 14. APPLICATION BOOTSTRAP ───────────────────────────────────────────────
+// ── 13. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   runAnalysis(state.currentSettings);
 });
-
