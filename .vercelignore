@@ -1,0 +1,5 @@
+test_*.py
+*.bat
+README.md
+.git/
+.vscode/

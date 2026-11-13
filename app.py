@@ -183,20 +183,29 @@ def _run_full_analysis(normalized_logs: List[dict], raw_count: int) -> Dict[str,
 
 @app.get("/")
 async def root():
-    """Serve the single-viewport Dark Mode SOC dashboard."""
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return JSONResponse({"status": "running", "message": "OBSYRON API active. Static frontend missing."})
+    """Serve the single-viewport SOC dashboard."""
+    for candidate in [
+        os.path.join(BASE_DIR, "public", "index.html"),
+        os.path.join(STATIC_DIR, "index.html"),
+    ]:
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    return JSONResponse({"status": "running", "message": "OBSYRON API active."})
 
 
 @app.get("/favicon.ico")
 async def favicon():
     """Serve official OBSYRON emblem as browser favicon."""
-    icon_path = os.path.join(STATIC_DIR, "icon.png")
-    if os.path.exists(icon_path):
-        return FileResponse(icon_path, media_type="image/png")
-    return FileResponse(os.path.join(STATIC_DIR, "logo.jpg"), media_type="image/jpeg")
+    for candidate in [
+        os.path.join(BASE_DIR, "public", "favicon.ico"),
+        os.path.join(STATIC_DIR, "favicon.ico"),
+        os.path.join(STATIC_DIR, "icon.png"),
+        os.path.join(STATIC_DIR, "logo.jpg"),
+    ]:
+        if os.path.exists(candidate):
+            media = "image/png" if candidate.endswith(".png") else ("image/x-icon" if candidate.endswith(".ico") else "image/jpeg")
+            return FileResponse(candidate, media_type=media)
+    return JSONResponse({"status": "error", "message": "Favicon not found"}, status_code=404)
 
 
 class AnalyzeRequest(BaseModel):
@@ -241,6 +250,10 @@ async def graph_snapshot(timestamp: str = Query(..., description="ISO 8601 times
 @app.get("/api/evidence/{log_id}")
 async def get_evidence(log_id: str):
     """Returns complete Evidence DNA record for clicked citation or graph entity."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+
     for log in _cache.get("normalized_logs", []):
         if log.get("log_id") == log_id:
             return JSONResponse({
