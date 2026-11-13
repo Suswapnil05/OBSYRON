@@ -1,9 +1,14 @@
-# OBSYRON: Autonomous Cyber Forensic Investigation & Dynamic Attack Graph Reconstruction
+<div align="center">
+  <img src="static/logo.jpg" alt="OBSYRON Logo" width="220" style="border-radius:12px">
+  <h1>OBSYRON</h1>
+  <p><strong>Autonomous Cyber Forensic Investigation &amp; Dynamic Attack Graph Reconstruction</strong></p>
+  <p><em>HackInnovision 2026 (NIT Rourkela) — Track C: CHIMERA</em></p>
+</div>
 
-**Event:** HackInnovision 2026 (NIT Rourkela)  
-**Track:** Track C — Cyber Investigation & Attack Graph Reconstruction (CHIMERA)  
+---
+
 **Execution Mode:** 100% Standalone Localhost Application (Zero external database or cloud dependency)  
-**Architecture:** Python + FastAPI + NetworkX MultiDiGraph + Cytoscape.js Dark SOC Command Interface  
+**Architecture:** Python + FastAPI + NetworkX MultiDiGraph + Cytoscape.js SOC Command Interface  
 
 ---
 

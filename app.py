@@ -190,6 +190,15 @@ async def root():
     return JSONResponse({"status": "running", "message": "OBSYRON API active. Static frontend missing."})
 
 
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve official OBSYRON emblem as browser favicon."""
+    icon_path = os.path.join(STATIC_DIR, "icon.png")
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path, media_type="image/png")
+    return FileResponse(os.path.join(STATIC_DIR, "logo.jpg"), media_type="image/jpeg")
+
+
 class AnalyzeRequest(BaseModel):
     shuffle:        bool  = True
     inject_skew:    bool  = True
