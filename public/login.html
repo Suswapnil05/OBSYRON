@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBSYRON — Log In &amp; Sign Up Gateway | SOC Operator Clearance</title>
+<link rel="icon" type="image/png" href="/static/icon.png">
+<link rel="shortcut icon" href="/static/icon.png">
+<link rel="apple-touch-icon" href="/static/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  /* ── DEDICATED LOG IN & SIGN UP PORTAL STYLING ── */
+  body.login-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: radial-gradient(circle at 50% 20%, rgba(51, 120, 255, 0.12) 0%, rgba(0, 2, 12, 0.98) 75%), var(--bg-app);
+    background-attachment: fixed;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Cyber Grid Background Matrix */
+  body.login-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(51, 120, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(51, 120, 255, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .login-header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(6, 9, 24, 0.6);
+    backdrop-filter: blur(12px);
+  }
+
+  .login-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 580px;
+    margin: 32px auto;
+    padding: 0 20px;
+  }
+
+  .login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: 14px;
+    padding: 32px 28px;
+    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(51, 120, 255, 0.15);
+    backdrop-filter: blur(20px);
+    transition: border-color 0.3s ease;
+  }
+
+  .login-card:hover {
+    border-color: rgba(51, 120, 255, 0.35);
+  }
+
+  .login-badge-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+
+  .login-shield-pulse {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(51, 120, 255, 0.2), rgba(111, 215, 255, 0.05));
+    border: 1px solid rgba(51, 120, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    box-shadow: 0 0 24px rgba(51, 120, 255, 0.25);
+    animation: shieldGlow 3s ease-in-out infinite alternate;
+  }
+
+  @keyframes shieldGlow {
+    from { box-shadow: 0 0 16px rgba(51, 120, 255, 0.2); }
+    to { box-shadow: 0 0 32px rgba(51, 120, 255, 0.5); }
+  }
+
+  .login-title {
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    line-height: 1.4;
+  }
+
+  /* Cyber Tab Switcher */
+  .auth-tabs-nav {
+    display: flex;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 22px;
+    gap: 4px;
+  }
+
+  .auth-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font-sans);
+  }
+
+  .auth-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .auth-tab-btn.active {
+    background: var(--primary);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(51, 120, 255, 0.4);
+  }
+
+  /* Quick Fill Clearance Cards */
+  .quick-roles-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .quick-roles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .quick-role-btn {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .quick-role-btn:hover, .quick-role-btn.active {
+    background: var(--bg-card-hover);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(51, 120, 255, 0.2);
+  }
+
+  .quick-role-icon {
+    font-size: 16px;
+  }
+
+  .quick-role-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+
+  .quick-role-lvl {
+    font-size: 9.5px;
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+  }
+
+  /* Form Controls */
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-family: var(--font-sans);
+  }
+
+  .input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-icon-prefix {
+    position: absolute;
+    left: 12px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .cyber-input {
+    width: 100%;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    padding: 10px 12px 10px 36px;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .cyber-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(51, 120, 255, 0.25);
+    background: var(--bg-card-hover);
+  }
+
+  .toggle-pwd-btn {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+  }
+
+  .toggle-pwd-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .mfa-check-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 18px;
+  }
+
+  .mfa-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--color-success);
+    font-weight: 500;
+  }
+
+  /* Feedback Alert */
+  #auth-feedback {
+    display: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 16px;
+    font-family: var(--font-mono);
+  }
+
+  #auth-feedback.error {
+    display: block;
+    background: var(--color-critical-bg);
+    border: 1px solid var(--color-critical-border);
+    color: var(--color-critical);
+  }
+
+  #auth-feedback.success {
+    display: block;
+    background: var(--color-success-bg);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
+  }
+
+  /* Submit Button */
+  .btn-auth-submit {
+    width: 100%;
+    background: linear-gradient(135deg, #3378FF 0%, #1754DD 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(51, 120, 255, 0.35);
+  }
+
+  .btn-auth-submit:hover {
+    background: linear-gradient(135deg, #4A8CFF 0%, #2062FF 100%);
+    box-shadow: 0 6px 24px rgba(51, 120, 255, 0.5);
+    transform: translateY(-1px);
+  }
+
+  /* Panels */
+  .auth-panel {
+    display: none;
+  }
+  .auth-panel.active {
+    display: block;
+  }
+
+  /* Footer Specs */
+  .login-footer-audit {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+</style>
+</head>
+<body class="dark-theme login-page">
+
+<!-- Top Navigation -->
+<header class="login-header">
+  <a href="/" class="brand-section" style="text-decoration:none">
+    <div class="brand-shield-icon">
+      <img src="/static/icon.png" alt="OBSYRON Logo" style="width:20px;height:20px;object-fit:contain">
+    </div>
+    <div class="brand-titles">
+      <div class="brand-row">
+        <span class="brand-name">OBSYRON</span>
+        <span class="brand-tag" style="border-color:rgba(51,120,255,0.4);color:var(--accent-cyan)">ACCESS GATEWAY</span>
+      </div>
+      <div class="brand-subtitle">LOG IN &amp; SIGN UP // OPERATOR CLEARANCE</div>
+    </div>
+  </a>
+
+  <div style="display:flex;align-items:center;gap:12px">
+    <button id="btn-theme" class="header-action-btn" onclick="toggleTheme()" title="Switch Light / Dark mode">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-text">Dark Mode</span>
+    </button>
+    <a href="/" class="header-action-btn" style="text-decoration:none;color:var(--text-secondary)">
+      <span>← Continue as Guest</span>
+    </a>
+  </div>
+</header>
+
+<!-- Main Auth Card -->
+<main class="login-container">
+  <div class="login-card">
+    
+    <div class="login-shield-pulse">
+      <img src="/static/icon.png" alt="Emblem" style="width:34px;height:34px;object-fit:contain">
+    </div>
+
+    <div class="login-badge-wrap">
+      <span class="status-indicator-badge">
+        <span class="status-dot-pulse"></span>
+        DEFENSE CLEARANCE SYSTEM // NIST 800-61
+      </span>
+    </div>
+
+    <h1 class="login-title" id="auth-main-title">Operator Log In</h1>
+    <p class="login-subtitle" id="auth-main-subtitle">
+      Authenticate with your defense credentials or create a new forensic investigator profile.
+    </p>
+
+    <!-- Cyber Tab Navigation -->
+    <div class="auth-tabs-nav">
+      <button type="button" class="auth-tab-btn active" id="tab-login" onclick="switchAuthTab('login')">
+        <span>🔑</span>
+        <span>Log In</span>
+      </button>
+      <button type="button" class="auth-tab-btn" id="tab-signup" onclick="switchAuthTab('signup')">
+        <span>📝</span>
+        <span>Create Account / Sign Up</span>
+      </button>
+    </div>
+
+    <!-- Alert / Feedback Area -->
+    <div id="auth-feedback"></div>
+
+    <!-- ── PANEL 1: LOG IN ────────────────────────────────────────────────── -->
+    <div id="panel-login" class="auth-panel active">
+      
+      <!-- Quick Role Selection -->
+      <div class="quick-roles-title">
+        <span>⚡ 1-Click Tactical Clearances</span>
+        <span style="font-size:10px;opacity:0.7">Demo Presets</span>
+      </div>
+
+      <div class="quick-roles-grid">
+        <div class="quick-role-btn active" onclick="selectRole('analyst_lead', 'obsyron2026', 'L4', this)">
+          <div class="quick-role-icon">🛡️</div>
+          <div class="quick-role-name">Lead Director</div>
+          <div class="quick-role-lvl" style="color:var(--color-critical)">Clearance L4</div>
+        </div>
+        <div class="quick-role-btn" onclick="selectRole('soc_tier2', 'obsyron2026', 'L3', this)">
+          <div class="quick-role-icon">⚡</div>
+          <div class="quick-role-name">Responder</div>
+          <div class="quick-role-lvl" style="color:var(--color-warning)">Clearance L3</div>
+        </div>
+        <div class="quick-role-btn" onclick="selectRole('sec_auditor', 'obsyron2026', 'L2', this)">
+          <div class="quick-role-icon">🔍</div>
+          <div class="quick-role-name">Threat Auditor</div>
+          <div class="quick-role-lvl" style="color:var(--accent-cyan)">Clearance L2</div>
+        </div>
+      </div>
+
+      <!-- Log In Form -->
+      <form id="form-login" onsubmit="handleLoginSubmit(event)">
+        
+        <div class="form-group">
+          <label class="form-label" for="login-username">
+            <span>Operator Identifier (Callsign)</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent-cyan)">[LDAP / SAML]</span>
+          </label>
+          <div class="input-with-icon">
+            <span class="input-icon-prefix">👤</span>
+            <input type="text" id="login-username" class="cyber-input" value="analyst_lead" placeholder="e.g. analyst_lead" required autocomplete="username">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password">
+            <span>Defense Security Passcode</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">Default: obsyron2026</span>
+          </label>
+          <div class="input-with-icon">
+            <span class="input-icon-prefix">🔒</span>
+            <input type="password" id="login-password" class="cyber-input" value="obsyron2026" placeholder="Enter security passcode" required autocomplete="current-password">
+            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('login-password')" title="Show/Hide passcode">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-clearance">
+            <span>Security Clearance Level</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--color-success)">VERIFIED</span>
+          </label>
+          <select id="login-clearance" class="cyber-input" style="padding-left:14px;cursor:pointer">
+            <option value="L4" selected>Level 4 — Lead Director (Full Containment &amp; Export)</option>
+            <option value="L3">Level 3 — Incident Responder (Active Triage &amp; Playbook)</option>
+            <option value="L2">Level 2 — Threat Auditor (Read-Only Forensic Audit)</option>
+          </select>
+        </div>
+
+        <div class="mfa-check-card">
+          <div class="mfa-info">
+            <span style="font-size:16px">🔑</span>
+            <div>
+              <div style="font-weight:600">Hardware Security Token (FIDO2 / CAC)</div>
+              <div style="font-size:10px;opacity:0.8;font-family:var(--font-mono)">SIMULATED YUBIKEY 5 NFC · PROXIMITY CONFIRMED</div>
+            </div>
+          </div>
+          <input type="checkbox" id="chk-login-mfa" checked style="accent-color:var(--color-success);transform:scale(1.2);cursor:pointer">
+        </div>
+
+        <button type="submit" id="btn-login-submit" class="btn-auth-submit">
+          <span>⚡</span>
+          <span id="btn-login-text">LOG IN &amp; DECRYPT TERMINAL</span>
+        </button>
+
+      </form>
+    </div>
+
+    <!-- ── PANEL 2: SIGN UP / USER REGISTRATION ──────────────────────────── -->
+    <div id="panel-signup" class="auth-panel">
+      <form id="form-signup" onsubmit="handleSignupSubmit(event)">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="signup-name">
+              <span>Full Name</span>
+            </label>
+            <div class="input-with-icon">
+              <span class="input-icon-prefix">🎖️</span>
+              <input type="text" id="signup-name" class="cyber-input" placeholder="e.g. Maya Thorne" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signup-username">
+              <span>Operator Callsign</span>
+            </label>
+            <div class="input-with-icon">
+              <span class="input-icon-prefix">👤</span>
+              <input type="text" id="signup-username" class="cyber-input" placeholder="e.g. m_thorne" required autocomplete="username">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="signup-password">
+            <span>Security Passcode (Min. 4 characters)</span>
+          </label>
+          <div class="input-with-icon">
+            <span class="input-icon-prefix">🔒</span>
+            <input type="password" id="signup-password" class="cyber-input" placeholder="Create your defense passcode" required autocomplete="new-password">
+            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('signup-password')" title="Show/Hide passcode">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="signup-department">
+              <span>Operational Unit / CIRT</span>
+            </label>
+            <div class="input-with-icon">
+              <span class="input-icon-prefix">🏢</span>
+              <input type="text" id="signup-department" class="cyber-input" value="Cyber Threat CIRT Alpha" placeholder="e.g. CIRT Alpha">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signup-clearance">
+              <span>Requested Clearance</span>
+            </label>
+            <select id="signup-clearance" class="cyber-input" style="padding-left:14px;cursor:pointer">
+              <option value="L4">Level 4 — Lead Director (Full Control)</option>
+              <option value="L3" selected>Level 3 — Incident Responder</option>
+              <option value="L2">Level 2 — Threat Auditor</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mfa-check-card">
+          <div class="mfa-info">
+            <span style="font-size:16px">🛡️</span>
+            <div>
+              <div style="font-weight:600">Enroll Simulated FIDO2 Security Token</div>
+              <div style="font-size:10px;opacity:0.8;font-family:var(--font-mono)">PAIRS HARDWARE KEY TO IMMUTABLE AUDIT LEDGER</div>
+            </div>
+          </div>
+          <input type="checkbox" id="chk-signup-mfa" checked style="accent-color:var(--color-success);transform:scale(1.2);cursor:pointer">
+        </div>
+
+        <button type="submit" id="btn-signup-submit" class="btn-auth-submit">
+          <span>🛡️</span>
+          <span id="btn-signup-text">CREATE ACCOUNT &amp; GRANT CLEARANCE</span>
+        </button>
+
+      </form>
+    </div>
+
+    <!-- Footer Audit Meta -->
+    <div class="login-footer-audit">
+      <div>ENCRYPTION: AES-256-GCM · ZERO CLOUD EXFILTRATION RISK</div>
+      <div>TERMINAL: LOCALHOST AIR-GAP WORKBENCH · TRACK C (NIT ROURKELA)</div>
+      <div style="opacity:0.6;font-size:9px">ALL OPERATOR REGISTRATIONS ARE NUMBERED &amp; HASH-CHAINED IN THE IMMUTABLE AUDIT LOG.</div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Bottom Footer -->
+<footer style="padding:16px 32px;text-align:center;font-size:11px;color:var(--text-tertiary);border-top:1px solid var(--border-subtle);background:rgba(6,9,24,0.4)">
+  &copy; 2026 OBSYRON Cyber Forensics · Built for <strong>HackInnovision 2026 (Track C)</strong>
+</footer>
+
+<script>
+  // Theme initialization
+  function initTheme() {
+    const saved = localStorage.getItem('obsyron_theme');
+    if (saved === 'light') {
+      document.body.classList.remove('dark-theme');
+    } else {
+      document.body.classList.add('dark-theme');
+    }
+    updateThemeUI();
+  }
+
+  function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem('obsyron_theme', isDark ? 'dark' : 'light');
+    updateThemeUI();
+  }
+
+  function updateThemeUI() {
+    const isDark = document.body.classList.contains('dark-theme');
+    const icon = document.getElementById('theme-icon');
+    const text = document.getElementById('theme-text');
+    if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+    if (text) text.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+  }
+
+  function togglePasswordVisibility(inputId) {
+    const pwd = document.getElementById(inputId);
+    if (pwd) pwd.type = pwd.type === 'password' ? 'text' : 'password';
+  }
+
+  function switchAuthTab(tab) {
+    const tabLogin = document.getElementById('tab-login');
+    const tabSignup = document.getElementById('tab-signup');
+    const panelLogin = document.getElementById('panel-login');
+    const panelSignup = document.getElementById('panel-signup');
+    const title = document.getElementById('auth-main-title');
+    const subtitle = document.getElementById('auth-main-subtitle');
+    const feedback = document.getElementById('auth-feedback');
+
+    if (feedback) {
+      feedback.style.display = 'none';
+      feedback.className = '';
+    }
+
+    if (tab === 'signup') {
+      tabLogin.classList.remove('active');
+      tabSignup.classList.add('active');
+      panelLogin.classList.remove('active');
+      panelSignup.classList.add('active');
+      title.textContent = 'Operator Registration';
+      subtitle.textContent = 'Enroll a new forensic investigator profile with defense clearance credentials.';
+    } else {
+      tabSignup.classList.remove('active');
+      tabLogin.classList.add('active');
+      panelSignup.classList.remove('active');
+      panelLogin.classList.add('active');
+      title.textContent = 'Operator Log In';
+      subtitle.textContent = 'Authenticate with your defense credentials or select a tactical preset.';
+    }
+  }
+
+  function selectRole(uname, pwd, lvl, btnElem) {
+    document.getElementById('login-username').value = uname;
+    document.getElementById('login-password').value = pwd;
+    document.getElementById('login-clearance').value = lvl;
+
+    document.querySelectorAll('.quick-role-btn').forEach(b => b.classList.remove('active'));
+    if (btnElem) btnElem.classList.add('active');
+  }
+
+  async function handleLoginSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    const clearance = document.getElementById('login-clearance').value;
+    const mfaChecked = document.getElementById('chk-login-mfa').checked;
+
+    const feedback = document.getElementById('auth-feedback');
+    const submitBtn = document.getElementById('btn-login-submit');
+    const submitText = document.getElementById('btn-login-text');
+
+    feedback.className = '';
+    feedback.style.display = 'none';
+
+    if (!mfaChecked) {
+      feedback.className = 'error';
+      feedback.textContent = '❌ Multi-Factor Authorization requirement failed: Hardware token not verified.';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitText.textContent = 'VERIFYING SECURITY CLEARANCE...';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username,
+          password: password,
+          clearance_override: clearance,
+          mfa_code: 'YUBI-FIDO2-VERIFIED'
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Authorization failed. Check credentials.');
+      }
+
+      localStorage.setItem('obsyron_auth_token', data.token);
+      localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
+
+      feedback.className = 'success';
+      feedback.textContent = `✓ ${data.message} Initializing SOC Workbench...`;
+
+      setTimeout(() => {
+        window.location.href = '/?authorized=1';
+      }, 700);
+
+    } catch (err) {
+      feedback.className = 'error';
+      feedback.textContent = `❌ ${err.message}`;
+      submitBtn.disabled = false;
+      submitText.textContent = 'LOG IN & DECRYPT TERMINAL';
+    }
+  }
+
+  async function handleSignupSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('signup-name').value.trim();
+    const username = document.getElementById('signup-username').value.trim();
+    const password = document.getElementById('signup-password').value.trim();
+    const department = document.getElementById('signup-department').value.trim();
+    const clearance = document.getElementById('signup-clearance').value;
+
+    const feedback = document.getElementById('auth-feedback');
+    const submitBtn = document.getElementById('btn-signup-submit');
+    const submitText = document.getElementById('btn-signup-text');
+
+    feedback.className = '';
+    feedback.style.display = 'none';
+
+    submitBtn.disabled = true;
+    submitText.textContent = 'ENROLLING OPERATOR IN LEDGER...';
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          username: username,
+          password: password,
+          department: department,
+          clearance: clearance
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Registration failed.');
+      }
+
+      localStorage.setItem('obsyron_auth_token', data.token);
+      localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
+
+      feedback.className = 'success';
+      feedback.textContent = `✓ ${data.message} Launching Workbench...`;
+
+      setTimeout(() => {
+        window.location.href = '/?authorized=1';
+      }, 700);
+
+    } catch (err) {
+      feedback.className = 'error';
+      feedback.textContent = `❌ ${err.message}`;
+      submitBtn.disabled = false;
+      submitText.textContent = 'CREATE ACCOUNT & GRANT CLEARANCE';
+    }
+  }
+
+  // Check URL query parameters (e.g. /login?mode=signup)
+  document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'signup') {
+      switchAuthTab('signup');
+    }
+  });
+</script>
+</body>
+</html>

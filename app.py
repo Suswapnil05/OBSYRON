@@ -2,7 +2,7 @@
 OBSYRON – Autonomous Forensic Investigation & Attack Graph Reconstruction
 HackInnovision 2026 (Track C) — Complete FastAPI Backend Server
 """
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Header
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -18,7 +18,8 @@ from graph_engine import build_attack_graph, get_root_cause, get_blast_radius, g
 app = FastAPI(
     title="OBSYRON",
     description="Cybersecurity Forensic Investigation & Dynamic Attack Graph Reconstruction",
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False
 )
 
 app.add_middleware(
@@ -28,6 +29,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def vercel_path_normalizer(request: Request, call_next):
+    """
+    Normalizes request paths under Vercel serverless functions.
+    Handles rewrites from /api/* to /api/index.py or stripped /api prefix.
+    """
+    # Check headers injected by Vercel's edge router
+    for header_name in ("x-matched-path", "x-invoke-path", "x-forwarded-uri", "x-original-url"):
+        val = request.headers.get(header_name)
+        if val:
+            clean = val.split("?")[0]
+            if clean and clean not in ("/api/index.py", "/api/index", "/api", "/api/"):
+                request.scope["path"] = clean
+                break
+
+    # If Vercel passed path as /api/index.py, recover from matched path if present
+    current_path = request.scope.get("path", "")
+    if current_path in ("/api/index.py", "/api/index"):
+        matched = request.headers.get("x-matched-path")
+        if matched:
+            request.scope["path"] = matched.split("?")[0]
+
+    # Normalize trailing slash (e.g. /api/analyze/ -> /api/analyze)
+    if len(request.scope.get("path", "")) > 1 and request.scope["path"].endswith("/"):
+        request.scope["path"] = request.scope["path"].rstrip("/")
+
+    return await call_next(request)
 
 # ── Directory Paths & Static Mount ──────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -244,19 +274,27 @@ class SignupRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    """Serve the single-viewport Dark Mode SOC dashboard."""
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return JSONResponse({"status": "running", "message": "OBSYRON API active. Static frontend missing."})
+    """Serve the single-viewport SOC dashboard."""
+    for candidate in [
+        os.path.join(BASE_DIR, "public", "index.html"),
+        os.path.join(STATIC_DIR, "index.html"),
+    ]:
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    return JSONResponse({"status": "running", "message": "OBSYRON API active."})
 
 
 @app.get("/login")
+@app.get("/login/")
+@app.get("/api/login")
 async def login_page():
     """Serve the dedicated SOC Operator Authorization & Login portal."""
-    login_path = os.path.join(STATIC_DIR, "login.html")
-    if os.path.exists(login_path):
-        return FileResponse(login_path)
+    for candidate in [
+        os.path.join(BASE_DIR, "public", "login.html"),
+        os.path.join(STATIC_DIR, "login.html"),
+    ]:
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
     return RedirectResponse(url="/")
 
 
@@ -441,10 +479,16 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
 @app.get("/favicon.ico")
 async def favicon():
     """Serve official OBSYRON emblem as browser favicon."""
-    icon_path = os.path.join(STATIC_DIR, "icon.png")
-    if os.path.exists(icon_path):
-        return FileResponse(icon_path, media_type="image/png")
-    return FileResponse(os.path.join(STATIC_DIR, "logo.jpg"), media_type="image/jpeg")
+    for candidate in [
+        os.path.join(BASE_DIR, "public", "favicon.ico"),
+        os.path.join(STATIC_DIR, "favicon.ico"),
+        os.path.join(STATIC_DIR, "icon.png"),
+        os.path.join(STATIC_DIR, "logo.jpg"),
+    ]:
+        if os.path.exists(candidate):
+            media = "image/png" if candidate.endswith(".png") else ("image/x-icon" if candidate.endswith(".ico") else "image/jpeg")
+            return FileResponse(candidate, media_type=media)
+    return JSONResponse({"status": "error", "message": "Favicon not found"}, status_code=404)
 
 
 class AnalyzeRequest(BaseModel):
@@ -455,6 +499,11 @@ class AnalyzeRequest(BaseModel):
 
 
 @app.post("/api/analyze")
+@app.post("/analyze")
+@app.post("/api/index.py")
+@app.post("/api/index")
+@app.post("/api")
+@app.post("/api/")
 async def analyze(req: AnalyzeRequest):
     """Primary analysis endpoint: ingests noisy logs, correlates timestamps, builds attack graph."""
     raw_logs = generate_logs(
@@ -475,6 +524,9 @@ async def analyze(req: AnalyzeRequest):
 
 
 @app.get("/api/graph/snapshot")
+@app.get("/graph/snapshot")
+@app.get("/api/graph/snapshot/")
+@app.get("/graph/snapshot/")
 async def graph_snapshot(timestamp: str = Query(..., description="ISO 8601 timestamp for time-travel scrubber")):
     """Slices graph state up to timestamp T for chronological replay."""
     if not _cache.get("normalized_logs"):
@@ -487,8 +539,15 @@ async def graph_snapshot(timestamp: str = Query(..., description="ISO 8601 times
 
 
 @app.get("/api/evidence/{log_id}")
+@app.get("/evidence/{log_id}")
+@app.get("/api/evidence/{log_id}/")
+@app.get("/evidence/{log_id}/")
 async def get_evidence(log_id: str):
     """Returns complete Evidence DNA record for clicked citation or graph entity."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+
     for log in _cache.get("normalized_logs", []):
         if log.get("log_id") == log_id:
             return JSONResponse({
@@ -547,6 +606,9 @@ async def get_evidence(log_id: str):
 
 
 @app.post("/api/upload")
+@app.post("/upload")
+@app.post("/api/upload/")
+@app.post("/upload/")
 async def upload_logs(file: UploadFile = File(...)):
     """Ingest custom JSON or CSV logs and run full graph reconstruction pipeline."""
     suffix = os.path.splitext(file.filename)[1].lower()
