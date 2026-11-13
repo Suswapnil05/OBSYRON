@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // OBSYRON — Autonomous Forensic Investigation & Attack Graph Reconstruction
-// HackInnovision 2026 (Track C) — Complete High-Performance Client Engine
+// HackInnovision 2026 (Track C) — Enterprise SOC Frontend Engine
 // ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
@@ -22,7 +22,7 @@ const state = {
   currentEvidenceJson: ''
 };
 
-// ── 1. API COMMUNICATION ───────────────────────────────────────────────────
+// ── 1. API INTEGRATION ─────────────────────────────────────────────────────
 
 async function runAnalysis(settings) {
   showLoading(true);
@@ -71,7 +71,7 @@ async function fetchEvidence(logId) {
     renderEvidenceDNA(data);
     openDrawer();
   } catch (err) {
-    console.error('Evidence DNA error for ' + logId + ':', err);
+    console.error('Evidence lookup error for ' + logId + ':', err);
   }
 }
 
@@ -135,15 +135,15 @@ function renderKPIs(data) {
 
   confEl.textContent = `${confPct}%`;
   if (conf < 0.75) {
-    confEl.style.color = 'var(--amber)';
+    confEl.style.color = 'var(--color-warning)';
     chipEl.className = 'kpi-chip chip-amber';
     chipEl.textContent = 'INFERRED GAP BRIDGE';
-    confSub.textContent = '⚠️ Telemetry gap bridged with penalized confidence';
+    confSub.textContent = 'Telemetry gap bridged with penalized confidence';
   } else {
-    confEl.style.color = 'var(--cyan)';
+    confEl.style.color = 'var(--color-info-light)';
     chipEl.className = 'kpi-chip chip-cyan';
     chipEl.textContent = 'CORROBORATED';
-    confSub.textContent = 'Direct multi-signal log corroboration';
+    confSub.textContent = 'Multi-signal forensic log corroboration';
   }
 }
 
@@ -162,22 +162,22 @@ function entityBadge(type) {
 function entityFillColor(type, isMalicious) {
   if (isMalicious) {
     const mal = {
-      USER: '#0369A1',
-      DEVICE: '#991B1B',
-      SERVICE: '#B45309',
-      AUTH_ENDPOINT: '#991B1B'
+      USER: '#0C2338',
+      DEVICE: '#251518',
+      SERVICE: '#2B1D08',
+      AUTH_ENDPOINT: '#2D1013'
     };
-    return mal[type] || '#991B1B';
+    return mal[type] || '#221518';
   }
-  return '#0E1526';
+  return '#111622';
 }
 
 function entityStrokeColor(type) {
   const map = {
-    USER: '#00F0FF',
+    USER: '#38BDF8',
     DEVICE: '#64748B',
-    SERVICE: '#FFB800',
-    AUTH_ENDPOINT: '#FF2A55'
+    SERVICE: '#F59E0B',
+    AUTH_ENDPOINT: '#EF4444'
   };
   return map[type] || '#64748B';
 }
@@ -238,7 +238,7 @@ function renderGraph(data) {
   container.innerHTML = '';
 
   if (elements.filter(e => e.group === 'nodes').length === 0) {
-    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:12px;font-family:var(--font-mono)">No attack graph nodes found</div>';
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">No attack graph nodes found</div>';
     return;
   }
 
@@ -249,8 +249,8 @@ function renderGraph(data) {
       name: 'breadthfirst',
       directed: true,
       roots: elements.filter(e => e.group === 'nodes' && (e.data.id === '185.220.101.47' || e.data.entity_type === 'AUTH_ENDPOINT')).map(e => e.data.id),
-      padding: 35,
-      spacingFactor: 1.45,
+      padding: 30,
+      spacingFactor: 1.4,
       avoidOverlap: true,
       animate: false
     },
@@ -260,93 +260,88 @@ function renderGraph(data) {
         style: {
           'background-color': 'data(bg)',
           'border-color': 'data(color)',
-          'border-width': 2.2,
+          'border-width': 1.8,
           'label': 'data(label)',
           'text-valign': 'center',
           'text-halign': 'center',
-          'color': '#FFFFFF',
+          'color': '#F8FAFC',
           'font-size': 9.5,
-          'font-weight': 700,
+          'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
           'text-wrap': 'wrap',
-          'width': 100,
-          'height': 56,
+          'width': 105,
+          'height': 52,
           'shape': 'roundrectangle',
-          'text-max-width': 92,
-          'transition-property': 'background-color, border-color, shadow-blur',
-          'transition-duration': '0.2s'
+          'text-max-width': 98,
+          'transition-property': 'background-color, border-color, opacity',
+          'transition-duration': '0.15s'
         }
       },
       {
         selector: 'node[entity_type = "USER"]',
-        style: { shape: 'ellipse', width: 90, height: 60 }
+        style: { shape: 'roundrectangle', width: 95, height: 50 }
       },
       {
         selector: 'node[entity_type = "SERVICE"]',
-        style: { shape: 'diamond', width: 112, height: 66 }
+        style: { shape: 'diamond', width: 108, height: 60 }
       },
       {
         selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-        style: { shape: 'hexagon', width: 98, height: 60 }
+        style: { shape: 'hexagon', width: 100, height: 54 }
       },
       {
         selector: 'node[?is_malicious]',
         style: {
-          'shadow-blur': 25,
-          'shadow-color': 'data(color)',
-          'shadow-opacity': 0.85,
-          'shadow-offset-x': 0,
-          'shadow-offset-y': 0,
-          'border-width': 2.8,
+          'border-width': 2.4,
         }
       },
       {
         selector: 'edge',
         style: {
-          'width': 2.5,
+          'width': 2.2,
           'line-color': '#475569',
           'target-arrow-color': '#475569',
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'label': 'data(label)',
           'font-size': 8,
-          'font-weight': 700,
+          'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
-          'color': '#E2E8F0',
-          'text-background-color': '#06080F',
+          'color': '#CBD5E1',
+          'text-background-color': '#0B0F17',
           'text-background-opacity': 0.95,
           'text-background-padding': 3,
           'text-wrap': 'wrap',
-          'text-max-width': 80,
+          'text-max-width': 85,
           'edge-text-rotation': 'autorotate',
-          'arrow-scale': 1.2
+          'arrow-scale': 1.15
         }
       },
       {
         selector: 'edge[severity = "CRITICAL"], edge[!is_inferred][confidence >= 0.85]',
         style: {
-          'line-color': '#FF2A55',
-          'target-arrow-color': '#FF2A55',
-          'width': 3,
-          'color': '#FFA3B8',
+          'line-color': '#EF4444',
+          'target-arrow-color': '#EF4444',
+          'width': 2.5,
+          'color': '#FCA5A5',
         }
       },
       {
         selector: 'edge[?is_inferred]',
         style: {
-          'line-color': '#FFB800',
-          'target-arrow-color': '#FFB800',
+          'line-color': '#F59E0B',
+          'target-arrow-color': '#F59E0B',
           'line-style': 'dashed',
-          'line-dash-pattern': [8, 4],
-          'width': 2.6,
-          'color': '#FFE082',
+          'line-dash-pattern': [6, 4],
+          'width': 2.2,
+          'color': '#FCD34D',
         }
       },
-      { selector: 'node:selected', style: { 'border-width': 3.5, 'border-color': '#FFFFFF' } },
-      { selector: '.dimmed', style: { 'opacity': 0.12 } },
+      { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#38BDF8' } },
+      { selector: '.dimmed', style: { 'opacity': 0.16 } },
       { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-      { selector: '.ancestor-highlight', style: { 'border-color': '#00F0FF', 'border-width': 3.2, 'opacity': 1 } },
-      { selector: '.descendant-highlight', style: { 'border-color': '#FF2A55', 'border-width': 3.2, 'opacity': 1 } },
+      { selector: '.ancestor-highlight', style: { 'border-color': '#38BDF8', 'border-width': 2.8, 'opacity': 1 } },
+      { selector: '.descendant-highlight', style: { 'border-color': '#EF4444', 'border-width': 2.8, 'opacity': 1 } },
     ]
   });
 
@@ -374,9 +369,9 @@ function renderGraph(data) {
     const bbox = container.getBoundingClientRect();
     showTooltip(
       node.data('label').replace('\n', ' — '),
-      `Entity Class: ${node.data('entity_type')} | ${node.data('is_malicious') ? '🔴 COMPROMISED' : '✅ Benign'}`,
+      `Entity Class: ${node.data('entity_type')} | ${node.data('is_malicious') ? 'COMPROMISED' : 'Benign Asset'}`,
       `Betweenness Centrality: ${(node.data('centrality') * 100).toFixed(1)}% (Internal Pivot Metric)`,
-      `Correlated Audit Logs: ${(node.data('log_ids') || []).length}`,
+      `Correlated Audit Logs: ${(node.data('log_ids') || []).length} events`,
       bbox.left + pos.x, bbox.top + pos.y
     );
   });
@@ -398,10 +393,10 @@ function highlightBlastRadius(node) {
   cy.elements().addClass('dimmed');
   node.removeClass('dimmed').addClass('highlighted');
   
-  // Upstream root cause path in Cyan
+  // Upstream root cause path in Sky Blue
   node.predecessors().removeClass('dimmed').addClass('highlighted ancestor-highlight');
   
-  // Downstream blast radius path in Red
+  // Downstream blast radius path in Crimson
   node.successors().removeClass('dimmed').addClass('highlighted descendant-highlight');
   
   node.connectedEdges().removeClass('dimmed').addClass('highlighted');
@@ -416,11 +411,11 @@ function reLayoutGraph() {
   state.cy.layout({
     name: 'breadthfirst',
     directed: true,
-    padding: 35,
-    spacingFactor: 1.45,
+    padding: 30,
+    spacingFactor: 1.4,
     avoidOverlap: true,
     animate: true,
-    animationDuration: 400
+    animationDuration: 300
   }).run();
 }
 
@@ -517,13 +512,13 @@ function renderXAI(data) {
   const container = document.getElementById('xai-content');
   const steps = data.xai_report || [];
   if (!steps.length) {
-    container.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:20px;text-align:center;font-family:var(--font-mono)">No Explainable AI data available</div>';
+    container.innerHTML = '<div style="color:var(--text-tertiary);font-size:11px;padding:20px;text-align:center;font-family:var(--font-mono)">No Explainable AI data available</div>';
     return;
   }
 
   container.innerHTML = steps.map(step => {
     const confPct = Math.round(step.confidence * 100);
-    const confColor = step.is_inferred ? '#FFB800' : (confPct >= 90 ? '#FF2A55' : '#00F0FF');
+    const confColor = step.is_inferred ? 'var(--color-warning)' : (confPct >= 90 ? 'var(--color-critical)' : 'var(--color-info-light)');
     const citations = (step.log_citations || []).map(lid =>
       `<span class="citation-badge ${lid === 'INFERRED' ? 'inferred' : ''}" onclick="fetchEvidence('${lid}')" title="Inspect raw forensic log">[LOG: ${lid}]</span>`
     ).join('');
@@ -536,10 +531,10 @@ function renderXAI(data) {
           <span class="mitre-tag">${step.mitre}</span>
           ${step.is_inferred ? '<span class="inferred-tag">INFERRED BRIDGE</span>' : ''}
         </div>
-        <div style="font-size:9.5px;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono)">${step.mitre_name || ''}</div>
+        <div style="font-size:9.5px;color:var(--text-tertiary);margin-bottom:6px;font-family:var(--font-mono)">${step.mitre_name || ''}</div>
         <p class="xai-desc">${step.narrative}</p>
         <div class="citations-row">
-          <span style="font-size:9px;color:var(--text-dim);font-family:var(--font-mono);margin-right:4px">Citations:</span>
+          <span style="font-size:9px;color:var(--text-tertiary);font-family:var(--font-mono);margin-right:4px">Citations:</span>
           ${citations}
         </div>
         <div class="conf-wrap">
@@ -561,26 +556,26 @@ function renderPlaybook(data) {
   const container = document.getElementById('playbook-content');
 
   const affectedHtml = (br.affected_nodes || []).map(n =>
-    `<span style="display:inline-block;background:rgba(255,42,85,0.12);border:1px solid rgba(255,42,85,0.35);color:#FF2A55;padding:2px 8px;border-radius:2px;font-size:9.5px;font-family:var(--font-mono);font-weight:600;margin:2px">${n}</span>`
+    `<span style="display:inline-block;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:var(--color-critical);padding:2px 7px;border-radius:3px;font-size:9.5px;font-family:var(--font-mono);font-weight:600;margin:2px">${n}</span>`
   ).join('');
 
   container.innerHTML = `
     <div class="playbook-progress">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);font-family:var(--font-mono)">Containment Readiness</span>
-        <span id="containment-percent" style="font-size:11px;font-family:var(--font-mono);font-weight:800;color:var(--green)">0% COMPLETE</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:9.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-tertiary);font-family:var(--font-sans)">Containment Readiness</span>
+        <span id="containment-percent" style="font-size:11px;font-family:var(--font-mono);font-weight:700;color:var(--color-success)">0% COMPLETE</span>
       </div>
-      <div class="conf-track" style="height:5px">
-        <div id="containment-progress-bar" style="width:0%;height:100%;background:var(--green);box-shadow:0 0 8px var(--green);border-radius:2px;transition:width 0.3s"></div>
+      <div class="conf-track" style="height:4px">
+        <div id="containment-progress-bar" style="width:0%;height:100%;background:var(--color-success);border-radius:2px;transition:width 0.25s"></div>
       </div>
     </div>
 
-    <div style="margin-bottom:14px">
+    <div style="margin-bottom:12px">
       <div class="rail-title">Downstream Reachable Assets (${br.count || 0})</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${affectedHtml || '<span style="color:var(--text-dim);font-size:10px">None detected</span>'}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${affectedHtml || '<span style="color:var(--text-tertiary);font-size:10px">None detected</span>'}</div>
     </div>
 
-    <div class="rail-title" style="margin-bottom:8px">Prioritized Response Protocol</div>
+    <div class="rail-title" style="margin-bottom:7px">Prioritized Response Protocol</div>
     ${list.map((item, i) => `
       <div class="containment-item" id="ci-${i}">
         <input type="checkbox" class="check-box" onchange="onPlaybookCheckChange(this)">
@@ -606,19 +601,18 @@ function renderQuickActions(data) {
   const ia = data.initial_access || {};
   const el = document.getElementById('quick-actions');
   el.innerHTML = `
-    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono)">Fast Actions:</div>
-    <div class="rail-btn" style="cursor:pointer;border-color:rgba(255,42,85,0.35);color:var(--red)" onclick="alert('Action dispatched: Account session revocation sent to Active Directory for ' + '${ia.entity || 'Patient Zero'}')">
-      🔴 Lock ${ia.entity || 'Patient Zero'}
-    </div>
-    <div class="rail-btn" style="cursor:pointer;border-color:rgba(255,42,85,0.35);color:var(--red)" onclick="alert('Action dispatched: Egress firewall drop rule pushed for IP 185.220.101.47')">
-      🔴 Block 185.220.101.47
-    </div>
-    <div class="rail-btn" style="cursor:pointer;border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="alert('Action dispatched: Service credential rotation triggered for svc_ci_deploy')">
-      🟠 Rotate svc_ci_deploy
-    </div>
-    <div class="rail-btn" style="cursor:pointer;border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="alert('Action dispatched: VLAN isolation triggered for host db-prod-01')">
-      🟠 Quarantine db-prod-01
-    </div>
+    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical)" onclick="alert('Dispatched: Account session revocation sent to Active Directory for ' + '${ia.patient_zero_account || 'Patient Zero'}')">
+      <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[LOCK]</span> Lock ${ia.patient_zero_account || 'emp_rohan'}
+    </button>
+    <button class="rail-btn" style="border-color:var(--color-critical-border);color:var(--color-critical)" onclick="alert('Dispatched: Egress firewall null-route rule pushed for IP 185.220.101.47')">
+      <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[BLOCK]</span> Block 185.220.101.47
+    </button>
+    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning)" onclick="alert('Dispatched: Service credential rotation triggered for svc_ci_deploy')">
+      <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[ROTATE]</span> Rotate svc_ci_deploy
+    </button>
+    <button class="rail-btn" style="border-color:var(--color-warning-border);color:var(--color-warning)" onclick="alert('Dispatched: VLAN network quarantine triggered for host db-prod-01')">
+      <span style="font-family:var(--font-mono);font-weight:700;font-size:9.5px">[ISOLATE]</span> Quarantine db-prod-01
+    </button>
   `;
 }
 
@@ -633,39 +627,39 @@ function renderMatrix(data) {
   const mitreSet = new Set(edges.filter(e => e.mitre_tag).map(e => e.mitre_tag));
 
   container.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
       ${[
-        ['Total Entities', nodes.length, 'var(--cyan)'],
-        ['Graph Edges', edges.length, 'var(--cyan)'],
-        ['Compromised', malNodes, 'var(--red)'],
-        ['Inferred Bridges', inferredEdges, 'var(--amber)'],
+        ['Total Entities', nodes.length, 'var(--color-info-light)'],
+        ['Graph Edges', edges.length, 'var(--color-info-light)'],
+        ['Compromised', malNodes, 'var(--color-critical)'],
+        ['Inferred Bridges', inferredEdges, 'var(--color-warning)'],
       ].map(([label, val, color]) => `
-        <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:4px;padding:10px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:${color};font-family:var(--font-mono)">${val}</div>
-          <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">${label}</div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:4px;padding:9px;text-align:center">
+          <div style="font-size:17px;font-weight:700;color:${color};font-family:var(--font-sans)">${val}</div>
+          <div style="font-size:9.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-sans);font-weight:500">${label}</div>
         </div>
       `).join('')}
     </div>
 
-    <div class="rail-title" style="margin-bottom:8px">MITRE ATT&amp;CK Matrix Coverage</div>
+    <div class="rail-title" style="margin-bottom:7px">MITRE ATT&amp;CK Matrix Coverage</div>
     ${[...mitreSet].map(t => `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:10.5px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:10.5px">
         <span class="mitre-tag">${t}</span>
-        <span style="color:var(--text-muted)">${mitreNames[t] || t}</span>
+        <span style="color:var(--text-secondary)">${mitreNames[t] || t}</span>
       </div>
     `).join('')}
 
-    <div style="margin-top:16px">
-      <div class="rail-title" style="margin-bottom:8px">Top Compromised Pivot Nodes (Centrality)</div>
+    <div style="margin-top:14px">
+      <div class="rail-title" style="margin-bottom:7px">Internal Pivot Nodes (Betweenness Centrality)</div>
       ${nodes.filter(n => n.centrality > 0).sort((a,b) => b.centrality - a.centrality).slice(0, 6).map(n => `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:10px">
-          <div style="flex:1;font-family:var(--font-mono);color:${n.is_malicious ? 'var(--red)' : 'var(--text-muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:10px">
+          <div style="flex:1;font-family:var(--font-mono);color:${n.is_malicious ? 'var(--color-critical)' : 'var(--text-secondary)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${n.label}
           </div>
-          <div style="width:75px;background:var(--bg-surface3);border-radius:2px;height:4px;overflow:hidden">
-            <div style="width:${(n.centrality * 100).toFixed(0)}%;height:4px;background:${n.is_malicious ? 'var(--red)' : 'var(--cyan)'};border-radius:2px"></div>
+          <div style="width:70px;background:var(--bg-surface-elevated);border-radius:2px;height:4px;overflow:hidden">
+            <div style="width:${(n.centrality * 100).toFixed(0)}%;height:4px;background:${n.is_malicious ? 'var(--color-critical)' : 'var(--color-info-light)'};border-radius:2px"></div>
           </div>
-          <span style="font-size:9.5px;color:var(--text-dim);font-family:var(--font-mono)">${(n.centrality * 100).toFixed(1)}%</span>
+          <span style="font-size:9.5px;color:var(--text-tertiary);font-family:var(--font-mono)">${(n.centrality * 100).toFixed(1)}%</span>
         </div>
       `).join('')}
     </div>
@@ -697,14 +691,14 @@ function renderEvidenceDNA(log) {
   state.currentEvidenceJson = rawJson;
 
   body.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-      <span style="font-family:var(--font-mono);font-size:13px;font-weight:800;color:${log.is_inferred ? 'var(--amber)' : 'var(--cyan)'}">${log.log_id}</span>
-      <span style="font-size:10px;color:var(--text-dim)">|</span>
-      <span style="font-size:11px;font-weight:700;color:#FFFFFF;font-family:var(--font-mono)">${log.action || ''}</span>
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap">
+      <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${log.is_inferred ? 'var(--color-warning)' : 'var(--color-info-light)'}">${log.log_id}</span>
+      <span style="font-size:10px;color:var(--text-tertiary)">|</span>
+      <span style="font-size:11px;font-weight:600;color:#FFFFFF;font-family:var(--font-mono)">${log.action || ''}</span>
       ${log.mitre_tag ? `<span class="mitre-tag">${log.mitre_tag}</span>` : ''}
-      <span style="font-size:9px;background:rgba(255,42,85,0.12);border:1px solid rgba(255,42,85,0.35);color:var(--${severityColor});padding:2px 7px;border-radius:2px;font-family:var(--font-mono);font-weight:700">${log.severity || 'LOW'}</span>
-      ${log.is_inferred ? '<span class="inferred-tag">⚠️ INFERRED LATERAL BRIDGE</span>' : ''}
-      <span style="font-size:10px;color:${log.confidence >= 0.85 ? 'var(--red)' : 'var(--amber)'};font-family:var(--font-mono);margin-left:auto;font-weight:700">${log.confidence ? Math.round(log.confidence * 100) + '% Confidence Corroboration' : ''}</span>
+      <span class="chip-${severityColor === 'red' ? 'red' : (severityColor === 'amber' ? 'amber' : 'cyan')}" style="padding:1px 5px;border-radius:3px;font-size:9.5px;font-family:var(--font-mono);font-weight:600">${log.severity || 'LOW'}</span>
+      ${log.is_inferred ? '<span class="inferred-tag">INFERRED LATERAL BRIDGE</span>' : ''}
+      <span style="font-size:10px;color:${log.confidence >= 0.85 ? 'var(--color-critical)' : 'var(--color-warning)'};font-family:var(--font-mono);margin-left:auto;font-weight:600">${log.confidence ? Math.round(log.confidence * 100) + '% Confidence Corroboration' : ''}</span>
     </div>
 
     <div class="ev-split">
@@ -712,16 +706,16 @@ function renderEvidenceDNA(log) {
         <span class="ev-lbl">Source Host:</span>
         <span class="ev-val cyan">${log.source_host || 'N/A'}</span>
         
-        <span class="ev-lbl">Raw Ingested Time:</span>
-        <span class="ev-val">${log.raw_timestamp || 'N/A'} <span style="color:var(--amber)">(Host Clock Skew: ${log.host_skew_sec >= 0 ? '+' : ''}${log.host_skew_sec || 0}s)</span></span>
+        <span class="ev-lbl">Raw Ingest Time:</span>
+        <span class="ev-val">${log.raw_timestamp || 'N/A'} <span style="color:var(--color-warning)">(Clock Skew: ${log.host_skew_sec >= 0 ? '+' : ''}${log.host_skew_sec || 0}s)</span></span>
         
         <span class="ev-lbl">Normalized Master Time:</span>
-        <span class="ev-val cyan">${log.normalized_timestamp || 'N/A'} <span style="color:var(--green)">(Correction Applied: t_norm = t_raw ${skewStr})</span></span>
+        <span class="ev-val cyan">${log.normalized_timestamp || 'N/A'} <span style="color:var(--color-success)">(Correction: ${skewStr})</span></span>
         
-        <span class="ev-lbl">Entity Interaction:</span>
-        <span class="ev-val">${log.source || '?'} <span style="color:var(--text-dim)">──[${log.action}]──&gt;</span> <span style="color:${log.is_malicious ? 'var(--red)' : 'var(--text-main)'}">${log.target || '?'}</span></span>
+        <span class="ev-lbl">Interaction:</span>
+        <span class="ev-val">${log.source || '?'} <span style="color:var(--text-tertiary)">──[${log.action}]──&gt;</span> <span style="color:${log.is_malicious ? 'var(--color-critical)' : 'var(--text-primary)'}">${log.target || '?'}</span></span>
         
-        <span class="ev-lbl">Protocol &amp; Port:</span>
+        <span class="ev-lbl">Protocol / Port:</span>
         <span class="ev-val">${log.protocol || 'TCP'} / ${log.port || '0'}</span>
         
         <span class="ev-lbl">MITRE Mapping:</span>
@@ -729,9 +723,7 @@ function renderEvidenceDNA(log) {
       </div>
 
       <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-          <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Raw Forensics Log Payload</span>
-        </div>
+        <div style="font-size:9.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;font-family:var(--font-sans);margin-bottom:3px;font-weight:600">Raw Telemetry Payload</div>
         <div class="json-box">${escapeHtml(rawJson)}</div>
       </div>
     </div>
@@ -826,7 +818,7 @@ function toggleAudioBriefing() {
     window.speechSynthesis.cancel();
     state.isSpeaking = false;
     btn.classList.remove('speaking');
-    btnText.textContent = 'Play Executive Briefing';
+    btnText.textContent = 'Executive Audio Briefing';
     return;
   }
 
@@ -855,17 +847,17 @@ function toggleAudioBriefing() {
   utter.volume = 1.0;
 
   btn.classList.add('speaking');
-  btnText.textContent = 'Stop Executive Briefing';
+  btnText.textContent = 'Stop Audio Briefing';
   state.isSpeaking = true;
 
   utter.onend = () => {
     btn.classList.remove('speaking');
-    btnText.textContent = 'Play Executive Briefing';
+    btnText.textContent = 'Executive Audio Briefing';
     state.isSpeaking = false;
   };
   utter.onerror = () => {
     btn.classList.remove('speaking');
-    btnText.textContent = 'Play Executive Briefing';
+    btnText.textContent = 'Executive Audio Briefing';
     state.isSpeaking = false;
   };
 

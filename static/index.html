@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OBSYRON // Autonomous Attack Graph Forensics &amp; Incident Response — HackInnovision 2026</title>
+<title>OBSYRON — Autonomous Forensic Investigation &amp; Incident Response // HackInnovision 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 </head>
@@ -14,7 +15,7 @@
 <!-- Loading Overlay -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div style="font-size:10.5px;font-family:var(--font-mono);letter-spacing:2px;color:var(--cyan);font-weight:700">CORRELATING ENTERPRISE TELEMETRY STREAM...</div>
+  <div style="font-size:11px;font-family:var(--font-mono);letter-spacing:1px;color:var(--color-info-light);font-weight:600">CORRELATING ENTERPRISE TELEMETRY STREAM...</div>
 </div>
 
 <!-- Node Tooltip -->
@@ -26,37 +27,39 @@
 </div>
 
 <!-- ── HEADER ────────────────────────────────────────────────────────────── -->
-<div id="header">
-  <div class="brand">
-    <div class="logo-hud"></div>
-    <div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="logo-title">OBSYRON</span>
-        <span class="track-pill">HACKINNOVISION 2026 // TRACK C</span>
+<header id="header">
+  <div class="brand-section">
+    <div class="brand-shield-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="brand-titles">
+      <div class="brand-row">
+        <span class="brand-name">OBSYRON</span>
+        <span class="brand-tag">SOC WORKBENCH // US-EAST</span>
+        <span class="brand-tag" style="border-color:var(--color-info-border);color:var(--color-info-light)">HACKINNOVISION 2026 // TRACK C</span>
       </div>
-      <div style="font-size:9.5px;color:var(--text-dim);letter-spacing:1px;font-family:var(--font-mono)">AUTONOMOUS FORENSIC INVESTIGATION &amp; ATTACK GRAPH ENGINE</div>
+      <div class="brand-subtitle">AUTONOMOUS FORENSIC INVESTIGATION &amp; MULTIDIGRAPH ATTACK RECONSTRUCTION</div>
     </div>
   </div>
 
-  <div class="header-actions">
-    <div class="radar-badge">
-      <div class="radar-ring"></div>
-      ACTIVE SOC PIPELINE
+  <div class="header-status-area">
+    <div class="status-indicator-badge">
+      <div class="status-dot-pulse"></div>
+      ACTIVE SOC PIPELINE (350 EPS)
     </div>
     <button id="btn-audio" onclick="toggleAudioBriefing()" title="Play spoken incident summary using Web Speech API">
-      <div class="soundwave">
-        <div class="soundbar"></div>
-        <div class="soundbar"></div>
-        <div class="soundbar"></div>
-        <div class="soundbar"></div>
-      </div>
-      <span id="btn-audio-text">Play Executive Briefing</span>
+      <svg viewBox="0 0 24 24">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <span id="btn-audio-text">Executive Audio Briefing</span>
     </button>
   </div>
-</div>
+</header>
 
 <!-- ── TOP KPI TRIAGE STRIP ──────────────────────────────────────────────── -->
-<div id="kpi-strip">
+<section id="kpi-strip">
   <div class="kpi-card">
     <div class="kpi-header">
       <span class="kpi-label">Signal-to-Noise Ratio</span>
@@ -71,7 +74,7 @@
       <span class="kpi-label">Initial Access Vector</span>
       <span class="kpi-chip chip-amber">PATIENT ZERO</span>
     </div>
-    <div class="kpi-value" id="kpi-pz" style="color:var(--amber)">—</div>
+    <div class="kpi-value" id="kpi-pz" style="color:var(--color-warning)">—</div>
     <div class="kpi-sub" id="kpi-pz-sub">Off-hours authentication anomaly</div>
   </div>
 
@@ -80,7 +83,7 @@
       <span class="kpi-label">Blast Radius Scope</span>
       <span class="kpi-chip chip-red">EXPOSED ASSETS</span>
     </div>
-    <div class="kpi-value" id="kpi-br" style="color:var(--red)">—</div>
+    <div class="kpi-value" id="kpi-br" style="color:var(--color-critical)">—</div>
     <div class="kpi-sub" id="kpi-br-sub">Forward reachability analysis</div>
   </div>
 
@@ -89,51 +92,51 @@
       <span class="kpi-label">Attack Graph Certainty</span>
       <span class="kpi-chip chip-cyan" id="kpi-conf-chip">CORROBORATED</span>
     </div>
-    <div class="kpi-value" id="kpi-conf" style="color:var(--cyan)">—</div>
+    <div class="kpi-value" id="kpi-conf" style="color:var(--color-info-light)">—</div>
     <div class="kpi-sub" id="kpi-conf-sub">Multi-signal corroboration score</div>
   </div>
-</div>
+</section>
 
 <!-- ── MAIN BODY ─────────────────────────────────────────────────────────── -->
-<div id="main-body">
+<main id="main-body">
 
   <!-- LEFT CONTROL RAIL: DEMO & CHAOS SIMULATOR -->
-  <div id="left-rail">
+  <aside id="left-rail">
 
     <div class="rail-group">
       <div class="rail-title">Telemetry Dataset</div>
       <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
-        <span class="btn-dot" style="background:var(--cyan);box-shadow:0 0 6px var(--cyan)"></span>
+        <span class="btn-dot" style="background:var(--color-info-light)"></span>
         <span>Built-in APT Kill Chain</span>
       </button>
 
       <div id="upload-dropzone" onclick="document.getElementById('file-input').click()">
-        <div style="font-size:11px;font-weight:700;color:var(--text-main)">⬆ Upload Custom Telemetry</div>
-        <div style="font-size:9px;color:var(--text-dim);margin-top:2px;font-family:var(--font-mono)">Drag &amp; drop .json / .csv</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-primary)">Upload Custom Telemetry</div>
+        <div style="font-size:9.5px;color:var(--text-tertiary);margin-top:2px;font-family:var(--font-mono)">Drag &amp; drop .json / .csv</div>
       </div>
       <input type="file" id="file-input" accept=".json,.csv" onchange="handleFileUpload(this.files[0])">
     </div>
 
     <div class="rail-group">
-      <div class="rail-title">Chaos Simulator</div>
+      <div class="rail-title">Ingestion Chaos Controls</div>
       
-      <label class="switch-row">
-        <span class="switch-label">Shuffle Out-of-Order Logs</span>
+      <label class="switch-row" title="Sort logs chronologically despite out-of-order network arrival">
+        <span class="switch-label">Resolve Out-of-Order Logs</span>
         <span class="switch">
           <input type="checkbox" id="tog-shuffle" checked onchange="onToggleChange()">
           <span class="slider"></span>
         </span>
       </label>
 
-      <label class="switch-row">
-        <span class="switch-label">Inject Host Clock Skew (±20s)</span>
+      <label class="switch-row" title="Normalize clock drift across workstations and servers">
+        <span class="switch-label">Compensate Clock Skew (±20s)</span>
         <span class="switch">
           <input type="checkbox" id="tog-skew" checked onchange="onToggleChange()">
           <span class="slider"></span>
         </span>
       </label>
 
-      <label class="switch-row">
+      <label class="switch-row" title="Simulate missing telemetry and infer lateral movement bridges">
         <span class="switch-label">Drop Telemetry (Gap Bridge)</span>
         <span class="switch">
           <input type="checkbox" id="tog-drop" onchange="onToggleChange()">
@@ -143,12 +146,12 @@
     </div>
 
     <div class="rail-group">
-      <div class="rail-title">Time-Travel Investigation</div>
+      <div class="rail-title">Investigation Time-Travel</div>
       <div class="time-travel-box">
         <div class="timeline-controls">
-          <button class="ctrl-btn" id="btn-play-pause" onclick="toggleTimelinePlay()" title="Play/Pause timeline replay">▶</button>
-          <button class="ctrl-btn" onclick="resetTimeline()" title="Reset to initial access">⏮</button>
-          <div style="flex:1;font-size:9px;font-family:var(--font-mono);color:var(--text-dim);text-align:right" id="playback-speed">1x SPEED</div>
+          <button class="ctrl-btn" id="btn-play-pause" onclick="toggleTimelinePlay()" title="Play / Pause incident replay">▶</button>
+          <button class="ctrl-btn" onclick="resetTimeline()" title="Reset to Patient Zero">⏮</button>
+          <div style="flex:1;font-size:9.5px;font-family:var(--font-mono);color:var(--text-tertiary);text-align:right" id="playback-speed">1x SPEED</div>
         </div>
         <input type="range" id="timeline-slider" min="0" max="100" value="100" oninput="onSliderInput(this.value)">
         <div id="timeline-display">Master Timeline Sync</div>
@@ -156,11 +159,11 @@
     </div>
 
     <div class="rail-group" style="flex:1">
-      <div class="rail-title">Quick Containment</div>
-      <div id="quick-actions" style="font-size:10px;color:var(--text-dim)">Awaiting analysis...</div>
+      <div class="rail-title">Fast Containment Actions</div>
+      <div id="quick-actions" style="font-size:10.5px;color:var(--text-tertiary);display:flex;flex-direction:column;gap:5px">Awaiting analysis...</div>
     </div>
 
-  </div>
+  </aside>
 
   <!-- CENTER + RIGHT PANELS WRAPPER -->
   <div id="center-right">
@@ -168,7 +171,7 @@
     <!-- CENTER GRAPH CANVAS -->
     <div id="graph-panel">
       <div class="graph-watermark">
-        <span style="color:var(--red);box-shadow:0 0 6px var(--red);width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block"></span>
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--color-critical);display:inline-block"></span>
         <span>DYNAMIC ATTACK GRAPH — MITRE ATT&amp;CK RECONSTRUCTION</span>
       </div>
 
@@ -176,18 +179,18 @@
       <div class="graph-toolbar">
         <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
         <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">-</button>
-        <button class="tool-btn" onclick="fitGraph()" title="Fit to viewport">FIT</button>
-        <button class="tool-btn" onclick="reLayoutGraph()" title="Re-arrange layout">RE-LAYOUT</button>
+        <button class="tool-btn" onclick="fitGraph()" title="Fit to Viewport">FIT</button>
+        <button class="tool-btn" onclick="reLayoutGraph()" title="Re-arrange Graph Layout">RE-LAYOUT</button>
       </div>
 
       <div id="cy"></div>
 
       <!-- Visual Legend -->
       <div class="legend-box">
-        <div class="legend-item"><div class="leg-dot" style="border-color:var(--cyan);background:#0369A1"></div><span>[USER] Compromised Identity</span></div>
-        <div class="legend-item"><div class="leg-dot" style="border-color:var(--slate);background:#1E293B"></div><span>[DEVICE] Workstation / Server</span></div>
-        <div class="legend-item"><div class="leg-dot" style="border-color:var(--amber);background:#B45309"></div><span>[SERVICE] Service Account</span></div>
-        <div class="legend-item"><div class="leg-dot" style="border-color:var(--red);background:#B91C1C"></div><span>[EXT_IP] Ingress / C2 Endpoint</span></div>
+        <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-user-color);background:var(--entity-user-bg)"></div><span>[USER] Compromised Identity</span></div>
+        <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-device-color);background:var(--entity-device-bg)"></div><span>[DEVICE] Workstation / Server</span></div>
+        <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-service-color);background:var(--entity-service-bg)"></div><span>[SERVICE] Service Account</span></div>
+        <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-endpoint-color);background:var(--entity-endpoint-bg)"></div><span>[EXT_IP] Ingress / C2 Endpoint</span></div>
         <div class="legend-item"><div class="leg-line-solid"></div><span>Corroborated Edge (90–98%)</span></div>
         <div class="legend-item"><div class="leg-line-dash"></div><span>Inferred Gap Bridge (58–65%)</span></div>
       </div>
@@ -219,24 +222,23 @@
 
   </div><!-- end center-right -->
 
-</div><!-- end main-body -->
+</main><!-- end main-body -->
 
 <!-- ── BOTTOM DRAWER: EVIDENCE DNA INSPECTOR ─────────────────────────────── -->
 <div id="evidence-drawer">
   <div id="evidence-content">
     <div class="drawer-top">
       <div class="drawer-title">
-        <span>🧬</span>
-        <span>EVIDENCE DNA INSPECTOR — IMMUTABLE FORENSIC PROVENANCE LEDGER</span>
+        <span>FORENSIC EVIDENCE LEDGER — IMMUTABLE AUDIT PROVENANCE</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px">
         <button class="drawer-close-btn" onclick="copyCurrentEvidence()">Copy JSON</button>
         <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
       </div>
     </div>
     <div id="evidence-body">
-      <div style="color:var(--text-dim);font-size:11px;margin-top:20px;text-align:center;font-family:var(--font-mono)">
-        Click any node, edge, or clickable [LOG: LOG-XXXX] citation badge above to inspect exact raw forensic proof.
+      <div style="color:var(--text-tertiary);font-size:11px;margin-top:20px;text-align:center;font-family:var(--font-mono)">
+        Select any node, edge, or clickable [LOG: LOG-XXXX] citation tag to inspect verified raw audit telemetry.
       </div>
     </div>
   </div>
