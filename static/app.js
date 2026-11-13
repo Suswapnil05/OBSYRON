@@ -30,11 +30,11 @@ function isDarkMode() {
 
 function initTheme() {
   const saved = localStorage.getItem('obsyron_theme');
-  // Default is LIGHT mode unless user specifically saved 'dark'
-  if (saved === 'dark') {
-    document.body.classList.add('dark-theme');
-  } else {
+  // Default is Filigran Dark Midnight mode unless user explicitly selected 'light'
+  if (saved === 'light') {
     document.body.classList.remove('dark-theme');
+  } else {
+    document.body.classList.add('dark-theme');
   }
   updateThemeUI();
 }
@@ -198,20 +198,20 @@ function entityFillColor(type, isMalicious) {
   if (dark) {
     if (isMalicious) {
       const mal = {
-        USER: '#0C2338',
-        DEVICE: '#251518',
-        SERVICE: '#2B1D08',
-        AUTH_ENDPOINT: '#2D1013'
+        USER: '#081E38',
+        DEVICE: '#1E1838',
+        SERVICE: '#2D1B06',
+        AUTH_ENDPOINT: '#2E0C14'
       };
-      return mal[type] || '#221518';
+      return mal[type] || '#1E1838';
     }
-    return '#111622';
+    return '#0D1224';
   } else {
     // Light Mode Fills (clean pastel tints with great readability)
     if (isMalicious) {
       const mal = {
         USER: '#E0F2FE',       // Soft Sky Tint
-        DEVICE: '#FEE2E2',     // Soft Crimson Tint
+        DEVICE: '#F3E8FF',     // Soft Violet Tint
         SERVICE: '#FEF3C7',    // Soft Amber Tint
         AUTH_ENDPOINT: '#FEE2E2' // Soft Crimson Tint
       };
@@ -226,15 +226,15 @@ function entityStrokeColor(type) {
   if (dark) {
     const map = {
       USER: '#38BDF8',
-      DEVICE: '#64748B',
+      DEVICE: '#818CF8',
       SERVICE: '#F59E0B',
       AUTH_ENDPOINT: '#EF4444'
     };
-    return map[type] || '#64748B';
+    return map[type] || '#818CF8';
   } else {
     const map = {
       USER: '#0284C7',
-      DEVICE: '#64748B',
+      DEVICE: '#6366F1',
       SERVICE: '#D97706',
       AUTH_ENDPOINT: '#DC2626'
     };
@@ -246,13 +246,13 @@ function renderGraph(data) {
   const container = document.getElementById('cy');
   const dark = isDarkMode();
 
-  const nodeTextColor = dark ? '#F8FAFC' : '#0F172A';
-  const edgeLineColor = dark ? '#475569' : '#94A3B8';
+  const nodeTextColor = dark ? '#FFFFFF' : '#0F172A';
+  const edgeLineColor = dark ? '#334155' : '#94A3B8';
   const edgeCriticalColor = dark ? '#EF4444' : '#DC2626';
   const edgeInferredColor = dark ? '#F59E0B' : '#D97706';
-  const edgeTextBg = dark ? '#0B0F17' : '#FFFFFF';
-  const edgeTextColor = dark ? '#CBD5E1' : '#0F172A';
-  const selectBorderColor = dark ? '#38BDF8' : '#0284C7';
+  const edgeTextBg = dark ? '#00020C' : '#FFFFFF';
+  const edgeTextColor = dark ? '#E2E8F0' : '#0F172A';
+  const selectBorderColor = dark ? '#6FD7FF' : '#0284C7';
   const ancestorColor = dark ? '#38BDF8' : '#0284C7';
   const descendantColor = dark ? '#EF4444' : '#DC2626';
 
@@ -456,7 +456,18 @@ function renderGraph(data) {
       closeDrawer();
     }
   });
+
+  setTimeout(() => {
+    if (state.cy) {
+      state.cy.resize();
+      state.cy.fit(null, 30);
+    }
+  }, 100);
 }
+
+window.addEventListener('resize', () => {
+  if (state.cy) state.cy.resize();
+});
 
 function highlightBlastRadius(node) {
   if (!state.cy) return;
