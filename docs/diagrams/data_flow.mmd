@@ -1,0 +1,8 @@
+flowchart LR
+    A["Raw JSON/CSV Logs"] --> B["Clock Skew Offset: t_norm = t_raw - delta_t"]
+    B --> C["Temporal Sort: t_norm ASC"]
+    C --> D["MultiDiGraph Node/Edge Insertion"]
+    D --> E["Centrality & Path Traversal"]
+    E --> F["Cytoscape.js Graph Payload"]
+    E --> G["XAI Narrative & Provenance Tags"]
+    E --> H["Containment Playbook Generation"]

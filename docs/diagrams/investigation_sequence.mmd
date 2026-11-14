@@ -1,0 +1,13 @@
+sequenceDiagram
+    autonumber
+    Analyst->>Cockpit: Click "Reconstruct Attack Graph"
+    Cockpit->>FastAPI: POST /api/analyze
+    FastAPI->>Ingestor: normalize_logs(raw_logs)
+    Ingestor-->>FastAPI: Sorted Normalized Logs
+    FastAPI->>GraphEngine: build_attack_graph(normalized_logs)
+    GraphEngine-->>FastAPI: Cytoscape Nodes, Edges, RCA, Blast Radius
+    FastAPI->>Reporter: generate_json_report()
+    Reporter-->>FastAPI: Structured XAI Narrative
+    FastAPI-->>Cockpit: 200 OK
+    Cockpit->>Cytoscape: renderGraph(data)
+    Cockpit->>Analyst: Interactive Attack Graph & XAI Narrative

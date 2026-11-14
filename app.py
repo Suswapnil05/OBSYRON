@@ -5,7 +5,7 @@ HackInnovision 2026 (Track C) — Complete FastAPI Backend Server
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 import uvicorn, json, os, tempfile, random, secrets
 from datetime import datetime, timezone, timedelta
@@ -14,6 +14,7 @@ from typing import Optional, Dict, Any, List
 from log_generator import generate_logs
 from ingestor import normalize_logs, parse_uploaded_file, get_timeline_snapshot
 from graph_engine import build_attack_graph, get_root_cause, get_blast_radius, get_graph_confidence
+from reporter import generate_json_report, generate_csv_evidence_ledger, generate_markdown_report, generate_audio_script
 
 app = FastAPI(
     title="OBSYRON",
@@ -62,10 +63,13 @@ async def vercel_path_normalizer(request: Request, call_next):
 # ── Directory Paths & Static Mount ──────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+SAMPLE_DATA_DIR = os.path.join(BASE_DIR, "sample-data")
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(SAMPLE_DATA_DIR, exist_ok=True)
 
 # Mount /static route for frontend assets
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/sample-data", StaticFiles(directory=SAMPLE_DATA_DIR), name="sample-data")
 
 # ── In-Memory Investigation Cache ───────────────────────────────────────────
 _cache: Dict[str, Any] = {
@@ -299,6 +303,7 @@ async def login_page():
 
 
 @app.get("/api/auth/operators")
+@app.get("/auth/operators")
 async def get_operators():
     """Return available pre-configured operator roles for quick 1-click clearance selection."""
     public_ops = []
@@ -318,6 +323,7 @@ async def get_operators():
 
 
 @app.post("/api/auth/login")
+@app.post("/auth/login")
 async def auth_login(req: LoginRequest):
     """Authorize a SOC operator and mint an immutable cryptographic session token."""
     uname = req.username.strip().lower()
@@ -372,6 +378,7 @@ async def auth_login(req: LoginRequest):
 
 
 @app.post("/api/auth/signup")
+@app.post("/auth/signup")
 async def auth_signup(req: SignupRequest):
     """Register a new user operator with defense clearance credentials."""
     uname = req.username.strip().lower()
@@ -441,6 +448,7 @@ async def auth_signup(req: SignupRequest):
 
 
 @app.get("/api/auth/me")
+@app.get("/auth/me")
 async def auth_me(authorization: Optional[str] = Header(None)):
     """Validate current operator session token and return identity info."""
     if not authorization:
@@ -468,6 +476,7 @@ async def auth_me(authorization: Optional[str] = Header(None)):
 
 
 @app.post("/api/auth/logout")
+@app.post("/auth/logout")
 async def auth_logout(authorization: Optional[str] = Header(None)):
     """Revoke operator session token and record terminal logout in audit log."""
     if authorization:
@@ -629,6 +638,167 @@ async def upload_logs(file: UploadFile = File(...)):
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+# ── Extended Forensic CIRT & Reporting Endpoints ────────────────────────────
+
+@app.get("/api/health")
+@app.get("/health")
+async def health_check():
+    """Health status, runtime mode (local vs. serverless), engine uptime, cached records."""
+    return JSONResponse({
+        "status": "healthy",
+        "service": "OBSYRON XTM 2.0",
+        "version": "2.0.0-CIRT",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "runtime_mode": "serverless" if os.environ.get("VERCEL") else "local-first",
+        "cached_logs": len(_cache.get("normalized_logs", [])),
+        "active_investigation_id": "OBS-INV-20261114-001"
+    })
+
+
+@app.get("/api/investigations")
+@app.get("/investigations")
+async def list_investigations():
+    """List active and historical forensic investigation records."""
+    return JSONResponse({
+        "investigations": [
+            {
+                "id": "OBS-INV-20261114-001",
+                "title": "APT Stealth Ingress & Exfiltration (TOR -> wkst-04-dev -> db-prod-01)",
+                "status": "ACTIVE_INVESTIGATION",
+                "created_at": "2026-11-14T01:00:00+05:30",
+                "patient_zero": "185.220.101.47",
+                "severity": "CRITICAL",
+                "signals": _cache.get("analysis_result", {}).get("malicious_signal_count", 6)
+            },
+            {
+                "id": "OBS-INV-20261113-002",
+                "title": "Simulated Active Directory Kerberoasting Baseline",
+                "status": "CONCLUDED",
+                "created_at": "2026-11-13T19:30:00+05:30",
+                "patient_zero": "wkst-07-fin",
+                "severity": "MEDIUM",
+                "signals": 2
+            }
+        ]
+    })
+
+
+@app.get("/api/investigations/{investigation_id}")
+@app.get("/investigations/{investigation_id}")
+async def get_investigation_details(investigation_id: str):
+    """Retrieve full analysis snapshot for a specific investigation id."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    return JSONResponse({
+        "investigation_id": investigation_id,
+        "details": _cache["analysis_result"],
+        "metadata": {
+            "title": "APT Stealth Ingress & Exfiltration",
+            "cirt_lead": "Cmdr. Maya Thorne",
+            "clearance": "Level 4 (Top Secret / SCI)"
+        }
+    })
+
+
+@app.get("/api/investigations/{investigation_id}/report")
+@app.get("/investigations/{investigation_id}/report")
+async def get_investigation_report(investigation_id: str):
+    """Generate structured NIST SP 800-61 JSON forensic investigation report."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    rep = generate_json_report(_cache["analysis_result"], investigation_id=investigation_id)
+    return JSONResponse(rep)
+
+
+@app.get("/api/investigations/{investigation_id}/evidence")
+@app.get("/investigations/{investigation_id}/evidence")
+async def get_investigation_evidence(investigation_id: str):
+    """Extract full evidence provenance ledger for an investigation."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+
+    mal_logs = [l for l in _cache["normalized_logs"] if l.get("is_malicious")]
+    return JSONResponse({
+        "investigation_id": investigation_id,
+        "total_evidence_records": len(mal_logs),
+        "evidence_ledger": mal_logs
+    })
+
+
+class ExportRequest(BaseModel):
+    format: str = "json"  # "json", "csv", "markdown"
+    investigation_id: Optional[str] = "OBS-INV-20261114-001"
+
+
+@app.post("/api/reports/export")
+@app.post("/reports/export")
+async def export_report(req: ExportRequest):
+    """Export investigation report as JSON, CSV evidence ledger, or Markdown briefing."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    fmt = req.format.lower()
+    if fmt == "csv":
+        csv_data = generate_csv_evidence_ledger(_cache["normalized_logs"])
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=obsyron-evidence-ledger-{req.investigation_id}.csv"}
+        )
+    elif fmt in ["markdown", "md"]:
+        md_data = generate_markdown_report(_cache["analysis_result"], investigation_id=req.investigation_id)
+        return PlainTextResponse(
+            content=md_data,
+            headers={"Content-Disposition": f"attachment; filename=obsyron-briefing-{req.investigation_id}.md"}
+        )
+    else:
+        rep = generate_json_report(_cache["analysis_result"], investigation_id=req.investigation_id)
+        return JSONResponse(
+            content=rep,
+            headers={"Content-Disposition": f"attachment; filename=obsyron-report-{req.investigation_id}.json"}
+        )
+
+
+@app.post("/api/briefing/audio")
+@app.post("/briefing/audio")
+async def get_audio_briefing():
+    """Synthesize executive voice debrief narrative for autonomous audio playback."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    script = generate_audio_script(_cache["analysis_result"])
+    return JSONResponse({
+        "script": script,
+        "voice": "en-US-Neural2-D",
+        "audio_url": None,
+        "status": "ready"
+    })
+
+
+@app.post("/api/simulation/reset")
+@app.post("/simulation/reset")
+async def simulation_reset():
+    """Purge in-memory telemetry simulation cache and restore clean state."""
+    _cache["normalized_logs"] = []
+    _cache["analysis_result"] = {}
+    _cache["last_settings"] = {}
+    return JSONResponse({
+        "success": True,
+        "message": "Telemetry simulation cache purged. State reset to baseline zero."
+    })
 
 
 if __name__ == "__main__":

@@ -710,8 +710,19 @@
     submitBtn.disabled = true;
     submitText.textContent = 'VERIFYING SECURITY CLEARANCE...';
 
+    async function apiFetch(url, opts) {
+      try {
+        const r = await fetch(url, opts);
+        if (r.status === 404 && url.startsWith('/api/')) return await fetch(url.replace('/api/', '/'), opts);
+        return r;
+      } catch (e) {
+        if (url.startsWith('/api/')) return await fetch(url.replace('/api/', '/'), opts);
+        throw e;
+      }
+    }
+
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -763,8 +774,19 @@
     submitBtn.disabled = true;
     submitText.textContent = 'ENROLLING OPERATOR IN LEDGER...';
 
+    async function apiFetch(url, opts) {
+      try {
+        const r = await fetch(url, opts);
+        if (r.status === 404 && url.startsWith('/api/')) return await fetch(url.replace('/api/', '/'), opts);
+        return r;
+      } catch (e) {
+        if (url.startsWith('/api/')) return await fetch(url.replace('/api/', '/'), opts);
+        throw e;
+      }
+    }
+
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await apiFetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
