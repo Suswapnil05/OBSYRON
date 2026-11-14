@@ -12,14 +12,17 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
 from log_generator import generate_logs
-from ingestor import normalize_logs, parse_uploaded_file, get_timeline_snapshot
+from ingestor import normalize_logs, parse_uploaded_file, get_timeline_snapshot, compute_log_sha256
 from graph_engine import (
     build_attack_graph,
     get_root_cause,
     get_blast_radius,
     get_graph_confidence,
     get_graph_deep_metrics,
-    simulate_what_if_containment
+    simulate_what_if_containment,
+    get_missing_evidence_warnings,
+    generate_dynamic_attack_story,
+    get_explainable_confidence_breakdown
 )
 from reporter import generate_json_report, generate_csv_evidence_ledger, generate_markdown_report, generate_audio_script
 from stix_exporter import generate_stix_bundle
@@ -30,8 +33,10 @@ from containment_engine import (
     rollback_containment_action,
     list_containment_history
 )
-from merkle_tree import ForensicMerkleTree, verify_merkle_proof
+from merkle_tree import ForensicMerkleTree, verify_merkle_proof, generate_merkle_tree
 from scenario_manager import list_available_scenarios, get_scenario_metadata, load_scenario_telemetry
+from chaos_engine import run_ingestion_chaos_simulation, generate_deterministic_chaos_dataset
+from deception_engine import convert_deception_to_normalized_logs, correlate_deception_with_investigation
 
 app = FastAPI(
     title="OBSYRON",
@@ -106,110 +111,12 @@ def _run_full_analysis(normalized_logs: List[dict], raw_count: int) -> Dict[str,
     confidence = get_graph_confidence(G)
 
     malicious_logs = [l for l in normalized_logs if l.get("is_malicious")]
-    mal_ids = {l["log_id"] for l in malicious_logs}
 
-    # Synthesize Explainable AI (XAI) kill-chain report grounded in immutable log citations
-    xai_steps = [
-        {
-            "step": 1,
-            "title": "Initial Access & External Ingress",
-            "narrative": (
-                "An external IP address (185.220.101.47, confirmed TOR exit relay) authenticated "
-                "to employee identity 'emp_rohan' on developer workstation 'wkst-04-dev' at 01:15 IST. "
-                "The authentication occurred outside regular enterprise working hours. The session "
-                "used valid user credentials without initial credential stuffing failure spikes, "
-                "indicating prior credential compromise or targeted spear-phishing."
-            ),
-            "log_citations": ["LOG-APT-001"],
-            "mitre": "T1078",
-            "mitre_name": "Valid Accounts (Initial Access)",
-            "confidence": 0.96,
-            "is_inferred": False,
-            "present": "LOG-APT-001" in mal_ids,
-        },
-        {
-            "step": 2,
-            "title": "Internal Active Directory Discovery",
-            "narrative": (
-                "Immediately following successful initial login, the adversary executed 'net user /domain' "
-                "on wkst-04-dev, enumerating 42 domain accounts over LDAP port 389. This internal discovery "
-                "action maps Active Directory infrastructure to identify high-privilege service accounts "
-                "for subsequent credential dumping."
-            ),
-            "log_citations": ["LOG-APT-002"],
-            "mitre": "T1087",
-            "mitre_name": "Account Discovery (Reconnaissance)",
-            "confidence": 0.93,
-            "is_inferred": False,
-            "present": "LOG-APT-002" in mal_ids,
-        },
-        {
-            "step": 3,
-            "title": "Service Account Privilege Escalation",
-            "narrative": (
-                "Service account 'svc_ci_deploy' was silently granted 'SeDebugPrivilege' on wkst-04-dev "
-                "at 01:18 IST. SeDebugPrivilege bypasses process memory isolation, granting access to the "
-                "Local Security Authority Subsystem Service (LSASS) for token impersonation and ticket theft."
-            ) if "LOG-APT-003" in mal_ids else (
-                "⚠️ INFERRED LATERAL BRIDGE: Direct privilege escalation log (LOG-APT-003) is missing from "
-                "telemetry (fragmented log stream). Based on temporal proximity — LDAP discovery on wkst-04-dev "
-                "at 01:16 followed by svc_ci_deploy lateral authentication to db-prod-01 at 01:20 — privilege "
-                "elevation is mathematically inferred to have taken place on wkst-04-dev. Inferred bridge "
-                "confidence is penalized to 61%."
-            ),
-            "log_citations": ["LOG-APT-003"] if "LOG-APT-003" in mal_ids else ["INFERRED"],
-            "mitre": "T1558",
-            "mitre_name": "Steal or Forge Kerberos Tickets (Privilege Escalation)",
-            "confidence": 0.91 if "LOG-APT-003" in mal_ids else 0.61,
-            "is_inferred": "LOG-APT-003" not in mal_ids,
-            "present": True,
-        },
-        {
-            "step": 4,
-            "title": "Lateral Movement via Remote Services",
-            "narrative": (
-                "The adversary leveraged elevated privileges under 'svc_ci_deploy' to pivot laterally to "
-                "production database host 'db-prod-01' via SMB port 445 (ADMIN$ share) at 01:20 IST. "
-                "NTLM authentication bypassed multi-factor authentication requirements for automated service accounts."
-            ),
-            "log_citations": ["LOG-APT-004"],
-            "mitre": "T1021",
-            "mitre_name": "Remote Services / SMB (Lateral Movement)",
-            "confidence": 0.95,
-            "is_inferred": False,
-            "present": "LOG-APT-004" in mal_ids,
-        },
-        {
-            "step": 5,
-            "title": "Data Exfiltration to External Egress",
-            "narrative": (
-                "Production database host 'db-prod-01' established an outbound TCP connection on non-standard "
-                "port 4444 to external adversary IP 185.220.101.47 at 01:22 IST. A total of 2.457 MB of data "
-                "was egressed, consistent with compressed production database schema and table dumps."
-            ),
-            "log_citations": ["LOG-APT-005"],
-            "mitre": "T1048",
-            "mitre_name": "Exfiltration Over Alternative Protocol",
-            "confidence": 0.97,
-            "is_inferred": False,
-            "present": "LOG-APT-005" in mal_ids,
-        },
-        {
-            "step": 6,
-            "title": "Command & Control Beacon Established",
-            "narrative": (
-                "A persistent Command & Control beacon was confirmed between db-prod-01 and 185.220.101.47 "
-                "operating with a 30-second heartbeat interval over encrypted TCP:4444. This confirms persistent "
-                "remote shell access across the production database tier."
-            ),
-            "log_citations": ["LOG-APT-006"],
-            "mitre": "T1048",
-            "mitre_name": "Command and Control Callback",
-            "confidence": 0.94,
-            "is_inferred": False,
-            "present": "LOG-APT-006" in mal_ids,
-        },
-    ]
+    # Synthesize Explainable AI (XAI) kill-chain report dynamically grounded in immutable evidence
+    xai_steps = generate_dynamic_attack_story(G, normalized_logs)
+    missing_warnings = get_missing_evidence_warnings(G, normalized_logs)
+    merkle_info = generate_merkle_tree(normalized_logs)
+    deception_intel = correlate_deception_with_investigation(normalized_logs)
 
     timeline_sorted = sorted(normalized_logs, key=lambda x: x.get("normalized_timestamp", ""))
     timeline_min = timeline_sorted[0]["normalized_timestamp"]  if timeline_sorted else ""
@@ -226,6 +133,9 @@ def _run_full_analysis(normalized_logs: List[dict], raw_count: int) -> Dict[str,
         "timeline_min":           timeline_min,
         "timeline_max":           timeline_max,
         "xai_report":             xai_steps,
+        "missing_evidence_warnings": missing_warnings,
+        "merkle_root":            merkle_info["merkle_root"],
+        "deception_intel":        deception_intel,
         "snr": f"{raw_count} Raw Logs → {len(malicious_logs)} Malicious Signals",
     }
 
@@ -579,11 +489,16 @@ async def get_evidence(log_id: str):
 
     for log in _cache.get("normalized_logs", []):
         if log.get("log_id") == log_id:
+            conf_breakdown = get_explainable_confidence_breakdown(log)
             return JSONResponse({
                 "log_id":               log.get("log_id"),
+                "event_timestamp":      log.get("event_timestamp", log.get("normalized_timestamp")),
+                "ingestion_timestamp":  log.get("ingestion_timestamp", log.get("raw_timestamp")),
                 "raw_timestamp":        log.get("raw_timestamp"),
                 "normalized_timestamp": log.get("normalized_timestamp"),
                 "skew_corrected_sec":   log.get("skew_corrected_sec", 0),
+                "delay_sec":            log.get("delay_sec", 1.2),
+                "is_late_arriving":     log.get("is_late_arriving", False),
                 "source_host":          log.get("source_host"),
                 "host_skew_sec":        log.get("host_skew_sec", 0),
                 "entity_type":          log.get("entity_type"),
@@ -597,17 +512,27 @@ async def get_evidence(log_id: str):
                 "severity":             log.get("severity"),
                 "is_malicious":         log.get("is_malicious"),
                 "raw_payload":          log.get("raw_payload"),
-                "confidence":           0.96 if log.get("is_malicious") else 0.75,
+                "sha256_hash":          log.get("sha256_hash", compute_log_sha256(log)),
+                "causal_connection":    log.get("causal_connection", ""),
+                "supporting_evidence":  log.get("supporting_evidence", []),
+                "contradictory_evidence": log.get("contradictory_evidence", []),
+                "confidence_breakdown": conf_breakdown,
+                "confidence":           conf_breakdown["confidence_score"],
                 "is_inferred":          False,
             })
 
     # Special handling for synthesized gap-bridge evidence
-    if log_id == "INFERRED":
+    if log_id in ["INFERRED", "INFERRED-GAP-BRIDGE"]:
+        bridge_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         return JSONResponse({
-            "log_id":               "INFERRED",
-            "raw_timestamp":        "2026-11-14T01:18:12+05:30 (Reconstructed from host drift)",
+            "log_id":               "INFERRED-GAP-BRIDGE",
+            "event_timestamp":      "2026-11-14T01:18:00+05:30 (Master Timeline)",
+            "ingestion_timestamp":  "2026-11-14T01:18:00+05:30 (Synthetic)",
+            "raw_timestamp":        "2026-11-14T01:18:12+05:30 (Drifted)",
             "normalized_timestamp": "2026-11-14T01:18:00+05:30 (Master Timeline)",
             "skew_corrected_sec":   -12,
+            "delay_sec":            0.0,
+            "is_late_arriving":     False,
             "source_host":          "wkst-04-dev",
             "host_skew_sec":        12,
             "entity_type":          "SERVICE",
@@ -622,11 +547,33 @@ async def get_evidence(log_id: str):
             "is_malicious":         True,
             "raw_payload":          json.dumps({
                 "event": "INFERRED_LATERAL_BRIDGE",
-                "missing_telemetry": "LOG-APT-003 dropped by simulated network congestion / log evasion",
-                "heuristic_basis": "Adversary LDAP account discovery on wkst-04-dev at 01:16 is followed by svc_ci_deploy lateral movement to db-prod-01 at 01:20. Inferred privilege escalation bridge spans 4-minute window.",
+                "missing_telemetry": "Intermediate privilege escalation log dropped by network congestion",
+                "heuristic_basis": "LDAP discovery on wkst-04-dev at 01:16 succeeded by svc_ci_deploy lateral move at 01:20. Temporal proximity and shared identity infer privilege escalation occurred on wkst-04-dev.",
                 "confidence_score": 0.61,
                 "confidence_penalty": "Confidence penalized -34% due to absence of direct OS event audit log."
             }),
+            "sha256_hash":          bridge_hash,
+            "causal_connection":    "Inferred Lateral Bridge: Reconstructs severed attack path between reconnaissance and database pivot.",
+            "supporting_evidence":  [
+                "Temporal proximity window: 4 minutes between reconnaissance and database access",
+                "Source workstation matches Patient Zero compromise path",
+                "Service account subsequently authenticated without prior legitimate interactive login"
+            ],
+            "contradictory_evidence": [
+                "Direct OS Security Event 4672 was absent in raw telemetry stream",
+                "No process memory dump file recorded on endpoint disk"
+            ],
+            "confidence_breakdown": {
+                "confidence_score": 0.61,
+                "confidence_percentage": 61.0,
+                "uncertainty_indicator": "INFERRED_HYPOTHESIS",
+                "scoring_breakdown": {
+                    "base_observation": 0.65,
+                    "corroboration_bonus": 0.05,
+                    "temporal_proximity_bonus": 0.10,
+                    "missing_telemetry_gap_penalty": -0.19
+                }
+            },
             "confidence":           0.61,
             "is_inferred":          True,
         })
@@ -1022,6 +969,84 @@ async def load_scenario(req: ScenarioLoadRequest):
         "scenario": meta,
         "analysis_result": result
     })
+
+
+# ── Ingestion Chaos Simulation Benchmark ────────────────────────────────────
+
+@app.get("/api/chaos/simulate")
+@app.get("/chaos/simulate")
+@app.post("/api/chaos/simulate")
+@app.post("/chaos/simulate")
+async def api_simulate_chaos():
+    """
+    Executes deterministic Ingestion Chaos benchmark featuring out-of-order logs,
+    clock skew drift (±12s), duplicate re-transmissions, network buffer delays,
+    and dropped telemetry gap recovery.
+    """
+    sim_result = run_ingestion_chaos_simulation()
+    # Cache reconstructed graph so all dashboard panels reflect the chaos run
+    _cache["normalized_logs"] = normalize_logs(generate_deterministic_chaos_dataset()["raw_logs"])
+    _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], sim_result["metrics"]["incoming_raw_packets"])
+    return JSONResponse(sim_result)
+
+
+# ── Deception Intelligence & Honeypot Integration ───────────────────────────
+
+@app.get("/api/deception/intel")
+@app.get("/deception/intel")
+async def api_get_deception_intel():
+    """Retrieve correlated Cowrie SSH and OpenCanary deception intelligence."""
+    current_logs = _cache.get("normalized_logs") or normalize_logs(generate_logs())
+    intel = correlate_deception_with_investigation(current_logs)
+    return JSONResponse(intel)
+
+
+@app.post("/api/deception/import")
+@app.post("/deception/import")
+@app.get("/api/deception/import")
+@app.get("/deception/import")
+async def api_import_deception_telemetry():
+    """
+    Injects Cowrie SSH honeypot keystrokes and OpenCanary trap events into the active
+    investigation multigraph, correlating decoy triggers with Patient Zero.
+    """
+    if not _cache.get("normalized_logs"):
+        _cache["normalized_logs"] = normalize_logs(generate_logs())
+
+    deception_logs = convert_deception_to_normalized_logs()
+    combined_logs = _cache["normalized_logs"] + deception_logs
+    normalized_combined = normalize_logs(combined_logs)
+
+    result = _run_full_analysis(normalized_combined, len(combined_logs))
+    _cache["normalized_logs"] = normalized_combined
+    _cache["analysis_result"] = result
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Successfully injected and correlated {len(deception_logs)} deception telemetry events (Cowrie SSH & OpenCanary).",
+        "deception_events_count": len(deception_logs),
+        "analysis_result": result
+    })
+
+
+# ── Report Preview Endpoints ────────────────────────────────────────────────
+
+@app.get("/api/reports/preview")
+@app.get("/reports/preview")
+async def api_preview_report(format: str = Query("markdown"), investigation_id: Optional[str] = "OBS-INV-20261114-001"):
+    """Preview formatted forensic incident report on-screen."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    op = OPERATORS.get("analyst_lead")
+    if format.lower() in ["markdown", "md"]:
+        md_text = generate_markdown_report(_cache["analysis_result"], operator_info=op, investigation_id=investigation_id)
+        return PlainTextResponse(md_text, media_type="text/markdown")
+    else:
+        rep_json = generate_json_report(_cache["analysis_result"], operator_info=op, investigation_id=investigation_id)
+        return JSONResponse(rep_json)
 
 
 if __name__ == "__main__":
