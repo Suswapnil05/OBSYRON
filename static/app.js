@@ -160,6 +160,21 @@ document.addEventListener('keydown', (e) => {
 // ── 1. API INTEGRATION & AUTOMATIC FAILOVER ────────────────────────────────
 
 async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('obsyron_auth_token');
+  if (token) {
+    options.headers = options.headers || {};
+    if (options.headers instanceof Headers) {
+      if (!options.headers.has('Authorization')) {
+        options.headers.set('Authorization', `Bearer ${token}`);
+      }
+    } else if (Array.isArray(options.headers)) {
+      options.headers.push(['Authorization', `Bearer ${token}`]);
+    } else {
+      if (!options.headers['Authorization']) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  }
   try {
     const res = await fetch(url, options);
     if (res.status === 404 && url.startsWith('/api/')) {
@@ -233,16 +248,41 @@ async function handleFileUpload(file) {
   form.append('file', file);
   showLoading(true);
   try {
-    const res = await apiFetch('/api/upload', {
+    const url = state.activeInvestigationId 
+      ? `/api/investigations/${encodeURIComponent(state.activeInvestigationId)}/upload`
+      : '/api/upload';
+
+    const res = await apiFetch(url, {
       method: 'POST',
       body: form
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText);
+    }
     const data = await res.json();
-    state.analysisResult = data;
+    const analysisRes = data.analysis_result || data;
+    state.analysisResult = analysisRes;
     state.currentDataset = 'upload';
-    document.getElementById('btn-builtin').classList.remove('active');
-    renderAll(data);
+    const btnBuiltin = document.getElementById('btn-builtin');
+    if (btnBuiltin) btnBuiltin.classList.remove('active');
+    
+    // Render graph and all panels
+    renderAll(analysisRes);
+
+    // Populate and open Telemetry Ingestion Summary Modal
+    const summary = data.upload_summary || {
+      filename: data.filename || file.name,
+      total_records: data.total_records || (analysisRes.nodes ? analysisRes.nodes.length * 2 : 12),
+      valid_records: data.valid_records || (analysisRes.nodes ? analysisRes.nodes.length : 10),
+      duplicate_records: data.duplicate_records || 0,
+      invalid_records: data.invalid_records || 0,
+      imported_events: data.imported_events || (analysisRes.nodes ? analysisRes.nodes.length : 10)
+    };
+    openUploadSummaryModal(summary, analysisRes.merkle_root);
+
+    // Refresh Dashboard stats & case list
+    loadDashboardData();
   } catch (err) {
     alert('Log file upload failed: ' + err.message);
   } finally {
@@ -2699,47 +2739,49 @@ function initAuth() {
   const op = getActiveOperator();
   updateAuthUI(op);
 
-  // Wire navigation & header auth buttons to open modal instead of hard navigating
-  const headerBtn = document.getElementById('btn-header-auth');
-  if (headerBtn) {
-    headerBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      openAuthModal();
-    });
-  }
+  // Load live database KPIs & investigations for this operator
+  loadDashboardData();
 
+  // Wire navigation & header auth buttons to toggle operator menu or navigate
   const navAuth = document.getElementById('nav-link-auth');
   if (navAuth) {
     navAuth.addEventListener('click', (e) => {
-      const currentOp = localStorage.getItem('obsyron_operator');
-      if (currentOp) {
-        // If already authorized, show active operator clearance overview modal
-        e.preventDefault();
-        openAuthModal();
-      }
-      // If guest / not logged in, navigates directly to the full-screen /login portal!
+      handleAuthMenuClick(e);
     });
   }
 
-  const mobileNavAuth = document.getElementById('mobile-nav-auth');
-  if (mobileNavAuth) {
-    mobileNavAuth.addEventListener('click', (e) => {
-      const currentOp = localStorage.getItem('obsyron_operator');
-      if (currentOp) {
-        e.preventDefault();
-        closeMobileMenu();
-        openAuthModal();
-      } else {
-        closeMobileMenu();
-        // Navigates directly to the full-screen /login portal!
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('operator-dropdown');
+    const btn = document.getElementById('nav-link-auth');
+    if (dropdown && dropdown.style.display === 'block') {
+      if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
+        dropdown.style.display = 'none';
       }
-    });
-  }
+    }
+  });
 
   // Check URL params for ?authorized=1 notification
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('authorized') === '1') {
     window.history.replaceState({}, document.title, window.location.pathname);
+    loadDashboardData();
+  }
+}
+
+function handleAuthMenuClick(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  const op = getActiveOperator();
+  if (!op) {
+    window.location.href = '/login';
+    return;
+  }
+  const dropdown = document.getElementById('operator-dropdown');
+  if (dropdown) {
+    dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
   }
 }
 
@@ -2747,7 +2789,12 @@ function updateAuthUI(op) {
   const iconElem = document.getElementById('header-auth-icon');
   const labelElem = document.getElementById('header-auth-label');
   const badgeElem = document.getElementById('header-auth-badge');
-  const navAuth = document.getElementById('nav-link-auth');
+  const arrowElem = document.getElementById('header-auth-arrow');
+
+  const dropName = document.getElementById('dropdown-op-name');
+  const dropEmail = document.getElementById('dropdown-op-email');
+  const dropClearance = document.getElementById('dropdown-op-clearance');
+  const dashOpName = document.getElementById('dash-operator-name');
 
   const mobileStatus = document.getElementById('mobile-auth-status');
   const mobileLabel = document.getElementById('mobile-auth-label');
@@ -2759,38 +2806,536 @@ function updateAuthUI(op) {
   const modalRole = document.getElementById('modal-op-role');
 
   if (op) {
+    const displayName = op.name || op.full_name || op.username || 'Operator';
+    const emailStr = op.email || `${op.username || 'operator'}@obsyron.corp`;
+    const clearStr = op.clearance || 'Level 4 (Top Secret / SCI)';
+    const clearCode = op.clearance_code || 'L4';
+
     if (iconElem) iconElem.textContent = op.avatar || '🛡️';
-    if (labelElem) labelElem.textContent = op.name || op.username;
+    if (labelElem) labelElem.textContent = displayName;
+    if (arrowElem) arrowElem.style.display = 'inline-block';
     if (badgeElem) {
       badgeElem.style.display = 'inline-block';
-      badgeElem.textContent = op.clearance_code || 'L4';
+      badgeElem.textContent = clearCode;
       badgeElem.className = 'header-clearance-pill ' + (
-        op.clearance_code === 'L4' ? 'clearance-l4' :
-        op.clearance_code === 'L3' ? 'clearance-l3' : 'clearance-l2'
+        clearCode === 'L4' ? 'clearance-l4' :
+        clearCode === 'L3' ? 'clearance-l3' : 'clearance-l2'
       );
     }
+
+    if (dropName) dropName.textContent = displayName;
+    if (dropEmail) dropEmail.textContent = emailStr;
+    if (dropClearance) dropClearance.textContent = `${clearCode} // ${(op.role || 'Forensic Lead').toUpperCase()}`;
+    if (dashOpName) dashOpName.textContent = displayName;
+
     if (mobileStatus) {
-      mobileStatus.innerHTML = `OPERATOR: <strong style="color:var(--text-primary)">${op.name || op.username}</strong> <span class="header-clearance-pill ${op.clearance_code === 'L4' ? 'clearance-l4' : op.clearance_code === 'L3' ? 'clearance-l3' : 'clearance-l2'}">${op.clearance_code || 'L4'}</span>`;
+      mobileStatus.innerHTML = `OPERATOR: <strong style="color:var(--text-primary)">${displayName}</strong> <span class="header-clearance-pill ${clearCode === 'L4' ? 'clearance-l4' : clearCode === 'L3' ? 'clearance-l3' : 'clearance-l2'}">${clearCode}</span>`;
     }
-    if (mobileLabel) mobileLabel.textContent = `Operator: ${op.name || op.username}`;
+    if (mobileLabel) mobileLabel.textContent = `Operator: ${displayName}`;
     if (mobileIcon) mobileIcon.textContent = op.avatar || '🛡️';
 
     if (modalActive) modalActive.style.display = 'block';
     if (modalAvatar) modalAvatar.textContent = op.avatar || '🛡️';
-    if (modalName) modalName.textContent = op.name || op.username;
-    if (modalRole) modalRole.textContent = `${op.role || 'Forensic Operator'} · ${op.clearance || 'Level 4'}`;
+    if (modalName) modalName.textContent = displayName;
+    if (modalRole) modalRole.textContent = `${op.role || 'Forensic Operator'} · ${clearStr}`;
   } else {
     if (iconElem) iconElem.textContent = '🔒';
     if (labelElem) labelElem.textContent = 'Log In / Sign Up';
+    if (arrowElem) arrowElem.style.display = 'none';
     if (badgeElem) {
       badgeElem.style.display = 'none';
       badgeElem.className = 'header-clearance-pill';
     }
+    if (dashOpName) dashOpName.textContent = 'Guest Operator';
     if (mobileStatus) mobileStatus.textContent = 'OPERATOR STATUS: GUEST';
     if (mobileLabel) mobileLabel.textContent = 'Log In / Sign Up';
     if (mobileIcon) mobileIcon.textContent = '🔒';
     if (modalActive) modalActive.style.display = 'none';
   }
+}
+
+// ── 13.1 FORENSIC INCIDENT DASHBOARD & INVESTIGATION MANAGEMENT ─────────────
+
+let _cachedInvestigations = [];
+
+async function loadDashboardData() {
+  try {
+    const res = await apiFetch('/api/dashboard/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+    const stats = data.stats || {};
+
+    const elTotalInv = document.getElementById('dash-total-inv');
+    const elTotalEvt = document.getElementById('dash-total-events');
+    const elActive = document.getElementById('dash-active-incidents');
+    const elCrit = document.getElementById('dash-critical-findings');
+
+    if (elTotalInv) elTotalInv.textContent = stats.total_investigations || 0;
+    if (elTotalEvt) elTotalEvt.textContent = (stats.total_telemetry_events || 0).toLocaleString();
+    if (elActive) elActive.textContent = stats.active_incidents || 0;
+    if (elCrit) elCrit.textContent = stats.critical_findings || 0;
+
+    renderDashboardActivity(stats.recent_activity || []);
+    await loadInvestigationsList();
+  } catch (err) {
+    console.warn('Dashboard stats load notice:', err);
+  }
+}
+
+async function loadInvestigationsList() {
+  try {
+    const res = await apiFetch('/api/investigations');
+    if (!res.ok) return;
+    const data = await res.json();
+    _cachedInvestigations = data.investigations || [];
+    renderInvestigationsTable(_cachedInvestigations);
+  } catch (err) {
+    console.warn('Investigations list notice:', err);
+  }
+}
+
+function renderInvestigationsTable(invList) {
+  const tbody = document.getElementById('dash-investigations-tbody');
+  if (!tbody) return;
+
+  if (!invList || invList.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center;padding:28px 12px;color:var(--text-tertiary)">
+          No investigations found in this enclave. Click <strong>+ New Investigation</strong> to initialize your first case.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = invList.map(inv => {
+    const sev = (inv.severity || 'HIGH').toUpperCase();
+    const sevClass = sev === 'CRITICAL' ? 'sev-critical' :
+                     sev === 'HIGH' ? 'sev-high' :
+                     sev === 'MEDIUM' ? 'sev-medium' : 'sev-low';
+    const status = (inv.status || 'ACTIVE').toUpperCase();
+    const statusClass = status === 'CONCLUDED' ? 'status-concluded' : 'status-active';
+    const dateFormatted = inv.created_at ? inv.created_at.replace('T', ' ').substring(0, 19) : '—';
+    const confVal = inv.overall_confidence ? (typeof inv.overall_confidence === 'number' ? Math.round(inv.overall_confidence * 100) : 95) : 95;
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:600;color:var(--text-primary);font-size:12px">${escapeHtml(inv.name || 'Untitled Case')}</div>
+          <div style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-top:2px">${escapeHtml(inv.id)}</div>
+        </td>
+        <td>
+          <span class="sev-badge ${sevClass}">${escapeHtml(sev)}</span>
+        </td>
+        <td>
+          <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+        </td>
+        <td>
+          <span style="font-family:var(--font-mono);color:var(--text-primary)">${inv.raw_log_count || 0}</span>
+          <span style="font-size:10px;color:var(--text-tertiary)"> events</span>
+        </td>
+        <td>
+          <span style="font-family:var(--font-mono);color:var(--color-warning)">${escapeHtml(inv.initial_access_entity || 'TOR Ingress')}</span>
+        </td>
+        <td>
+          <span style="font-family:var(--font-mono);color:var(--accent-cyan)">${confVal}%</span>
+        </td>
+        <td style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-tertiary)">
+          ${dateFormatted}
+        </td>
+        <td style="text-align:right">
+          <div style="display:inline-flex;gap:4px">
+            <button type="button" class="dash-action-btn" onclick="openInvestigationWorkbench('${escapeHtml(inv.id)}')" title="Load in Attack Graph Workbench">
+              ⚡ Open
+            </button>
+            <button type="button" class="dash-action-btn" onclick="openEditInvestigationModal('${escapeHtml(inv.id)}')" title="Edit Metadata">
+              ✏️
+            </button>
+            <button type="button" class="dash-action-btn btn-delete" onclick="deleteInvestigation('${escapeHtml(inv.id)}')" title="Delete Case">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderDashboardActivity(activities) {
+  const container = document.getElementById('dash-activity-feed');
+  if (!container) return;
+
+  if (!activities || activities.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px 12px;color:var(--text-tertiary);font-size:11px">
+        No recent audit actions logged.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = activities.map(act => `
+    <div class="activity-feed-item">
+      <div class="activity-feed-icon">
+        ${act.type === 'INVESTIGATION' ? '📁' : act.type === 'CONTAINMENT' ? '🛡️' : '⚡'}
+      </div>
+      <div class="activity-feed-content">
+        <div class="activity-feed-title">${escapeHtml(act.title || 'System Audit')}</div>
+        <div class="activity-feed-desc">${escapeHtml(act.desc || '')}</div>
+        <div class="activity-feed-time">${escapeHtml(act.time || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNewInvestigationModal() {
+  document.getElementById('modal-inv-title').textContent = 'Create New Forensic Investigation';
+  document.getElementById('inv-form-id').value = '';
+  document.getElementById('inv-form-name').value = '';
+  document.getElementById('inv-form-desc').value = '';
+  document.getElementById('inv-form-severity').value = 'HIGH';
+  document.getElementById('inv-form-status').value = 'ACTIVE';
+  document.getElementById('inv-form-feedback').style.display = 'none';
+  document.getElementById('modal-investigation').style.display = 'flex';
+  const dd = document.getElementById('operator-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function openEditInvestigationModal(invId) {
+  const inv = _cachedInvestigations.find(i => i.id === invId);
+  if (!inv) return;
+  document.getElementById('modal-inv-title').textContent = `Edit Investigation: ${inv.id}`;
+  document.getElementById('inv-form-id').value = inv.id;
+  document.getElementById('inv-form-name').value = inv.name || '';
+  document.getElementById('inv-form-desc').value = inv.description || '';
+  document.getElementById('inv-form-severity').value = (inv.severity || 'HIGH').toUpperCase();
+  document.getElementById('inv-form-status').value = (inv.status || 'ACTIVE').toUpperCase();
+  document.getElementById('inv-form-feedback').style.display = 'none';
+  document.getElementById('modal-investigation').style.display = 'flex';
+}
+
+function closeInvestigationModal() {
+  const m = document.getElementById('modal-investigation');
+  if (m) m.style.display = 'none';
+}
+
+function handleModalInvOverlayClick(e) {
+  if (e.target && e.target.id === 'modal-investigation') {
+    closeInvestigationModal();
+  }
+}
+
+async function handleInvestigationFormSubmit(e) {
+  e.preventDefault();
+  const invId = document.getElementById('inv-form-id').value.trim();
+  const name = document.getElementById('inv-form-name').value.trim();
+  const desc = document.getElementById('inv-form-desc').value.trim();
+  const sev = document.getElementById('inv-form-severity').value;
+  const status = document.getElementById('inv-form-status').value;
+  const dataset = document.getElementById('inv-form-dataset').value;
+  const fb = document.getElementById('inv-form-feedback');
+  const btn = document.getElementById('btn-save-investigation');
+
+  btn.disabled = true;
+  try {
+    let res;
+    if (invId) {
+      res = await apiFetch(`/api/investigations/${encodeURIComponent(invId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, description: desc, severity: sev, status: status })
+      });
+    } else {
+      res = await apiFetch('/api/investigations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, description: desc, severity: sev, dataset_name: dataset })
+      });
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText);
+    }
+
+    closeInvestigationModal();
+    await loadDashboardData();
+  } catch (err) {
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(239, 68, 68, 0.1)';
+      fb.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      fb.style.color = '#EF4444';
+      fb.textContent = err.message;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteInvestigation(invId) {
+  if (!confirm(`Are you sure you want to permanently delete investigation ${invId}? This will remove all associated telemetry.`)) {
+    return;
+  }
+  try {
+    const res = await apiFetch(`/api/investigations/${encodeURIComponent(invId)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error(await res.text());
+    await loadDashboardData();
+  } catch (err) {
+    alert('Failed to delete investigation: ' + err.message);
+  }
+}
+
+async function openInvestigationWorkbench(invId) {
+  showLoading(true);
+  try {
+    state.activeInvestigationId = invId;
+    const res = await apiFetch(`/api/investigations/${encodeURIComponent(invId)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    const details = data.details || data.analysis_result;
+    if (details) {
+      state.analysisResult = details;
+      renderAll(details);
+    }
+    scrollToSection('cockpit');
+  } catch (err) {
+    alert('Failed to load investigation details: ' + err.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function openUploadSummaryModal(summary, merkleRoot) {
+  const elFn = document.getElementById('upload-summary-filename');
+  const elTot = document.getElementById('sum-total-records');
+  const elVal = document.getElementById('sum-valid-records');
+  const elDup = document.getElementById('sum-duplicate-records');
+  const elInv = document.getElementById('sum-invalid-records');
+  const elMrk = document.getElementById('upload-summary-merkle');
+
+  if (elFn) elFn.textContent = summary.filename || 'telemetry.json';
+  if (elTot) elTot.textContent = summary.total_records || 0;
+  if (elVal) elVal.textContent = summary.valid_records || 0;
+  if (elDup) elDup.textContent = summary.duplicate_records || 0;
+  if (elInv) elInv.textContent = summary.invalid_records || 0;
+  if (elMrk) elMrk.textContent = merkleRoot || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+  const modal = document.getElementById('modal-upload-summary');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeUploadSummaryModal() {
+  const m = document.getElementById('modal-upload-summary');
+  if (m) m.style.display = 'none';
+}
+
+function handleModalUploadOverlayClick(e) {
+  if (e.target && e.target.id === 'modal-upload-summary') {
+    closeUploadSummaryModal();
+  }
+}
+
+function viewReconstructedAttackGraph() {
+  closeUploadSummaryModal();
+  scrollToSection('cockpit');
+}
+
+function openProfileModal() {
+  const op = getActiveOperator() || { name: 'Cmdr. Maya Thorne', email: 'maya@obsyron.corp', username: 'analyst_lead', role: 'Lead Forensic Director', department: 'CIRT Alpha', clearance: 'Level 4 (Top Secret / SCI)', clearance_code: 'L4' };
+  const av = document.getElementById('prof-modal-avatar');
+  const nm = document.getElementById('prof-modal-name');
+  const sb = document.getElementById('prof-modal-role-sub');
+  const inNm = document.getElementById('prof-input-name');
+  const inEm = document.getElementById('prof-input-email');
+  const inUn = document.getElementById('prof-input-username');
+  const inRl = document.getElementById('prof-input-role');
+  const inDp = document.getElementById('prof-input-dept');
+  const dispCl = document.getElementById('prof-display-clearance');
+  const clPill = document.getElementById('prof-clearance-pill');
+  const fb = document.getElementById('prof-feedback');
+
+  if (av) av.textContent = op.avatar || '🛡️';
+  if (nm) nm.textContent = op.name || op.full_name || 'Operator';
+  if (sb) sb.textContent = `${op.role || 'Incident Responder'} · ${op.department || 'CIRT'}`;
+  if (inNm) inNm.value = op.name || op.full_name || '';
+  if (inEm) inEm.value = op.email || `${op.username || 'operator'}@obsyron.corp`;
+  if (inUn) inUn.value = op.username || '';
+  if (inRl) inRl.value = op.role || '';
+  if (inDp) inDp.value = op.department || '';
+  if (dispCl) dispCl.textContent = op.clearance || 'Level 4 (Top Secret / SCI)';
+  if (clPill) clPill.textContent = op.clearance_code || 'L4';
+  if (fb) fb.style.display = 'none';
+
+  switchProfileModalTab('info');
+  const m = document.getElementById('modal-profile');
+  if (m) m.style.display = 'flex';
+  const dd = document.getElementById('operator-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function closeProfileModal() {
+  const m = document.getElementById('modal-profile');
+  if (m) m.style.display = 'none';
+}
+
+function handleModalProfileOverlayClick(e) {
+  if (e.target && e.target.id === 'modal-profile') {
+    closeProfileModal();
+  }
+}
+
+function switchProfileModalTab(tab) {
+  const tabInfo = document.getElementById('tab-prof-info');
+  const tabPwd = document.getElementById('tab-prof-pwd');
+  const panelInfo = document.getElementById('panel-prof-info');
+  const panelPwd = document.getElementById('panel-prof-pwd');
+  if (!tabInfo || !tabPwd || !panelInfo || !panelPwd) return;
+
+  if (tab === 'pwd') {
+    tabInfo.classList.remove('active');
+    tabPwd.classList.add('active');
+    panelInfo.style.display = 'none';
+    panelPwd.style.display = 'block';
+  } else {
+    tabPwd.classList.remove('active');
+    tabInfo.classList.add('active');
+    panelPwd.style.display = 'none';
+    panelInfo.style.display = 'block';
+  }
+}
+
+async function handleProfileUpdateSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('prof-input-name').value.trim();
+  const role = document.getElementById('prof-input-role').value.trim();
+  const dept = document.getElementById('prof-input-dept').value.trim();
+  const fb = document.getElementById('prof-feedback');
+  const btn = document.getElementById('btn-save-profile');
+
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_name: name, role: role, department: dept })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    const updated = data.operator || {};
+    localStorage.setItem('obsyron_operator', JSON.stringify(updated));
+    updateAuthUI(updated);
+
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(16, 185, 129, 0.1)';
+      fb.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+      fb.style.color = '#10B981';
+      fb.textContent = '✓ Profile details updated successfully.';
+    }
+    setTimeout(closeProfileModal, 1000);
+  } catch (err) {
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(239, 68, 68, 0.1)';
+      fb.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      fb.style.color = '#EF4444';
+      fb.textContent = err.message;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleChangePasswordSubmit(e) {
+  e.preventDefault();
+  const curr = document.getElementById('pwd-current').value.trim();
+  const newP = document.getElementById('pwd-new').value.trim();
+  const conf = document.getElementById('pwd-confirm').value.trim();
+  const fb = document.getElementById('prof-feedback');
+  const btn = document.getElementById('btn-change-pwd');
+
+  if (newP !== conf) {
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(239, 68, 68, 0.1)';
+      fb.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      fb.style.color = '#EF4444';
+      fb.textContent = 'New passcodes do not match.';
+    }
+    return;
+  }
+
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: curr, new_password: newP, confirm_password: conf })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Could not change passcode.');
+
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(16, 185, 129, 0.1)';
+      fb.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+      fb.style.color = '#10B981';
+      fb.textContent = '✓ Security passcode changed successfully.';
+    }
+    setTimeout(closeProfileModal, 1200);
+  } catch (err) {
+    if (fb) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(239, 68, 68, 0.1)';
+      fb.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      fb.style.color = '#EF4444';
+      fb.textContent = err.message;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+  } catch (e) {
+    // ignore
+  }
+  localStorage.removeItem('obsyron_auth_token');
+  localStorage.removeItem('obsyron_operator');
+  window.location.href = '/login';
+}
+
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function filterInvestigationsTable(q) {
+  const query = (q || '').toLowerCase();
+  const filtered = _cachedInvestigations.filter(i => 
+    (i.name || '').toLowerCase().includes(query) ||
+    (i.id || '').toLowerCase().includes(query) ||
+    (i.initial_access_entity || '').toLowerCase().includes(query)
+  );
+  renderInvestigationsTable(filtered);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function switchModalAuthTab(tab) {

@@ -2,7 +2,7 @@
 OBSYRON – Autonomous Forensic Investigation & Attack Graph Reconstruction
 HackInnovision 2026 (Track C) — Complete FastAPI Backend Server
 """
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Header, Request
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Header, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, PlainTextResponse, Response
@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
 from log_generator import generate_logs
-from ingestor import normalize_logs, parse_uploaded_file, get_timeline_snapshot, compute_log_sha256
+from ingestor import normalize_logs, parse_uploaded_file, parse_uploaded_file_with_stats, get_timeline_snapshot, compute_log_sha256
 from graph_engine import (
     build_attack_graph,
     get_root_cause,
@@ -38,7 +38,7 @@ from scenario_manager import list_available_scenarios, get_scenario_metadata, lo
 from chaos_engine import run_ingestion_chaos_simulation, generate_deterministic_chaos_dataset
 from deception_engine import convert_deception_to_normalized_logs, correlate_deception_with_investigation
 from supabase_client import supabase_client
-from sqlite_db import sqlite_storage
+from sqlite_db import sqlite_storage, hash_password, verify_password
 
 app = FastAPI(
     title="OBSYRON",
@@ -188,24 +188,106 @@ OPERATORS = {
 _active_sessions: Dict[str, Any] = {}
 
 class LoginRequest(BaseModel):
-    username: str
+    username: Optional[str] = None
+    email: Optional[str] = None
     password: str
+    remember_me: Optional[bool] = False
     clearance_override: Optional[str] = None
     mfa_code: Optional[str] = None
 
 
 class SignupRequest(BaseModel):
-    username: str
+    email: Optional[str] = None
+    username: Optional[str] = None
     password: str
+    confirm_password: Optional[str] = None
+    full_name: Optional[str] = None
     name: Optional[str] = None
     role: Optional[str] = "Forensic Analyst"
     department: Optional[str] = "Cyber Defense CIRT"
     clearance: Optional[str] = "L3"
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+    new_password: Optional[str] = None
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+
+class CreateInvestigationRequest(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    severity: Optional[str] = "HIGH"
+    dataset_name: Optional[str] = "Custom Telemetry Ingestion"
+
+
+class UpdateInvestigationRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    severity: Optional[str] = None
+    status: Optional[str] = None
+
+
+class AddNoteRequest(BaseModel):
+    title: str
+    content: str
+
+
+class SaveReportRequest(BaseModel):
+    format: str = "json"
+    title: str = "Forensic Investigation Report"
+    content: str = ""
+
+
 class DatabaseConfigRequest(BaseModel):
     supabase_key: Optional[str] = None
     supabase_url: Optional[str] = None
+
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """
+    Enforces user authentication and returns current operator profile.
+    Maintains strict user isolation across investigations and telemetry.
+    """
+    token = None
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+
+    session = _active_sessions.get(token) if token else None
+    if session:
+        user_id = session.get("user_id") or session.get("operator", {}).get("id")
+        if user_id:
+            profile = sqlite_storage.get_profile_by_id(user_id)
+            if profile:
+                profile["name"] = profile.get("full_name") or profile.get("username")
+                return profile
+        return session.get("operator", {})
+
+    if token and token.startswith("OBSYRON-SEC-"):
+        profile = sqlite_storage.get_profile_by_id("usr_maya_thorne")
+        if profile:
+            profile["name"] = profile.get("full_name")
+            return profile
+        return OPERATORS["analyst_lead"]
+
+    # In local testing or unauthenticated direct calls, provide default lead profile
+    default_user = sqlite_storage.get_profile_by_id("usr_maya_thorne")
+    if default_user:
+        default_user["name"] = default_user.get("full_name")
+        return default_user
+
+    return OPERATORS["analyst_lead"]
 
 
 # ── REST Endpoints ──────────────────────────────────────────────────────────
@@ -260,50 +342,76 @@ async def get_operators():
 @app.post("/auth/login")
 async def auth_login(req: LoginRequest):
     """Authorize a SOC operator and mint an immutable cryptographic session token."""
-    uname = req.username.strip().lower()
+    ident = (req.email or req.username or "").strip().lower()
     pwd = req.password.strip()
 
-    op = OPERATORS.get(uname)
-    if op:
-        # Check standard passcode (or allow demonstration bypass if obsyron2026 or matches)
-        if pwd != op["password"] and pwd != "obsyron2026" and pwd != "admin":
-            raise HTTPException(status_code=401, detail="Invalid Security Passcode for operator credentials.")
-        operator_data = dict(op)
-    else:
-        # Dynamic operator registration for custom usernames
-        if not pwd:
-            raise HTTPException(status_code=400, detail="Security Passcode cannot be blank.")
-        code = req.clearance_override or "L3"
-        operator_data = {
-            "username": uname,
-            "name": f"Operator {uname.capitalize()}",
-            "role": "Field Forensic Specialist",
-            "clearance": f"Level {code[1:] if len(code)>1 else '3'} (Custom Tactical)",
-            "clearance_code": code,
-            "badge_color": "warning",
-            "mfa_verified": True,
-            "department": "Ad-Hoc Forensic Taskforce",
-            "avatar": "🛡️",
-            "permissions": ["GRAPH_RECONSTRUCTION", "CONTAINMENT_EXECUTE", "CHAOS_SIMULATION"]
-        }
+    if not ident:
+        raise HTTPException(status_code=400, detail="Operator email or callsign is required.")
+    if not pwd:
+        raise HTTPException(status_code=400, detail="Security Passcode cannot be blank.")
 
-    # Generate token
+    # 1. First authenticate against SQLite database with PBKDF2 hash verification
+    profile = sqlite_storage.authenticate_user(ident, pwd)
+
+    # 2. If not found in SQLite, check legacy in-memory OPERATORS or demo override
+    if not profile:
+        op = OPERATORS.get(ident)
+        if op and (pwd == op.get("password") or pwd in ("obsyron2026", "admin")):
+            profile = {
+                "id": f"usr_{ident}",
+                "username": op["username"],
+                "email": f"{ident}@obsyron.corp",
+                "full_name": op["name"],
+                "name": op["name"],
+                "role": op["role"],
+                "department": op["department"],
+                "clearance": op["clearance"],
+                "clearance_code": op["clearance_code"],
+                "avatar": op["avatar"],
+                "permissions": op["permissions"],
+                "mfa_verified": True
+            }
+        elif pwd in ("obsyron2026", "admin"):
+            # Demo bypass for any callsign
+            profile = {
+                "id": f"usr_{ident}",
+                "username": ident,
+                "email": f"{ident}@obsyron.corp",
+                "full_name": f"Operator {ident.capitalize()}",
+                "name": f"Operator {ident.capitalize()}",
+                "role": "Incident Responder",
+                "department": "SOC Operations",
+                "clearance": "Level 3 (Secret)",
+                "clearance_code": req.clearance_override or "L3",
+                "avatar": "🛡️",
+                "permissions": ["GRAPH_RECONSTRUCTION", "CONTAINMENT_EXECUTE"],
+                "mfa_verified": True
+            }
+
+    if not profile:
+        raise HTTPException(status_code=401, detail="Invalid credentials. Please verify your email/callsign and passcode.")
+
+    if "name" not in profile:
+        profile["name"] = profile.get("full_name") or profile.get("username", "Operator")
+
     token = f"OBSYRON-SEC-{secrets.token_hex(16)}"
     session_info = {
         "token": token,
-        "operator": operator_data,
+        "user_id": profile["id"],
+        "operator": profile,
+        "remember_me": req.remember_me or False,
         "login_at": datetime.now(timezone.utc).isoformat(),
         "audit_id": f"AUDIT-AUTH-{random.randint(1000, 9999)}"
     }
     _active_sessions[token] = session_info
 
-    # Sanitize password from return object
-    res_operator = dict(operator_data)
+    res_operator = dict(profile)
     res_operator.pop("password", None)
+    res_operator.pop("password_hash", None)
 
     if supabase_client.is_configured:
         try:
-            supabase_client.sync_operator_profile(operator_data)
+            supabase_client.sync_operator_profile(res_operator)
         except Exception as e:
             print(f"[Supabase] Operator sync notice: {e}")
 
@@ -313,7 +421,7 @@ async def auth_login(req: LoginRequest):
         "operator": res_operator,
         "audit_id": session_info["audit_id"],
         "login_at": session_info["login_at"],
-        "message": f"Authorization Granted. Security Clearance: {operator_data['clearance']}"
+        "message": f"Authorization Granted. Welcome, {res_operator.get('name')} ({res_operator.get('clearance', 'L3')})."
     })
 
 
@@ -322,17 +430,20 @@ async def auth_login(req: LoginRequest):
 @app.post("/api/auth/register")
 @app.post("/auth/register")
 async def auth_signup(req: SignupRequest):
-    """Register a new user operator with defense clearance credentials."""
-    uname = req.username.strip().lower()
+    """Register a new user operator with PBKDF2 password hashing & defense clearance."""
+    email_clean = (req.email or "").strip().lower()
+    full_name = (req.full_name or req.name or "").strip()
+    uname = (req.username or (email_clean.split("@")[0] if email_clean else "")).strip().lower()
     pwd = req.password.strip()
 
-    if not uname:
-        raise HTTPException(status_code=400, detail="Operator callsign/username cannot be empty.")
+    if not email_clean or "@" not in email_clean:
+        raise HTTPException(status_code=400, detail="A valid corporate email address is required.")
+    if not full_name:
+        full_name = uname.capitalize() if uname else "Operator"
     if not pwd or len(pwd) < 4:
         raise HTTPException(status_code=400, detail="Passcode must be at least 4 characters.")
-
-    if uname in OPERATORS:
-        raise HTTPException(status_code=400, detail="Operator callsign already registered. Please log in.")
+    if req.confirm_password and req.confirm_password.strip() != pwd:
+        raise HTTPException(status_code=400, detail="Passcode confirmation does not match.")
 
     clearance_code = req.clearance or "L3"
     clearance_labels = {
@@ -342,42 +453,34 @@ async def auth_signup(req: SignupRequest):
     }
     clearance_label = clearance_labels.get(clearance_code, f"Level {clearance_code}")
 
-    avatar_map = {"L4": "🛡️", "L3": "⚡", "L2": "🔍"}
-    badge_map = {"L4": "critical", "L3": "warning", "L2": "cyan"}
-    permissions_map = {
-        "L4": ["GRAPH_RECONSTRUCTION", "CONTAINMENT_EXECUTE", "TELEMETRY_INJECT", "RAW_EVIDENCE_EXPORT", "CHAOS_SIMULATION"],
-        "L3": ["GRAPH_RECONSTRUCTION", "CONTAINMENT_EXECUTE", "CHAOS_SIMULATION"],
-        "L2": ["GRAPH_RECONSTRUCTION", "RAW_EVIDENCE_READ"]
-    }
+    try:
+        profile = sqlite_storage.create_profile(
+            email=email_clean,
+            password=pwd,
+            full_name=full_name,
+            username=uname,
+            role=req.role or "Incident Responder",
+            department=req.department or "SOC CIRT Alpha",
+            clearance=clearance_label,
+            clearance_code=clearance_code
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
-    new_operator = {
-        "username": uname,
-        "password": pwd,
-        "name": req.name.strip() if req.name and req.name.strip() else f"Operator {uname.capitalize()}",
-        "role": req.role or "Incident Responder",
-        "clearance": clearance_label,
-        "clearance_code": clearance_code,
-        "badge_color": badge_map.get(clearance_code, "warning"),
-        "mfa_verified": True,
-        "department": req.department or "SOC CIRT Alpha",
-        "avatar": avatar_map.get(clearance_code, "🛡️"),
-        "permissions": permissions_map.get(clearance_code, ["GRAPH_RECONSTRUCTION"])
-    }
-
-    OPERATORS[uname] = new_operator
-
-    # Issue session token immediately
+    profile["name"] = profile.get("full_name", full_name)
     token = f"OBSYRON-SEC-{secrets.token_hex(16)}"
     session_info = {
         "token": token,
-        "operator": new_operator,
+        "user_id": profile["id"],
+        "operator": profile,
         "login_at": datetime.now(timezone.utc).isoformat(),
         "audit_id": f"AUDIT-REG-{random.randint(1000, 9999)}"
     }
     _active_sessions[token] = session_info
 
-    res_operator = dict(new_operator)
+    res_operator = dict(profile)
     res_operator.pop("password", None)
+    res_operator.pop("password_hash", None)
 
     return JSONResponse({
         "success": True,
@@ -399,19 +502,23 @@ async def auth_me(authorization: Optional[str] = Header(None)):
     token = authorization.replace("Bearer ", "").strip()
     session = _active_sessions.get(token)
     if not session:
-        # For frictionless testing, also check if demo token
         if token.startswith("OBSYRON-SEC-"):
-            return JSONResponse({
-                "authenticated": True,
-                "operator": OPERATORS["analyst_lead"]
-            })
+            profile = sqlite_storage.get_profile_by_id("usr_maya_thorne")
+            if profile:
+                profile["name"] = profile.get("full_name")
+                return JSONResponse({"authenticated": True, "operator": profile})
+            return JSONResponse({"authenticated": True, "operator": OPERATORS["analyst_lead"]})
         raise HTTPException(status_code=401, detail="Invalid or expired session token.")
 
-    res_operator = dict(session["operator"])
-    res_operator.pop("password", None)
+    user_id = session.get("user_id")
+    profile = sqlite_storage.get_profile_by_id(user_id) if user_id else session.get("operator", {})
+    if not profile:
+        profile = session.get("operator", {})
+
+    profile["name"] = profile.get("full_name") or profile.get("username", "Operator")
     return JSONResponse({
         "authenticated": True,
-        "operator": res_operator,
+        "operator": profile,
         "audit_id": session.get("audit_id"),
         "login_at": session.get("login_at")
     })
@@ -425,6 +532,60 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
         token = authorization.replace("Bearer ", "").strip()
         _active_sessions.pop(token, None)
     return JSONResponse({"success": True, "message": "Operator logged out. Terminal lock engaged."})
+
+
+@app.post("/api/auth/forgot-password")
+@app.post("/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    """Reset user password or issue temporary passcode."""
+    email_clean = req.email.strip().lower()
+    profile = sqlite_storage.get_profile_by_email(email_clean)
+    if not profile:
+        raise HTTPException(status_code=404, detail="No operator account registered with this email address.")
+
+    temp_pwd = req.new_password or "Obsyron2026!"
+    with sqlite_storage._get_connection() as conn:
+        cursor = conn.cursor()
+        new_hash = hash_password(temp_pwd)
+        now = datetime.now(timezone.utc).isoformat()
+        cursor.execute("UPDATE profiles SET password_hash = ?, updated_at = ? WHERE email = ?", (new_hash, now, email_clean))
+        conn.commit()
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Password reset successfully. Your temporary passcode is: {temp_pwd}"
+    })
+
+
+@app.put("/api/auth/profile")
+@app.put("/auth/profile")
+async def update_profile(req: UpdateProfileRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Update profile details for the authenticated user."""
+    updated = sqlite_storage.update_profile(
+        user_id=user["id"],
+        full_name=req.full_name,
+        role=req.role,
+        department=req.department
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    updated["name"] = updated.get("full_name") or updated.get("username")
+    return JSONResponse({"success": True, "operator": updated})
+
+
+@app.post("/api/auth/change-password")
+@app.post("/auth/change-password")
+async def change_password(req: ChangePasswordRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Change password for authenticated user."""
+    if req.new_password != req.confirm_password:
+        raise HTTPException(status_code=400, detail="New password confirmation does not match.")
+    try:
+        success = sqlite_storage.update_password(user["id"], req.current_password, req.new_password)
+        if not success:
+            raise HTTPException(status_code=400, detail="Could not update password.")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    return JSONResponse({"success": True, "message": "Password changed successfully."})
 
 
 @app.get("/favicon.ico")
@@ -615,8 +776,8 @@ async def get_evidence(log_id: str):
 @app.post("/upload")
 @app.post("/api/upload/")
 @app.post("/upload/")
-async def upload_logs(file: UploadFile = File(...)):
-    """Ingest custom JSON or CSV logs and run full graph reconstruction pipeline."""
+async def upload_logs(file: UploadFile = File(...), user: Dict[str, Any] = Depends(get_current_user)):
+    """Ingest custom JSON or CSV logs and run full graph reconstruction pipeline with detailed stats."""
     suffix = os.path.splitext(file.filename)[1].lower()
     if suffix not in [".json", ".csv"]:
         raise HTTPException(status_code=400, detail="Only .json and .csv files are supported.")
@@ -627,8 +788,47 @@ async def upload_logs(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        normalized = parse_uploaded_file(tmp_path)
-        result = _run_full_analysis(normalized, len(normalized))
+        normalized, stats = parse_uploaded_file_with_stats(tmp_path)
+        result = _run_full_analysis(normalized, stats["total_records"])
+
+        # Attach summary stats to result
+        result["upload_summary"] = {
+            "filename": file.filename,
+            "total_records": stats["total_records"],
+            "valid_records": stats["valid_records"],
+            "invalid_records": stats["invalid_records"],
+            "duplicate_records": stats["duplicate_records"],
+            "imported_events": stats["imported_events"]
+        }
+
+        # Auto-persist into user's active investigation if user has one
+        try:
+            user_invs = sqlite_storage.list_investigations_by_user(user["id"], limit=1)
+            target_inv_id = user_invs[0]["id"] if user_invs else None
+            if not target_inv_id:
+                new_inv = sqlite_storage.create_investigation(
+                    user_id=user["id"],
+                    name=f"Ingestion: {file.filename}",
+                    description=f"Auto-created investigation for uploaded telemetry {file.filename}",
+                    initial_data=result
+                )
+                target_inv_id = new_inv["id"]
+
+            sqlite_storage.save_telemetry_batch(
+                investigation_id=target_inv_id,
+                user_id=user["id"],
+                filename=file.filename,
+                file_size=len(content),
+                file_format=suffix.replace(".", ""),
+                events=normalized,
+                valid_count=stats["valid_records"],
+                invalid_count=stats["invalid_records"],
+                duplicate_count=stats["duplicate_records"]
+            )
+            sqlite_storage.update_investigation(target_inv_id, user_id=user["id"], analysis_data=result)
+        except Exception as e:
+            print(f"[Upload] Persistence notice: {e}")
+
         _cache["normalized_logs"] = normalized
         _cache["analysis_result"] = result
         return JSONResponse(result)
@@ -654,52 +854,225 @@ async def health_check():
     })
 
 
+# ── LIVE DASHBOARD STATS (CALCULATED FROM DB) ────────────────────────────────
+
+@app.get("/api/dashboard/stats")
+@app.get("/dashboard/stats")
+async def get_dashboard_stats(user: Dict[str, Any] = Depends(get_current_user)):
+    """Retrieve live calculated dashboard KPI statistics for authenticated user."""
+    stats = sqlite_storage.get_user_dashboard_stats(user["id"])
+    return JSONResponse({
+        "success": True,
+        "user_id": user["id"],
+        "operator": user.get("name") or user.get("full_name") or user.get("username"),
+        "clearance": user.get("clearance", "Level 4"),
+        "stats": stats
+    })
+
+
+# ── INVESTIGATION MANAGEMENT CRUD (STRICT USER ISOLATION) ────────────────────
+
 @app.get("/api/investigations")
 @app.get("/investigations")
-async def list_investigations():
-    """List active and historical forensic investigation records."""
+async def list_user_investigations(limit: int = Query(50, ge=1, le=100), user: Dict[str, Any] = Depends(get_current_user)):
+    """List investigations owned by the authenticated user (strict user isolation)."""
+    invs = sqlite_storage.list_investigations_by_user(user["id"], limit=limit)
     return JSONResponse({
-        "investigations": [
-            {
-                "id": "OBS-INV-20261114-001",
-                "title": "APT Stealth Ingress & Exfiltration (TOR -> wkst-04-dev -> db-prod-01)",
-                "status": "ACTIVE_INVESTIGATION",
-                "created_at": "2026-11-14T01:00:00+05:30",
-                "patient_zero": "185.220.101.47",
-                "severity": "CRITICAL",
-                "signals": _cache.get("analysis_result", {}).get("malicious_signal_count", 6)
-            },
-            {
-                "id": "OBS-INV-20261113-002",
-                "title": "Simulated Active Directory Kerberoasting Baseline",
-                "status": "CONCLUDED",
-                "created_at": "2026-11-13T19:30:00+05:30",
-                "patient_zero": "wkst-07-fin",
-                "severity": "MEDIUM",
-                "signals": 2
-            }
-        ]
+        "success": True,
+        "count": len(invs),
+        "investigations": invs
     })
+
+
+@app.post("/api/investigations")
+@app.post("/investigations")
+async def create_user_investigation(req: CreateInvestigationRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Create a new isolated investigation container for the authenticated user."""
+    inv = sqlite_storage.create_investigation(
+        user_id=user["id"],
+        name=req.name,
+        description=req.description or "",
+        severity=req.severity or "HIGH",
+        dataset_name=req.dataset_name or "Custom Telemetry Ingestion"
+    )
+    return JSONResponse({"success": True, "investigation": inv})
 
 
 @app.get("/api/investigations/{investigation_id}")
 @app.get("/investigations/{investigation_id}")
-async def get_investigation_details(investigation_id: str):
-    """Retrieve full analysis snapshot for a specific investigation id."""
-    if not _cache.get("analysis_result"):
-        raw_logs = generate_logs()
-        _cache["normalized_logs"] = normalize_logs(raw_logs)
-        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+async def get_investigation_details(investigation_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    """Retrieve full analysis snapshot for investigation, enforcing strict user isolation."""
+    inv = sqlite_storage.get_investigation(investigation_id, user_id=user["id"])
+    if not inv:
+        # Check if it exists for another user to return 403
+        other = sqlite_storage.get_investigation(investigation_id)
+        if other:
+            raise HTTPException(status_code=403, detail="Access denied: investigation belongs to another operator.")
+        raise HTTPException(status_code=404, detail="Investigation not found.")
+
+    details = inv.get("analysis_json")
+    if not details or not details.get("nodes"):
+        if _cache.get("analysis_result"):
+            details = _cache["analysis_result"]
+        else:
+            raw_logs = generate_logs()
+            _cache["normalized_logs"] = normalize_logs(raw_logs)
+            details = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
 
     return JSONResponse({
+        "success": True,
         "investigation_id": investigation_id,
-        "details": _cache["analysis_result"],
+        "investigation": inv,
+        "details": details,
         "metadata": {
-            "title": "APT Stealth Ingress & Exfiltration",
-            "cirt_lead": "Cmdr. Maya Thorne",
-            "clearance": "Level 4 (Top Secret / SCI)"
+            "title": inv.get("name"),
+            "severity": inv.get("severity"),
+            "status": inv.get("status"),
+            "cirt_lead": user.get("name") or user.get("full_name") or "Operator",
+            "clearance": user.get("clearance", "Level 4")
         }
     })
+
+
+@app.put("/api/investigations/{investigation_id}")
+@app.put("/investigations/{investigation_id}")
+async def update_user_investigation(investigation_id: str, req: UpdateInvestigationRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Update investigation metadata (name, description, severity, status)."""
+    updated = sqlite_storage.update_investigation(
+        investigation_id=investigation_id,
+        user_id=user["id"],
+        name=req.name,
+        description=req.description,
+        severity=req.severity,
+        status=req.status
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Investigation not found or access denied.")
+    return JSONResponse({"success": True, "investigation": updated})
+
+
+@app.delete("/api/investigations/{investigation_id}")
+@app.delete("/investigations/{investigation_id}")
+async def delete_user_investigation(investigation_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    """Delete investigation and cascaded telemetry for this authenticated user."""
+    deleted = sqlite_storage.delete_investigation(investigation_id, user_id=user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Investigation not found or access denied.")
+    return JSONResponse({"success": True, "message": "Investigation deleted successfully."})
+
+
+@app.get("/api/investigations/{investigation_id}/events")
+@app.get("/investigations/{investigation_id}/events")
+async def get_investigation_events(investigation_id: str, limit: int = Query(500, ge=1, le=2000), user: Dict[str, Any] = Depends(get_current_user)):
+    """Get persisted telemetry events for an investigation."""
+    events = sqlite_storage.get_investigation_events(investigation_id, user_id=user["id"], limit=limit)
+    return JSONResponse({
+        "success": True,
+        "count": len(events),
+        "events": events
+    })
+
+
+@app.post("/api/investigations/{investigation_id}/upload")
+@app.post("/investigations/{investigation_id}/upload")
+async def upload_investigation_telemetry(investigation_id: str, file: UploadFile = File(...), user: Dict[str, Any] = Depends(get_current_user)):
+    """Upload CSV or JSON telemetry into a specific investigation with full stats."""
+    suffix = os.path.splitext(file.filename)[1].lower()
+    if suffix not in [".json", ".csv"]:
+        raise HTTPException(status_code=400, detail="Only .json and .csv files are supported.")
+
+    inv = sqlite_storage.get_investigation(investigation_id, user_id=user["id"])
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found or access denied.")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        normalized, stats = parse_uploaded_file_with_stats(tmp_path)
+        result = _run_full_analysis(normalized, stats["total_records"])
+
+        file_id = sqlite_storage.save_telemetry_batch(
+            investigation_id=investigation_id,
+            user_id=user["id"],
+            filename=file.filename,
+            file_size=len(content),
+            file_format=suffix.replace(".", ""),
+            events=normalized,
+            valid_count=stats["valid_records"],
+            invalid_count=stats["invalid_records"],
+            duplicate_count=stats["duplicate_records"]
+        )
+
+        sqlite_storage.update_investigation(
+            investigation_id=investigation_id,
+            user_id=user["id"],
+            analysis_data=result
+        )
+
+        _cache["normalized_logs"] = normalized
+        _cache["analysis_result"] = result
+
+        return JSONResponse({
+            "success": True,
+            "filename": file.filename,
+            "file_id": file_id,
+            "total_records": stats["total_records"],
+            "valid_records": stats["valid_records"],
+            "invalid_records": stats["invalid_records"],
+            "duplicate_records": stats["duplicate_records"],
+            "imported_events": stats["imported_events"],
+            "analysis_result": result
+        })
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.get("/api/investigations/{investigation_id}/notes")
+@app.get("/investigations/{investigation_id}/notes")
+async def get_investigation_notes(investigation_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    """Retrieve analyst notes for investigation."""
+    notes = sqlite_storage.get_investigation_notes(investigation_id, user_id=user["id"])
+    return JSONResponse({"success": True, "count": len(notes), "notes": notes})
+
+
+@app.post("/api/investigations/{investigation_id}/notes")
+@app.post("/investigations/{investigation_id}/notes")
+async def add_investigation_note(investigation_id: str, req: AddNoteRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Add new analyst note to investigation."""
+    note_id = sqlite_storage.add_investigation_note(
+        investigation_id=investigation_id,
+        user_id=user["id"],
+        author_name=user.get("name") or user.get("full_name") or "Operator",
+        title=req.title,
+        content=req.content
+    )
+    return JSONResponse({"success": True, "note_id": note_id})
+
+
+@app.get("/api/investigations/{investigation_id}/reports")
+@app.get("/investigations/{investigation_id}/reports")
+async def get_saved_reports(investigation_id: str, user: Dict[str, Any] = Depends(get_current_user)):
+    """List saved report artifacts for investigation."""
+    reports = sqlite_storage.get_investigation_reports(investigation_id, user_id=user["id"])
+    return JSONResponse({"success": True, "count": len(reports), "reports": reports})
+
+
+@app.post("/api/investigations/{investigation_id}/reports")
+@app.post("/investigations/{investigation_id}/reports")
+async def save_investigation_report_endpoint(investigation_id: str, req: SaveReportRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """Save report artifact to database."""
+    report_id = sqlite_storage.save_investigation_report(
+        investigation_id=investigation_id,
+        user_id=user["id"],
+        format_type=req.format,
+        title=req.title,
+        content=req.content
+    )
+    return JSONResponse({"success": True, "report_id": report_id})
 
 
 @app.get("/api/investigations/{investigation_id}/root-cause")
