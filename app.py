@@ -38,6 +38,7 @@ from scenario_manager import list_available_scenarios, get_scenario_metadata, lo
 from chaos_engine import run_ingestion_chaos_simulation, generate_deterministic_chaos_dataset
 from deception_engine import convert_deception_to_normalized_logs, correlate_deception_with_investigation
 from supabase_client import supabase_client
+from sqlite_db import sqlite_storage
 
 app = FastAPI(
     title="OBSYRON",
@@ -318,6 +319,8 @@ async def auth_login(req: LoginRequest):
 
 @app.post("/api/auth/signup")
 @app.post("/auth/signup")
+@app.post("/api/auth/register")
+@app.post("/auth/register")
 async def auth_signup(req: SignupRequest):
     """Register a new user operator with defense clearance credentials."""
     uname = req.username.strip().lower()
@@ -467,6 +470,13 @@ async def analyze(req: AnalyzeRequest):
     _cache["normalized_logs"] = normalized
     _cache["analysis_result"] = result
     _cache["last_settings"]   = req.model_dump()
+
+    # Durable SQLite Local Persistence
+    try:
+        sqlite_storage.save_investigation(result)
+        sqlite_storage.save_audit_logs(normalized[:100])
+    except Exception as e:
+        print(f"[SQLite] Storage notice: {e}")
 
     # Optional Supabase Cloud Sync
     if supabase_client.is_configured:
@@ -692,6 +702,52 @@ async def get_investigation_details(investigation_id: str):
     })
 
 
+@app.get("/api/investigations/{investigation_id}/root-cause")
+@app.get("/investigations/{investigation_id}/root-cause")
+async def get_investigation_root_cause(investigation_id: str):
+    """Retrieve verified root-cause initial access candidate for investigation."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    return JSONResponse({
+        "investigation_id": investigation_id,
+        "root_cause": _cache["analysis_result"].get("initial_access", {})
+    })
+
+
+@app.get("/api/investigations/{investigation_id}/blast-radius")
+@app.get("/investigations/{investigation_id}/blast-radius")
+async def get_investigation_blast_radius(investigation_id: str):
+    """Retrieve forward blast radius reachability tree and affected assets."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    return JSONResponse({
+        "investigation_id": investigation_id,
+        "blast_radius": _cache["analysis_result"].get("blast_radius", {})
+    })
+
+
+@app.get("/api/investigations/{investigation_id}/pivots")
+@app.get("/investigations/{investigation_id}/pivots")
+async def get_investigation_pivots(investigation_id: str):
+    """Retrieve topological betweenness centrality pivot entities."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    graph_data = build_attack_graph(_cache["normalized_logs"])
+    G = graph_data["_graph"]
+    metrics = get_graph_deep_metrics(G)
+    return JSONResponse({
+        "investigation_id": investigation_id,
+        "pivots": metrics.get("pivot_hosts_ranked", []),
+        "metrics": metrics
+    })
+
+
 @app.get("/api/investigations/{investigation_id}/report")
 @app.get("/investigations/{investigation_id}/report")
 async def get_investigation_report(investigation_id: str):
@@ -863,6 +919,21 @@ async def execute_containment(req: ContainmentExecuteRequest):
         simulation_mode=req.simulation_mode or False,
         notes=req.notes
     )
+    # Save to SQLite local persistent audit trail
+    try:
+        sqlite_storage.save_containment_action({
+            "action_id": record.get("action_id"),
+            "investigation_id": "OBS-INV-20261114-001",
+            "entity_id": req.target,
+            "action_type": req.action_type,
+            "status": "SIMULATED" if req.simulation_mode else "EXECUTED",
+            "executed_at": record.get("executed_at"),
+            "operator": req.operator_name,
+            "impact": record.get("details", {}).get("simulated_effect", "")
+        })
+    except Exception as e:
+        print(f"[SQLite] Containment action save notice: {e}")
+
     if supabase_client.is_configured:
         try:
             supabase_client.save_containment_action(record)
@@ -1002,6 +1073,10 @@ async def load_scenario(req: ScenarioLoadRequest):
 @app.get("/chaos/simulate")
 @app.post("/api/chaos/simulate")
 @app.post("/chaos/simulate")
+@app.post("/api/simulate/chaos")
+@app.get("/api/simulate/chaos")
+@app.post("/simulate/chaos")
+@app.get("/simulate/chaos")
 async def api_simulate_chaos():
     """
     Executes deterministic Ingestion Chaos benchmark featuring out-of-order logs,

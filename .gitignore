@@ -28,3 +28,8 @@ Desktop.ini
 *.env
 !.env.example
 
+# Local SQLite databases
+*.db
+*.sqlite3
+
+

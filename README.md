@@ -57,6 +57,9 @@ Every aspect of OBSYRON is thoroughly documented in dedicated specifications:
 
 | Document | Focus & Scope |
 |---|---|
+| [FEATURE_AUDIT.md](file:///d:/HACK%20INNOVISION/FEATURE_AUDIT.md) | Exhaustive audit of every UI component, form, slider, canvas control, and route |
+| [IMPLEMENTATION_STATUS.md](file:///d:/HACK%20INNOVISION/IMPLEMENTATION_STATUS.md) | Full-stack implementation verification across all 12 core platform features |
+| [BACKEND_SETUP.md](file:///d:/HACK%20INNOVISION/BACKEND_SETUP.md) | Backend architecture, setup guide, SQLite persistence, and API reference |
 | [PROJECT_OVERVIEW.md](file:///d:/HACK%20INNOVISION/docs/PROJECT_OVERVIEW.md) | High-level executive overview, problem statement, and key differentiators |
 | [ARCHITECTURE.md](file:///d:/HACK%20INNOVISION/docs/ARCHITECTURE.md) | System topology, modular structure, and dual-mode execution details |
 | [SYSTEM_DESIGN.md](file:///d:/HACK%20INNOVISION/docs/SYSTEM_DESIGN.md) | End-to-end component interactions, schema definitions, and air-gap security |
