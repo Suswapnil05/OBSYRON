@@ -352,14 +352,89 @@
   .checkbox-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
     margin-bottom: 20px;
     font-size: 12px;
     color: var(--text-secondary);
   }
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
   .checkbox-row input {
     cursor: pointer;
     accent-color: var(--primary);
+  }
+  .forgot-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .forgot-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Password Strength Meter */
+  .pwd-strength-container {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pwd-strength-bar {
+    height: 4px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  body:not(.dark-theme) .pwd-strength-bar {
+    background: #E2E8F0;
+  }
+  .pwd-strength-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
+  .pwd-strength-text {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Modal Overlay */
+  .auth-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .auth-modal-overlay.active {
+    display: flex;
+  }
+  .auth-modal-box {
+    background: #0B101E;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
+  }
+  body:not(.dark-theme) .auth-modal-box {
+    background: #FFFFFF;
+    border-color: #CBD5E1;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1);
   }
 
   /* Submit Button */
@@ -469,41 +544,41 @@
         <div class="demo-hint-box">
           <div class="demo-hint-label">
             <span>Quick Demo Presets</span>
-            <span style="opacity:0.7;font-weight:400">Click to fill</span>
+            <span style="opacity:0.7;font-weight:400">1-click fill</span>
           </div>
           <div class="demo-chips-row">
-            <button type="button" class="demo-chip active" onclick="selectRole('analyst_lead', 'obsyron2026', 'L4', this)">
-              Lead (L4)
+            <button type="button" class="demo-chip active" onclick="selectRole('maya@obsyron.corp', 'obsyron2026', 'L4', this)">
+              Cmdr. Maya (L4)
             </button>
-            <button type="button" class="demo-chip" onclick="selectRole('soc_tier2', 'obsyron2026', 'L3', this)">
-              Responder (L3)
+            <button type="button" class="demo-chip" onclick="selectRole('alex@obsyron.corp', 'obsyron2026', 'L3', this)">
+              Lt. Alex (L3)
             </button>
-            <button type="button" class="demo-chip" onclick="selectRole('sec_auditor', 'obsyron2026', 'L2', this)">
-              Auditor (L2)
+            <button type="button" class="demo-chip" onclick="selectRole('elena@obsyron.corp', 'obsyron2026', 'L2', this)">
+              Sgt. Elena (L2)
             </button>
           </div>
         </div>
 
         <form id="form-login" onsubmit="handleLoginSubmit(event)">
           <div class="form-group">
-            <label class="form-label" for="login-username">Operator Callsign</label>
+            <label class="form-label" for="login-username">Corporate Email or Callsign</label>
             <div class="form-input-wrap">
-              <input type="text" id="login-username" class="form-input" value="analyst_lead" placeholder="e.g. analyst_lead" required autocomplete="username">
+              <input type="text" id="login-username" class="form-input" value="maya@obsyron.corp" placeholder="e.g. maya@obsyron.corp or analyst_lead" required autocomplete="username">
             </div>
-            <div class="form-hint">Hint: Demo callsign is <code>analyst_lead</code></div>
+            <div class="form-hint">Hint: Seeded demo account is <code>maya@obsyron.corp</code></div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="login-password">Passcode</label>
+            <label class="form-label" for="login-password">Security Passcode</label>
             <div class="form-input-wrap">
               <input type="password" id="login-password" class="form-input" value="obsyron2026" placeholder="Enter security passcode" required autocomplete="current-password">
               <button type="button" id="login-pwd-btn" class="btn-pwd-text" onclick="togglePasswordVisibility('login-password', 'login-pwd-btn')">Show</button>
             </div>
-            <div class="form-hint">Hint: Default passcode is <code>obsyron2026</code></div>
+            <div class="form-hint">Default passcode: <code>obsyron2026</code></div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="login-clearance">Clearance Level</label>
+            <label class="form-label" for="login-clearance">Defense Clearance Level</label>
             <select id="login-clearance" class="form-input" style="cursor:pointer">
               <option value="L4" selected>Level 4 — Lead Director (Full Incident Containment)</option>
               <option value="L3">Level 3 — Incident Responder (Active Triage)</option>
@@ -512,8 +587,18 @@
           </div>
 
           <div class="checkbox-row">
-            <input type="checkbox" id="chk-login-mfa" checked>
-            <label for="chk-login-mfa">Simulate hardware security key (FIDO2)</label>
+            <div class="checkbox-group">
+              <input type="checkbox" id="chk-remember-session" checked>
+              <label for="chk-remember-session">Remember session</label>
+            </div>
+            <a class="forgot-link" onclick="toggleForgotPasswordModal(true)">Forgot passcode?</a>
+          </div>
+
+          <div class="checkbox-row" style="margin-top:-10px;margin-bottom:16px">
+            <div class="checkbox-group">
+              <input type="checkbox" id="chk-login-mfa" checked>
+              <label for="chk-login-mfa">Simulate hardware security key (FIDO2)</label>
+            </div>
           </div>
 
           <button type="submit" id="btn-login-submit" class="btn-submit">
@@ -533,10 +618,16 @@
         
         <form id="form-signup" onsubmit="handleSignupSubmit(event)">
           
+          <div class="form-group">
+            <label class="form-label" for="signup-name">Full Name</label>
+            <input type="text" id="signup-name" class="form-input" placeholder="e.g. Maya Thorne" required>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="signup-name">Full Name</label>
-              <input type="text" id="signup-name" class="form-input" placeholder="e.g. Maya Thorne" required>
+              <label class="form-label" for="signup-email">Corporate Email</label>
+              <input type="email" id="signup-email" class="form-input" placeholder="e.g. maya@obsyron.corp" required oninput="validateEmailLive(this.value)">
+              <div id="signup-email-hint" class="form-hint" style="color:var(--text-tertiary)">Valid email required</div>
             </div>
 
             <div class="form-group">
@@ -548,34 +639,41 @@
           <div class="form-group">
             <label class="form-label" for="signup-password">Passcode</label>
             <div class="form-input-wrap">
-              <input type="password" id="signup-password" class="form-input" placeholder="Create a secure passcode" required autocomplete="new-password">
+              <input type="password" id="signup-password" class="form-input" placeholder="Create secure passcode (min 6 chars)" required autocomplete="new-password" oninput="onPasswordInput(this.value)">
               <button type="button" id="signup-pwd-btn" class="btn-pwd-text" onclick="togglePasswordVisibility('signup-password', 'signup-pwd-btn')">Show</button>
             </div>
-            <div class="form-hint">Minimum 4 characters</div>
+            <!-- Live Password Strength Meter -->
+            <div class="pwd-strength-container">
+              <div class="pwd-strength-bar">
+                <div id="pwd-strength-fill" class="pwd-strength-fill"></div>
+              </div>
+              <div class="pwd-strength-text">
+                <span>Strength: <strong id="pwd-strength-label" style="color:#64748B">Too short</strong></span>
+                <span>Min 6 characters</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signup-confirm-password">Confirm Passcode</label>
+            <div class="form-input-wrap">
+              <input type="password" id="signup-confirm-password" class="form-input" placeholder="Re-enter security passcode" required autocomplete="new-password" oninput="onConfirmPasswordInput(this.value)">
+              <button type="button" id="signup-confirm-pwd-btn" class="btn-pwd-text" onclick="togglePasswordVisibility('signup-confirm-password', 'signup-confirm-pwd-btn')">Show</button>
+            </div>
+            <div id="pwd-match-hint" class="form-hint" style="color:var(--text-tertiary)">Must match passcode</div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="signup-job-title">Job Title</label>
               <select id="signup-job-title" class="form-input" style="cursor:pointer" required>
-                <option value="" disabled selected>Please Select</option>
-                <option value="CEO">CEO</option>
-                <option value="CISO/CSO/CIO">CISO/CSO/CIO</option>
-                <option value="C-level">C-level</option>
-                <option value="General Manager/Vice President">General Manager/Vice President</option>
-                <option value="Director/Head of Cybersecurity">Director/Head of Cybersecurity</option>
-                <option value="Cybersecurity Team Lead">Cybersecurity Team Lead</option>
-                <option value="Application Security Specialist">Application Security Specialist</option>
-                <option value="Cloud Security Specialist">Cloud Security Specialist</option>
-                <option value="Cybersecurity Architect">Cybersecurity Architect</option>
+                <option value="Digital Forensics and Incident Response Specialist" selected>Digital Forensics Specialist</option>
+                <option value="Security Operations Center (SOC) Analyst">SOC Analyst</option>
                 <option value="Cybersecurity Engineer">Cybersecurity Engineer</option>
-                <option value="Digital Forensics and Incident Response Specialist">Digital Forensics and Incident Response Specialist</option>
-                <option value="Governance, Risk, and Compliance Specialist">Governance, Risk, and Compliance Specialist</option>
-                <option value="Identity and Access Management Specialist">Identity and Access Management Specialist</option>
+                <option value="Director/Head of Cybersecurity">Head of Cybersecurity</option>
+                <option value="Threat Intelligence Analyst">Threat Intel Analyst</option>
                 <option value="Penetration Tester">Penetration Tester</option>
-                <option value="Security Operations Center (SOC) Analyst">Security Operations Center (SOC) Analyst</option>
-                <option value="Threat Intelligence Analyst">Threat Intelligence Analyst</option>
-                <option value="Vulnerability Analyst">Vulnerability Analyst</option>
+                <option value="Compliance Specialist">Compliance Specialist</option>
               </select>
             </div>
 
@@ -589,9 +687,11 @@
             </div>
           </div>
 
-          <div class="checkbox-row">
-            <input type="checkbox" id="chk-signup-mfa" checked>
-            <label for="chk-signup-mfa">Enroll simulated FIDO2 key</label>
+          <div class="checkbox-row" style="margin-bottom:16px">
+            <div class="checkbox-group">
+              <input type="checkbox" id="chk-signup-mfa" checked>
+              <label for="chk-signup-mfa">Enroll simulated FIDO2 key</label>
+            </div>
           </div>
 
           <button type="submit" id="btn-signup-submit" class="btn-submit">
@@ -609,9 +709,33 @@
     </div>
   </main>
 
+  <!-- ── FORGOT PASSWORD MODAL OVERLAY ──────────────────────────────────────── -->
+  <div id="modal-forgot-password" class="auth-modal-overlay">
+    <div class="auth-modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:16px;font-weight:700;color:var(--text-primary)">Reset Operator Passcode</h3>
+        <button type="button" onclick="toggleForgotPasswordModal(false)" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:18px">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.4">
+        Enter your registered email address. We will issue a secure temporary passcode to unlock your account.
+      </p>
+      <div id="forgot-feedback" style="display:none;padding:8px 10px;border-radius:6px;font-size:11.5px;margin-bottom:12px"></div>
+      <form onsubmit="handleForgotPasswordSubmit(event)">
+        <div class="form-group">
+          <label class="form-label" for="forgot-email">Corporate Email</label>
+          <input type="email" id="forgot-email" class="form-input" placeholder="e.g. maya@obsyron.corp" required>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="button" onclick="toggleForgotPasswordModal(false)" class="btn-submit" style="background:transparent;border:1px solid var(--border-subtle);color:var(--text-secondary)">Cancel</button>
+          <button type="submit" id="btn-forgot-submit" class="btn-submit">Reset Passcode</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
   <footer class="auth-footer">
-    OBSYRON XTM 2.0 · NIST SP 800-61 COMPLIANT FORENSIC WORKBENCH
+    OBSYRON XTM 2.0 · NIST SP 800-61 COMPLIANT FORENSIC WORKBENCH · PBKDF2-HMAC-SHA256 ENCRYPTION
   </footer>
 
 </div>
@@ -649,6 +773,124 @@
     } else {
       pwd.type = 'password';
       if (btn) btn.textContent = 'Show';
+    }
+  }
+
+  function checkPasswordStrength(val) {
+    if (!val || val.length === 0) return { score: 0, text: 'Too short', color: '#64748B', width: '5%' };
+    let score = 0;
+    if (val.length >= 6) score++;
+    if (val.length >= 10) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+
+    if (val.length < 6) return { score: 1, text: 'Too short (min 6)', color: '#EF4444', width: '20%' };
+    if (score <= 2) return { score: 2, text: 'Weak', color: '#EF4444', width: '35%' };
+    if (score === 3) return { score: 3, text: 'Fair', color: '#F59E0B', width: '60%' };
+    if (score === 4) return { score: 4, text: 'Good', color: '#3B82F6', width: '85%' };
+    return { score: 5, text: 'Strong', color: '#10B981', width: '100%' };
+  }
+
+  function onPasswordInput(val) {
+    const strength = checkPasswordStrength(val);
+    const fill = document.getElementById('pwd-strength-fill');
+    const label = document.getElementById('pwd-strength-label');
+    if (fill) {
+      fill.style.width = strength.width;
+      fill.style.backgroundColor = strength.color;
+    }
+    if (label) {
+      label.textContent = strength.text;
+      label.style.color = strength.color;
+    }
+    // Also re-check confirmation match
+    const confirmVal = document.getElementById('signup-confirm-password')?.value;
+    if (confirmVal) onConfirmPasswordInput(confirmVal);
+  }
+
+  function onConfirmPasswordInput(val) {
+    const pwdVal = document.getElementById('signup-password')?.value || '';
+    const hint = document.getElementById('pwd-match-hint');
+    if (!hint) return;
+    if (!val) {
+      hint.textContent = 'Must match passcode';
+      hint.style.color = 'var(--text-tertiary)';
+    } else if (val === pwdVal) {
+      hint.textContent = '✓ Passcodes match';
+      hint.style.color = '#10B981';
+    } else {
+      hint.textContent = '✗ Passcodes do not match';
+      hint.style.color = '#EF4444';
+    }
+  }
+
+  function validateEmailLive(val) {
+    const hint = document.getElementById('signup-email-hint');
+    if (!hint) return;
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!val) {
+      hint.textContent = 'Valid email required';
+      hint.style.color = 'var(--text-tertiary)';
+    } else if (re.test(val)) {
+      hint.textContent = '✓ Valid email format';
+      hint.style.color = '#10B981';
+    } else {
+      hint.textContent = 'Invalid email address';
+      hint.style.color = '#EF4444';
+    }
+  }
+
+  function toggleForgotPasswordModal(show) {
+    const m = document.getElementById('modal-forgot-password');
+    if (m) {
+      if (show) m.classList.add('active');
+      else m.classList.remove('active');
+    }
+    const fb = document.getElementById('forgot-feedback');
+    if (fb) fb.style.display = 'none';
+  }
+
+  async function handleForgotPasswordSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value.trim();
+    const fb = document.getElementById('forgot-feedback');
+    const btn = document.getElementById('btn-forgot-submit');
+    if (!email) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+    try {
+      const res = await apiFetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Could not reset password.');
+
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(16, 185, 129, 0.1)';
+      fb.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+      fb.style.color = '#10B981';
+      fb.textContent = data.message;
+
+      setTimeout(() => {
+        toggleForgotPasswordModal(false);
+        // Pre-fill login
+        document.getElementById('login-username').value = email;
+        document.getElementById('login-password').value = 'Obsyron2026!';
+      }, 2500);
+
+    } catch (err) {
+      fb.style.display = 'block';
+      fb.style.background = 'rgba(239, 68, 68, 0.1)';
+      fb.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      fb.style.color = '#EF4444';
+      fb.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Reset Passcode';
     }
   }
 
@@ -709,10 +951,11 @@
 
   async function handleLoginSubmit(e) {
     e.preventDefault();
-    const username = document.getElementById('login-username').value.trim();
+    const ident = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value.trim();
     const clearance = document.getElementById('login-clearance').value;
-    const mfaChecked = document.getElementById('chk-login-mfa').checked;
+    const rememberMe = document.getElementById('chk-remember-session')?.checked || false;
+    const mfaChecked = document.getElementById('chk-login-mfa')?.checked || true;
 
     const feedback = document.getElementById('auth-feedback');
     const submitBtn = document.getElementById('btn-login-submit');
@@ -735,8 +978,10 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username,
+          email: ident,
+          username: ident,
           password: password,
+          remember_me: rememberMe,
           clearance_override: clearance,
           mfa_code: 'YUBI-FIDO2-VERIFIED'
         })
@@ -749,9 +994,14 @@
 
       localStorage.setItem('obsyron_auth_token', data.token);
       localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
+      if (rememberMe) {
+        localStorage.setItem('obsyron_remember_user', ident);
+      } else {
+        localStorage.removeItem('obsyron_remember_user');
+      }
 
       feedback.className = 'success';
-      feedback.textContent = 'Authenticated successfully. Redirecting...';
+      feedback.textContent = `Authorization granted. Welcome ${data.operator.name || data.operator.full_name}! Redirecting...`;
 
       setTimeout(() => {
         window.location.href = '/?authorized=1';
@@ -768,10 +1018,12 @@
   async function handleSignupSubmit(e) {
     e.preventDefault();
     const name = document.getElementById('signup-name').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
     const username = document.getElementById('signup-username').value.trim();
     const password = document.getElementById('signup-password').value.trim();
+    const confirmPassword = document.getElementById('signup-confirm-password').value.trim();
     const jobTitleElem = document.getElementById('signup-job-title');
-    const jobTitle = jobTitleElem ? jobTitleElem.value : '';
+    const jobTitle = jobTitleElem ? jobTitleElem.value : 'Forensic Specialist';
     const clearance = document.getElementById('signup-clearance').value;
 
     const feedback = document.getElementById('auth-feedback');
@@ -781,23 +1033,42 @@
     feedback.className = '';
     feedback.style.display = 'none';
 
-    if (!jobTitle || jobTitle === 'Please Select') {
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       feedback.className = 'error';
-      feedback.textContent = 'Please select your Job Title.';
+      feedback.textContent = 'Please enter a valid corporate email address.';
+      return;
+    }
+
+    // Password validation
+    if (password.length < 6) {
+      feedback.className = 'error';
+      feedback.textContent = 'Passcode must be at least 6 characters.';
+      return;
+    }
+
+    // Confirm password validation
+    if (password !== confirmPassword) {
+      feedback.className = 'error';
+      feedback.textContent = 'Passcodes do not match. Please verify confirmation.';
       return;
     }
 
     submitBtn.disabled = true;
-    submitText.textContent = 'Registering operator...';
+    submitText.textContent = 'Registering operator profile...';
 
     try {
       const res = await apiFetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          full_name: name,
           name: name,
+          email: email,
           username: username,
           password: password,
+          confirm_password: confirmPassword,
           role: jobTitle,
           department: jobTitle,
           clearance: clearance
@@ -813,7 +1084,7 @@
       localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
 
       feedback.className = 'success';
-      feedback.textContent = 'Account created. Redirecting...';
+      feedback.textContent = 'Account created successfully! Redirecting to Workbench...';
 
       setTimeout(() => {
         window.location.href = '/?authorized=1';
@@ -829,6 +1100,11 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    const remembered = localStorage.getItem('obsyron_remember_user');
+    if (remembered) {
+      const u = document.getElementById('login-username');
+      if (u) u.value = remembered;
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'signup') {
       switchAuthTab('signup');

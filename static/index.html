@@ -46,19 +46,48 @@
 
   <!-- Center Navigation -->
   <nav class="header-nav">
-    <a href="#cockpit" class="nav-link">Platform</a>
-    <a href="#cockpit" class="nav-link">Live Cockpit</a>
+    <a href="#dashboard-section" class="nav-link" id="nav-dash-link">Dashboard</a>
+    <a href="#cockpit" class="nav-link" id="nav-workbench-link">Attack Workbench</a>
     <a href="#separate-signal-noise" class="nav-link">Signal vs Noise</a>
     <a href="#capabilities" class="nav-link">Capabilities</a>
     <a href="#mitre-alliances" class="nav-link">MITRE Alliances</a>
   </nav>
 
   <div class="header-actions">
-    <a href="/login" id="nav-link-auth" class="nav-link-auth-btn" title="Log in or create an operator account">
-      <span id="header-auth-icon">🔒</span>
-      <span id="header-auth-label">Log In / Sign Up</span>
-      <span id="header-auth-badge" class="header-clearance-pill" style="display:none">GUEST</span>
-    </a>
+    <div class="user-menu-wrapper" style="position:relative">
+      <button id="nav-link-auth" class="nav-link-auth-btn" onclick="handleAuthMenuClick(event)" title="Operator Profile &amp; Settings">
+        <span id="header-auth-icon">🔒</span>
+        <span id="header-auth-label">Log In / Sign Up</span>
+        <span id="header-auth-badge" class="header-clearance-pill" style="display:none">GUEST</span>
+        <span id="header-auth-arrow" style="display:none;font-size:9px;margin-left:2px">▼</span>
+      </button>
+
+      <!-- Operator Dropdown Menu -->
+      <div id="operator-dropdown" class="operator-dropdown-menu" style="display:none">
+        <div class="op-dropdown-header">
+          <div id="dropdown-op-name" style="font-weight:700;font-size:12.5px;color:var(--text-primary)">Cmdr. Maya Thorne</div>
+          <div id="dropdown-op-email" style="font-size:11px;color:var(--text-tertiary)">maya@obsyron.corp</div>
+          <div id="dropdown-op-clearance" style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-top:2px">LEVEL 4 // SCI</div>
+        </div>
+        <div class="op-dropdown-divider"></div>
+        <button type="button" class="op-dropdown-item" onclick="openProfileModal()">
+          <span>👤</span> User Profile &amp; Settings
+        </button>
+        <button type="button" class="op-dropdown-item" onclick="scrollToSection('dashboard-section')">
+          <span>📊</span> Incident Dashboard
+        </button>
+        <button type="button" class="op-dropdown-item" onclick="openNewInvestigationModal()">
+          <span>➕</span> New Investigation
+        </button>
+        <button type="button" class="op-dropdown-item" onclick="document.getElementById('dash-file-input').click()">
+          <span>📤</span> Upload Telemetry
+        </button>
+        <div class="op-dropdown-divider"></div>
+        <button type="button" class="op-dropdown-item" onclick="handleLogout()" style="color:#EF4444">
+          <span>🚪</span> Sign Out
+        </button>
+      </div>
+    </div>
 
     <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
     <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode" aria-label="Toggle theme">
@@ -183,6 +212,124 @@
     <div class="proof-item"><div class="proof-dot"></div><span>STIX 2.1 Threat Standards</span></div>
     <div class="proof-item"><div class="proof-dot"></div><span>100% Localhost Zero-Cloud Privacy</span></div>
     <div class="proof-item"><div class="proof-dot"></div><span>Sub-12ms NetworkX MultiDiGraph</span></div>
+  </div>
+</section>
+
+<!-- ── FORENSIC INCIDENT INVESTIGATIONS DASHBOARD ──────────────────────── -->
+<section class="section-wrapper" id="dashboard-section" style="padding-top:28px;padding-bottom:28px">
+  <div class="section-header" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <span class="section-badge">// SECURE INVESTIGATION ENCLAVE</span>
+        <h2 class="section-title">Forensic Incident Dashboard</h2>
+        <p class="section-desc">
+          Live investigation cases, telemetry ingestion, and attack progression for <strong id="dash-operator-name" style="color:var(--text-primary)">Cmdr. Maya Thorne</strong>.
+        </p>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="dashboard-actions-row">
+        <button type="button" class="btn-filigran-gradient" onclick="openNewInvestigationModal()" style="padding:9px 18px;font-size:12px;font-weight:600">
+          <span>+ New Investigation</span>
+        </button>
+        <button type="button" class="header-action-btn" onclick="document.getElementById('dash-file-input').click()" style="padding:9px 16px;font-size:12px;font-weight:600">
+          <span>📤 Upload Telemetry</span>
+        </button>
+        <input type="file" id="dash-file-input" accept=".json,.csv" style="display:none" onchange="handleFileUpload(this.files[0])">
+        <button type="button" class="header-action-btn" onclick="scrollToSection('cockpit')" style="padding:9px 16px;font-size:12px">
+          <span>⚡ Attack Workbench</span>
+        </button>
+        <button type="button" class="header-action-btn" onclick="loadDashboardData()" title="Refresh database stats" style="padding:9px 14px;font-size:12px">
+          <span>🔄 Refresh</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Database KPI Strip Grid (All Calculated from DB Records) -->
+  <div id="dash-kpi-strip" class="dash-kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Total Investigations</span>
+        <span class="kpi-chip chip-cyan">DATABASE RECORDS</span>
+      </div>
+      <div class="kpi-value" id="dash-total-inv" style="color:var(--accent-cyan)">0</div>
+      <div class="kpi-sub">Total isolated cases in user enclave</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Telemetry Ingested</span>
+        <span class="kpi-chip chip-slate">NORMALIZED EVENTS</span>
+      </div>
+      <div class="kpi-value" id="dash-total-events" style="color:var(--text-primary)">0</div>
+      <div class="kpi-sub">Events processed &amp; correlated</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Active Incidents</span>
+        <span class="kpi-chip chip-amber">UNDER TRIAGE</span>
+      </div>
+      <div class="kpi-value" id="dash-active-incidents" style="color:var(--color-warning)">0</div>
+      <div class="kpi-sub">Open forensic investigation containers</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-label">Critical Findings</span>
+        <span class="kpi-chip chip-red">THREAT SIGNALS</span>
+      </div>
+      <div class="kpi-value" id="dash-critical-findings" style="color:var(--color-critical)">0</div>
+      <div class="kpi-sub">Confirmed malicious attack chains</div>
+    </div>
+  </div>
+
+  <!-- Investigations Management Table & Activity Feed Split -->
+  <div class="dash-workbench-grid">
+    <!-- Left Column: Investigations Table -->
+    <div class="dash-card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px">📁</span>
+          <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">ACTIVE INVESTIGATION CASES</h3>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="dash-inv-search" placeholder="Search cases..." oninput="filterInvestigationsTable(this.value)" class="dash-search-input">
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="dash-table" id="table-investigations">
+          <thead>
+            <tr>
+              <th>Case Name &amp; ID</th>
+              <th>Severity</th>
+              <th>Status</th>
+              <th>Telemetry Logs</th>
+              <th>Initial Access / Patient Zero</th>
+              <th>Confidence</th>
+              <th>Created</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dash-investigations-tbody">
+            <!-- Dynamically populated from /api/investigations -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right Column: Recent Activity Feed -->
+    <div class="dash-card-box">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <span style="font-size:14px">⚡</span>
+        <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">RECENT ACTIVITY &amp; AUDIT</h3>
+      </div>
+      <div id="dash-activity-feed" class="activity-feed-container">
+        <!-- Dynamically populated from dashboard stats -->
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1065,6 +1212,221 @@
     <div style="margin-top:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10.5px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between">
       <span>Need to create tables in Supabase? Run schema:</span>
       <a href="/supabase_schema.sql" download="supabase_schema.sql" style="color:var(--accent-cyan);text-decoration:underline;font-family:var(--font-mono)">supabase_schema.sql</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATE / EDIT INVESTIGATION MODAL ─────────────────────────────── -->
+<div id="modal-investigation" class="auth-modal-overlay" onclick="handleModalInvOverlayClick(event)" style="display:none">
+  <div class="auth-modal-card" style="max-width:520px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">📁</span>
+        <h3 id="modal-inv-title" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Create New Forensic Investigation</h3>
+      </div>
+      <button type="button" class="auth-modal-close" onclick="closeInvestigationModal()">&times;</button>
+    </div>
+
+    <form id="form-investigation" onsubmit="handleInvestigationFormSubmit(event)">
+      <input type="hidden" id="inv-form-id" value="">
+
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Investigation Name *</label>
+        <input type="text" id="inv-form-name" class="dash-input" placeholder="e.g. Operation Red Relic (APT29)" required>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Description &amp; Threat Objective</label>
+        <textarea id="inv-form-desc" class="dash-textarea" rows="3" placeholder="Brief summary of observed intrusion vectors, affected workstations, or incident triggers..."></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Severity Level</label>
+          <select id="inv-form-severity" class="dash-select">
+            <option value="CRITICAL" selected>CRITICAL (P0 Emergency)</option>
+            <option value="HIGH">HIGH (P1 Escalation)</option>
+            <option value="MEDIUM">MEDIUM (P2 Investigation)</option>
+            <option value="LOW">LOW (P3 Triage)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Status</label>
+          <select id="inv-form-status" class="dash-select">
+            <option value="ACTIVE" selected>ACTIVE (In Progress)</option>
+            <option value="IN_REVIEW">IN_REVIEW</option>
+            <option value="CONCLUDED">CONCLUDED</option>
+            <option value="RESOLVED">RESOLVED</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Telemetry Source Dataset</label>
+        <select id="inv-form-dataset" class="dash-select">
+          <option value="Custom Telemetry Ingestion" selected>Custom Telemetry Ingestion (.json / .csv)</option>
+          <option value="Enterprise Telemetry APT29">Enterprise Telemetry APT29 (Built-in)</option>
+          <option value="Active Directory Kerberoasting">Active Directory Kerberoasting</option>
+          <option value="Baseline Normal Enterprise Traffic">Baseline Normal Enterprise Traffic</option>
+        </select>
+      </div>
+
+      <div id="inv-form-feedback" style="display:none;padding:8px 10px;border-radius:6px;font-size:11px;margin-bottom:12px"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="header-action-btn" onclick="closeInvestigationModal()">Cancel</button>
+        <button type="submit" id="btn-save-investigation" class="btn-filigran-gradient" style="padding:9px 18px;font-size:12px">
+          <span id="btn-save-inv-text">Save Investigation</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── TELEMETRY UPLOAD SUMMARY MODAL ─────────────────────────────────── -->
+<div id="modal-upload-summary" class="auth-modal-overlay" onclick="handleModalUploadOverlayClick(event)" style="display:none">
+  <div class="auth-modal-card" style="max-width:560px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">📤</span>
+        <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Telemetry Ingestion Summary</h3>
+      </div>
+      <button type="button" class="auth-modal-close" onclick="closeUploadSummaryModal()">&times;</button>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:var(--text-primary)" id="upload-summary-filename">dataset.csv</span>
+        <span class="chip-green" style="font-size:10px;padding:2px 8px">NORMALIZED &amp; PARSED</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px" id="upload-summary-msg">
+        Telemetry records normalized and ingested into forensic multigraph.
+      </div>
+    </div>
+
+    <!-- 4-Box Ingestion Metric Tiles -->
+    <div class="upload-summary-grid">
+      <div class="upload-metric-tile">
+        <div class="upload-metric-label">Total Records</div>
+        <div class="upload-metric-val" id="sum-total-records" style="color:var(--text-primary)">0</div>
+      </div>
+      <div class="upload-metric-tile">
+        <div class="upload-metric-label">Valid Parsed</div>
+        <div class="upload-metric-val" id="sum-valid-records" style="color:var(--color-success)">0</div>
+      </div>
+      <div class="upload-metric-tile">
+        <div class="upload-metric-label">Duplicates</div>
+        <div class="upload-metric-val" id="sum-duplicate-records" style="color:var(--color-warning)">0</div>
+      </div>
+      <div class="upload-metric-tile">
+        <div class="upload-metric-label">Invalid Skipped</div>
+        <div class="upload-metric-val" id="sum-invalid-records" style="color:var(--text-tertiary)">0</div>
+      </div>
+    </div>
+
+    <!-- SHA-256 Merkle Proof -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;margin-bottom:18px">
+      <div style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-bottom:4px">
+        FORENSIC MERKLE ROOT CHAIN OF CUSTODY (SHA-256):
+      </div>
+      <div id="upload-summary-merkle" style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-secondary);word-break:break-all">
+        —
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button type="button" class="header-action-btn" onclick="closeUploadSummaryModal()">Close</button>
+      <button type="button" class="btn-filigran-gradient" onclick="viewReconstructedAttackGraph()" style="padding:9px 18px;font-size:12px">
+        <span>⚡ Reconstruct Attack Graph</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── USER PROFILE & CLEARANCE SETTINGS MODAL ───────────────────────── -->
+<div id="modal-profile" class="auth-modal-overlay" onclick="handleModalProfileOverlayClick(event)" style="display:none">
+  <div class="auth-modal-card" style="max-width:540px;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px" id="prof-modal-avatar">🛡️</span>
+        <div>
+          <h3 id="prof-modal-name" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Operator Profile &amp; Settings</h3>
+          <p id="prof-modal-role-sub" style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Incident Response CIRT</p>
+        </div>
+      </div>
+      <button type="button" class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+
+    <div id="prof-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px"></div>
+
+    <!-- Tab selection inside Profile Modal: Profile info vs Change Password -->
+    <div style="display:flex;gap:8px;border-bottom:1px solid var(--border-subtle);margin-bottom:16px">
+      <button type="button" class="auth-tab-btn active" id="tab-prof-info" onclick="switchProfileModalTab('info')">Operator Information</button>
+      <button type="button" class="auth-tab-btn" id="tab-prof-pwd" onclick="switchProfileModalTab('pwd')">Change Passcode</button>
+    </div>
+
+    <!-- Panel 1: Profile Details -->
+    <div id="panel-prof-info">
+      <form id="form-update-profile" onsubmit="handleProfileUpdateSubmit(event)">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Full Name</label>
+          <input type="text" id="prof-input-name" class="dash-input" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Corporate Email (Read-only)</label>
+            <input type="text" id="prof-input-email" class="dash-input" style="opacity:0.7;cursor:not-allowed" readonly>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Callsign (Read-only)</label>
+            <input type="text" id="prof-input-username" class="dash-input" style="opacity:0.7;cursor:not-allowed" readonly>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Job Title / Role</label>
+            <input type="text" id="prof-input-role" class="dash-input">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Department</label>
+            <input type="text" id="prof-input-dept" class="dash-input">
+          </div>
+        </div>
+        <div style="margin-bottom:18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">SECURITY CLEARANCE</div>
+            <div id="prof-display-clearance" style="font-size:12px;font-weight:700;color:var(--accent-cyan);margin-top:2px">Level 4 (Top Secret / SCI)</div>
+          </div>
+          <span class="chip-red" id="prof-clearance-pill">L4</span>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" class="header-action-btn" onclick="closeProfileModal()">Close</button>
+          <button type="submit" id="btn-save-profile" class="btn-filigran-gradient" style="padding:8px 16px;font-size:11.5px">Save Changes</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Panel 2: Change Password -->
+    <div id="panel-prof-pwd" style="display:none">
+      <form id="form-change-password" onsubmit="handleChangePasswordSubmit(event)">
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Current Passcode</label>
+          <input type="password" id="pwd-current" class="dash-input" required autocomplete="current-password">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">New Passcode (Min 6 chars)</label>
+          <input type="password" id="pwd-new" class="dash-input" required autocomplete="new-password">
+        </div>
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Confirm New Passcode</label>
+          <input type="password" id="pwd-confirm" class="dash-input" required autocomplete="new-password">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" class="header-action-btn" onclick="closeProfileModal()">Cancel</button>
+          <button type="submit" id="btn-change-pwd" class="btn-filigran-gradient" style="padding:8px 16px;font-size:11.5px">Update Passcode</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

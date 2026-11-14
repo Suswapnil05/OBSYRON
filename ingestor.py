@@ -172,58 +172,140 @@ def _default_contradictory_evidence(log: dict) -> List[str]:
     ]
 
 
-def parse_uploaded_file(filepath: str) -> list:
+def parse_uploaded_file_with_stats(filepath: str) -> Tuple[List[dict], Dict[str, int]]:
     """
-    Parse uploaded .json or .csv log file and normalize it.
+    Parses a user-uploaded JSON or CSV file into standard telemetry schema with full audit stats:
+    - total_records
+    - valid_records
+    - invalid_records
+    - duplicate_records
+    - imported_events
     """
     ext = os.path.splitext(filepath)[1].lower()
     raw = []
+    invalid_count = 0
 
     if ext == ".json":
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            raw = data
-        elif isinstance(data, dict) and "logs" in data:
-            raw = data["logs"]
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                raw = data
+            elif isinstance(data, dict) and "logs" in data and isinstance(data["logs"], list):
+                raw = data["logs"]
+            elif isinstance(data, dict) and "events" in data and isinstance(data["events"], list):
+                raw = data["events"]
+            elif isinstance(data, dict):
+                raw = [data]
+            else:
+                raise ValueError("JSON file must contain an array of log objects.")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Malformed JSON telemetry file: {str(e)}")
 
     elif ext == ".csv":
-        with open(filepath, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                raw.append(dict(row))
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
+        try:
+            with open(filepath, "r", encoding="utf-8", newline="", errors="replace") as f:
+                # Detect delimiter
+                sample = f.read(2048)
+                f.seek(0)
+                delimiter = ","
+                if ";" in sample and sample.count(";") > sample.count(","):
+                    delimiter = ";"
+                elif "\t" in sample and sample.count("\t") > sample.count(","):
+                    delimiter = "\t"
 
-    # Normalize schema – fill missing fields with defaults
+                reader = csv.DictReader(f, delimiter=delimiter)
+                for row in reader:
+                    if not any(row.values()):
+                        invalid_count += 1
+                        continue
+                    raw.append(dict(row))
+        except Exception as e:
+            raise ValueError(f"Failed to read CSV file: {str(e)}")
+    else:
+        raise ValueError(f"Unsupported file type '{ext}'. Supported formats: .json, .csv")
+
+    total_records = len(raw) + invalid_count
+
+    # Normalize schema & detect duplicates
+    seen_signatures = set()
+    duplicate_count = 0
     normalized_schema = []
+
     for i, row in enumerate(raw):
-        raw_ts = row.get("raw_timestamp") or row.get("timestamp") or datetime.now(IST).isoformat()
+        # Extract source, target, action
+        src = (row.get("source") or row.get("src") or row.get("source_ip") or row.get("user") or "unknown").strip()
+        tgt = (row.get("target") or row.get("dst") or row.get("dest") or row.get("dest_ip") or "unknown").strip()
+        act = (row.get("action") or row.get("event") or row.get("activity") or "TRAFFIC").strip()
+        host = (row.get("source_host") or row.get("host") or row.get("hostname") or "unknown").strip()
+
+        # Validation: check for empty critical fields
+        if src == "unknown" and tgt == "unknown" and act == "TRAFFIC":
+            invalid_count += 1
+            continue
+
+        raw_ts = (row.get("raw_timestamp") or row.get("timestamp") or row.get("time") or datetime.now(IST).isoformat()).strip()
+
+        # Duplicate detection (same timestamp, source, target, action)
+        sig = f"{raw_ts}|{src}|{tgt}|{act}"
+        if sig in seen_signatures:
+            duplicate_count += 1
+            continue
+        seen_signatures.add(sig)
+
+        port_val = 0
+        try:
+            port_val = int(float(row.get("port", 0) or 0))
+        except Exception:
+            port_val = 0
+
+        skew_val = 0
+        try:
+            skew_val = int(float(row.get("host_skew_sec", 0) or 0))
+        except Exception:
+            skew_val = 0
+
+        is_mal = str(row.get("is_malicious", "false")).lower() in ["true", "1", "yes", "critical", "high"]
+
         normalized_schema.append({
-            "log_id":                row.get("log_id",                f"UPLOAD-{i+1:04d}"),
+            "log_id":                row.get("log_id") or f"UPLOAD-{len(normalized_schema)+1:04d}",
             "raw_timestamp":         raw_ts,
-            "event_timestamp":       row.get("event_timestamp",       raw_ts),
-            "ingestion_timestamp":   row.get("ingestion_timestamp",   raw_ts),
-            "true_timestamp":        row.get("true_timestamp",        raw_ts),
-            "source_host":           row.get("source_host",           row.get("host", "unknown")),
-            "host_skew_sec":         int(float(row.get("host_skew_sec", 0))),
-            "entity_type":           row.get("entity_type",           "DEVICE"),
-            "source":                row.get("source",                row.get("src", "unknown")),
-            "target":                row.get("target",                row.get("dst", "unknown")),
-            "action":                row.get("action",                "UNKNOWN"),
-            "protocol":              row.get("protocol",              "TCP"),
-            "port":                  int(float(row.get("port", 0))),
-            "mitre_tag":             row.get("mitre_tag",             ""),
-            "mitre_technique":       row.get("mitre_technique",       ""),
-            "severity":              row.get("severity",              "LOW"),
-            "is_malicious":          str(row.get("is_malicious", "false")).lower() in ["true", "1"],
-            "raw_payload":           row.get("raw_payload",           json.dumps(dict(row))),
-            "causal_connection":     row.get("causal_connection",     ""),
-            "supporting_evidence":   row.get("supporting_evidence",   []),
-            "contradictory_evidence": row.get("contradictory_evidence", [])
+            "event_timestamp":       row.get("event_timestamp") or raw_ts,
+            "ingestion_timestamp":   row.get("ingestion_timestamp") or raw_ts,
+            "true_timestamp":        row.get("true_timestamp") or raw_ts,
+            "source_host":           host,
+            "host_skew_sec":         skew_val,
+            "entity_type":           row.get("entity_type") or ("USER" if "@" in src or "emp" in src else ("PROCESS" if src.endswith(".exe") else "DEVICE")),
+            "source":                src,
+            "target":                tgt,
+            "action":                act,
+            "protocol":              row.get("protocol") or "TCP",
+            "port":                  port_val,
+            "mitre_tag":             row.get("mitre_tag") or ("T1078" if is_mal else ""),
+            "mitre_technique":       row.get("mitre_technique") or ("Valid Accounts" if is_mal else ""),
+            "severity":              (row.get("severity") or ("CRITICAL" if is_mal else "LOW")).upper(),
+            "is_malicious":          is_mal,
+            "raw_payload":           row.get("raw_payload") if isinstance(row.get("raw_payload"), str) else json.dumps(dict(row)),
+            "causal_connection":     row.get("causal_connection") or f"Telemetry: {src} -> {tgt} via {act}",
+            "supporting_evidence":   row.get("supporting_evidence") or ["Parsed and verified by OBSYRON Telemetry Engine"],
+            "contradictory_evidence": row.get("contradictory_evidence") or []
         })
 
-    return normalize_logs(normalized_schema)
+    normalized = normalize_logs(normalized_schema)
+    stats = {
+        "total_records": total_records,
+        "valid_records": len(normalized_schema),
+        "invalid_records": invalid_count,
+        "duplicate_records": duplicate_count,
+        "imported_events": len(normalized)
+    }
+    return normalized, stats
+
+
+def parse_uploaded_file(filepath: str) -> list:
+    """Backwards-compatible wrapper returning normalized logs."""
+    logs, _ = parse_uploaded_file_with_stats(filepath)
+    return logs
 
 
 def get_timeline_snapshot(normalized_logs: list, up_to_timestamp: str) -> list:
