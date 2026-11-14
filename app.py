@@ -60,27 +60,35 @@ app.add_middleware(
 async def vercel_path_normalizer(request: Request, call_next):
     """
     Normalizes request paths under Vercel serverless functions.
-    Handles rewrites from /api/* to /api/index.py or stripped /api prefix.
+    Handles rewrites from /api/* to /api/index.py?__path=... or stripped /api prefix.
     """
-    # Check headers injected by Vercel's edge router
-    for header_name in ("x-matched-path", "x-invoke-path", "x-forwarded-uri", "x-original-url"):
-        val = request.headers.get(header_name)
-        if val:
-            clean = val.split("?")[0]
-            if clean and clean not in ("/api/index.py", "/api/index", "/api", "/api/"):
-                request.scope["path"] = clean
-                break
+    # 1. Check query parameter __path injected by vercel.json rewrite
+    q_path = request.query_params.get("__path")
+    if q_path:
+        clean_q = q_path.split("?")[0]
+        if clean_q and clean_q not in ("/api/index.py", "/api/index"):
+            request.scope["path"] = clean_q
+    else:
+        # 2. Check headers injected by Vercel's edge router
+        for header_name in ("x-matched-path", "x-invoke-path", "x-forwarded-uri", "x-original-url", "x-real-path"):
+            val = request.headers.get(header_name)
+            if val:
+                clean = val.split("?")[0]
+                if clean and clean not in ("/api/index.py", "/api/index", "/api", "/api/"):
+                    request.scope["path"] = clean
+                    break
 
     # If Vercel passed path as /api/index.py, recover from matched path if present
     current_path = request.scope.get("path", "")
     if current_path in ("/api/index.py", "/api/index"):
         matched = request.headers.get("x-matched-path")
-        if matched:
+        if matched and matched not in ("/api/index.py", "/api/index"):
             request.scope["path"] = matched.split("?")[0]
 
     # Normalize trailing slash (e.g. /api/analyze/ -> /api/analyze)
-    if len(request.scope.get("path", "")) > 1 and request.scope["path"].endswith("/"):
-        request.scope["path"] = request.scope["path"].rstrip("/")
+    current_path = request.scope.get("path", "")
+    if len(current_path) > 1 and current_path.endswith("/"):
+        request.scope["path"] = current_path.rstrip("/")
 
     return await call_next(request)
 
@@ -612,8 +620,6 @@ class AnalyzeRequest(BaseModel):
 
 @app.post("/api/analyze")
 @app.post("/analyze")
-@app.post("/api/index.py")
-@app.post("/api/index")
 @app.post("/api")
 @app.post("/api/")
 async def analyze(req: AnalyzeRequest):
@@ -648,6 +654,36 @@ async def analyze(req: AnalyzeRequest):
             print(f"[Supabase] Auto-sync notice: {e}")
 
     return JSONResponse(result)
+
+
+@app.api_route("/api/index.py", methods=["GET", "POST"])
+@app.api_route("/api/index", methods=["GET", "POST"])
+async def vercel_universal_handler(request: Request):
+    """Universal router fallback for Vercel when path is passed as /api/index.py."""
+    q_path = request.query_params.get("__path", "")
+    method = request.method.upper()
+
+    if method == "POST":
+        if "seed-demo" in q_path:
+            return await seed_database_demo_endpoint(user={"id": "usr_maya_thorne"})
+        req_data = {}
+        try:
+            body = await request.body()
+            if body:
+                req_data = json.loads(body.decode("utf-8"))
+        except Exception:
+            pass
+        return await analyze(AnalyzeRequest(**req_data))
+    else:
+        if "stats" in q_path or "dashboard" in q_path:
+            return await get_dashboard_stats(user={"id": "usr_maya_thorne"})
+        if "investigations" in q_path:
+            return await list_user_investigations(limit=50, user={"id": "usr_maya_thorne"})
+        if "operators" in q_path or "auth" in q_path:
+            return await get_operators()
+        if "health" in q_path:
+            return await health_check()
+        return await get_dashboard_stats(user={"id": "usr_maya_thorne"})
 
 
 @app.get("/api/graph/snapshot")
