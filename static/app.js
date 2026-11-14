@@ -1772,10 +1772,153 @@ async function logoutOperator() {
   }
 }
 
+// ── 13. SUPABASE POSTGRESQL DATABASE MANAGEMENT ───────────────────────────
+
+async function initDatabaseStatus() {
+  try {
+    const res = await apiFetch('/api/database/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    updateDatabaseUI(data);
+  } catch (err) {
+    console.warn('Database status check notice:', err);
+  }
+}
+
+function updateDatabaseUI(data) {
+  const dot = document.getElementById('db-status-dot');
+  const label = document.getElementById('db-status-label');
+  const modalDot = document.getElementById('db-modal-dot');
+  const modalText = document.getElementById('db-modal-status-text');
+
+  if (data.authenticated) {
+    if (dot) dot.style.background = '#10B981'; // Green
+    if (label) label.textContent = 'Supabase: Connected';
+    if (modalDot) modalDot.style.background = '#10B981';
+    if (modalText) {
+      modalText.textContent = '🟢 Connected & Authenticated (PostgreSQL Live)';
+      modalText.style.color = 'var(--color-success)';
+    }
+  } else if (data.connected) {
+    if (dot) dot.style.background = '#F59E0B'; // Amber
+    if (label) label.textContent = 'Supabase: Key Needed';
+    if (modalDot) modalDot.style.background = '#F59E0B';
+    if (modalText) {
+      modalText.textContent = '🟡 Host Reached (Key Required)';
+      modalText.style.color = 'var(--color-warning)';
+    }
+  } else {
+    if (dot) dot.style.background = '#64748B'; // Muted
+    if (label) label.textContent = 'Supabase: Standby';
+    if (modalDot) modalDot.style.background = '#64748B';
+    if (modalText) {
+      modalText.textContent = '⚪ Local-First Standby';
+      modalText.style.color = 'var(--text-secondary)';
+    }
+  }
+}
+
+function openDatabaseModal() {
+  const modal = document.getElementById('database-modal');
+  if (modal) modal.style.display = 'flex';
+  initDatabaseStatus();
+}
+
+function closeDatabaseModal() {
+  const modal = document.getElementById('database-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleDatabaseModalClick(event) {
+  if (event.target.id === 'database-modal') {
+    closeDatabaseModal();
+  }
+}
+
+async function saveDatabaseKey() {
+  const input = document.getElementById('input-supabase-key');
+  const feedback = document.getElementById('db-modal-feedback');
+  const key = (input ? input.value : '').trim();
+
+  if (!key) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = 'Please paste your Supabase API key.';
+    }
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/database/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supabase_key: key })
+    });
+    const data = await res.json();
+    if (data.status) {
+      updateDatabaseUI(data.status);
+    }
+    if (feedback) {
+      feedback.style.display = 'block';
+      if (data.status && data.status.authenticated) {
+        feedback.style.background = 'var(--color-success-bg)';
+        feedback.style.color = 'var(--color-success)';
+        feedback.textContent = '✓ Connected to Supabase PostgreSQL successfully!';
+      } else {
+        feedback.style.background = 'var(--color-warning-bg)';
+        feedback.style.color = 'var(--color-warning)';
+        feedback.textContent = `Key saved. Status: ${data.status ? data.status.message : 'Configured'}`;
+      }
+    }
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = `Error: ${err.message}`;
+    }
+  }
+}
+
+async function syncActiveInvestigationToSupabase() {
+  const btn = document.getElementById('btn-sync-supabase');
+  const feedback = document.getElementById('db-modal-feedback');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await apiFetch('/api/database/sync', { method: 'POST' });
+    const data = await res.json();
+    if (feedback) {
+      feedback.style.display = 'block';
+      if (data.success) {
+        feedback.style.background = 'var(--color-success-bg)';
+        feedback.style.color = 'var(--color-success)';
+        feedback.textContent = '✓ Forensic case and audit logs synced to Supabase!';
+      } else {
+        feedback.style.background = 'var(--color-warning-bg)';
+        feedback.style.color = 'var(--color-warning)';
+        feedback.textContent = `Sync notice: ${data.error || data.message || 'Check API key permissions'}`;
+      }
+    }
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = `Sync failed: ${err.message}`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // ── 14. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAuth();
+  initDatabaseStatus();
   runAnalysis(state.currentSettings);
 });

@@ -32,6 +32,7 @@ from containment_engine import (
 )
 from merkle_tree import ForensicMerkleTree, verify_merkle_proof
 from scenario_manager import list_available_scenarios, get_scenario_metadata, load_scenario_telemetry
+from supabase_client import supabase_client
 
 app = FastAPI(
     title="OBSYRON",
@@ -291,6 +292,11 @@ class SignupRequest(BaseModel):
     clearance: Optional[str] = "L3"
 
 
+class DatabaseConfigRequest(BaseModel):
+    supabase_key: Optional[str] = None
+    supabase_url: Optional[str] = None
+
+
 # ── REST Endpoints ──────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -383,6 +389,12 @@ async def auth_login(req: LoginRequest):
     # Sanitize password from return object
     res_operator = dict(operator_data)
     res_operator.pop("password", None)
+
+    if supabase_client.is_configured:
+        try:
+            supabase_client.sync_operator_profile(operator_data)
+        except Exception as e:
+            print(f"[Supabase] Operator sync notice: {e}")
 
     return JSONResponse({
         "success": True,
@@ -545,6 +557,14 @@ async def analyze(req: AnalyzeRequest):
     _cache["normalized_logs"] = normalized
     _cache["analysis_result"] = result
     _cache["last_settings"]   = req.model_dump()
+
+    # Optional Supabase Cloud Sync
+    if supabase_client.is_configured:
+        try:
+            supabase_client.save_investigation(result)
+            supabase_client.save_audit_logs(normalized[:100])
+        except Exception as e:
+            print(f"[Supabase] Auto-sync notice: {e}")
 
     return JSONResponse(result)
 
@@ -896,6 +916,11 @@ async def execute_containment(req: ContainmentExecuteRequest):
         simulation_mode=req.simulation_mode or False,
         notes=req.notes
     )
+    if supabase_client.is_configured:
+        try:
+            supabase_client.save_containment_action(record)
+        except Exception as e:
+            print(f"[Supabase] Containment action sync notice: {e}")
     return JSONResponse({"success": True, "action_record": record})
 
 
@@ -1024,15 +1049,116 @@ async def load_scenario(req: ScenarioLoadRequest):
     })
 
 
+# ── Supabase PostgreSQL Database Endpoints ─────────────────────────────────
+
+@app.get("/api/database/status")
+@app.get("/database/status")
+async def get_database_status():
+    """Returns live connection health and synchronization status for Supabase database."""
+    conn_info = supabase_client.check_connection()
+    conn_info["total_cached_logs"] = len(_cache.get("normalized_logs", []))
+    conn_info["active_investigation_id"] = _cache.get("analysis_result", {}).get("active_investigation_id") or "OBS-INV-20261114-001"
+    return JSONResponse(conn_info)
+
+
+@app.post("/api/database/config")
+@app.post("/database/config")
+async def update_database_config(req: DatabaseConfigRequest):
+    """Configures or updates Supabase API credentials at runtime."""
+    if req.supabase_url:
+        supabase_client.url = req.supabase_url.rstrip("/")
+    if req.supabase_key is not None:
+        supabase_client.set_key(req.supabase_key)
+        # Attempt writing to local .env
+        try:
+            env_path = os.path.join(BASE_DIR, ".env")
+            env_content = (
+                f"# OBSYRON XTM 2.0 Environment Configuration\n"
+                f"PORT=8000\n"
+                f"HOST=127.0.0.1\n"
+                f"LOG_LEVEL=info\n\n"
+                f"SUPABASE_URL={supabase_client.url}\n"
+                f"SUPABASE_KEY={supabase_client.key}\n"
+            )
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(env_content)
+        except Exception as e:
+            print(f"[Supabase] Could not persist to .env: {e}")
+
+    return JSONResponse({
+        "success": True,
+        "message": "Supabase database configuration updated.",
+        "status": supabase_client.check_connection()
+    })
+
+
+@app.post("/api/database/sync")
+@app.post("/database/sync")
+async def sync_database():
+    """Explicitly synchronizes current forensic analysis, logs, and operator profile to Supabase."""
+    if not supabase_client.is_configured:
+        return JSONResponse({
+            "success": False,
+            "error": "Supabase API key is not configured. Provide anon or service_role key to synchronize."
+        }, status_code=400)
+
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+
+    inv_res = supabase_client.save_investigation(_cache["analysis_result"])
+    logs_res = supabase_client.save_audit_logs(_cache.get("normalized_logs", []), limit=150)
+
+    return JSONResponse({
+        "success": inv_res.get("success", False) or inv_res.get("status") in (200, 201),
+        "investigation_sync": inv_res,
+        "logs_synced": logs_res.get("status") in (200, 201) or logs_res.get("success", False),
+        "message": "Forensic case and audit telemetry synchronized with Supabase PostgreSQL."
+    })
+
+
+@app.get("/api/database/investigations")
+@app.get("/database/investigations")
+async def list_database_investigations(limit: int = Query(20, ge=1, le=100)):
+    """Fetches historical investigations persisted in Supabase."""
+    if not supabase_client.is_configured:
+        return JSONResponse({
+            "success": False,
+            "investigations": [],
+            "error": "Supabase not configured with API key."
+        })
+    investigations = supabase_client.list_investigations(limit=limit)
+    return JSONResponse({
+        "success": True,
+        "count": len(investigations),
+        "investigations": investigations
+    })
+
+
 if __name__ == "__main__":
+    import socket
     host = os.environ.get("HOST", "127.0.0.1")
-    port = int(os.environ.get("PORT", 8000))
+    pref_port = int(os.environ.get("PORT", 8000))
+
+    selected_port = None
+    for p in [pref_port, 8000, 8001, 8080, 5000]:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind((host, p))
+            s.close()
+            selected_port = p
+            break
+        except OSError:
+            continue
+
+    if not selected_port:
+        selected_port = 8001
+
     print("=" * 60)
     print("  OBSYRON // HackInnovision 2026 (Track C)")
     print("  Attack Graph Reconstruction & Forensic Analysis Server")
-    print(f"  Listening at: http://{host}:{port}")
+    print(f"  Listening at: http://{host}:{selected_port}")
     print("=" * 60)
-    try:
-        uvicorn.run("app:app", host=host, port=port, reload=False)
-    except OSError:
-        uvicorn.run("app:app", host="127.0.0.1", port=port, reload=False)
+
+    uvicorn.run("app:app", host=host, port=selected_port, reload=False)
