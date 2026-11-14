@@ -70,8 +70,91 @@
       <span>Launch Investigation</span>
       <span style="font-size:13px">⚡</span>
     </a>
+
+    <!-- Mobile Hamburger Menu Button -->
+    <button id="btn-hamburger" class="header-hamburger-btn" onclick="toggleMobileMenu()" aria-label="Toggle Navigation Menu" aria-expanded="false">
+      <span class="hamburger-bar bar-1"></span>
+      <span class="hamburger-bar bar-2"></span>
+      <span class="hamburger-bar bar-3"></span>
+    </button>
   </div>
 </header>
+
+<!-- ── MOBILE NAVIGATION DRAWER & BACKDROP ─────────────────────────────── -->
+<div id="mobile-nav-overlay" class="mobile-nav-overlay" onclick="closeMobileMenu()"></div>
+<aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation">
+  <div class="mobile-drawer-header">
+    <div class="brand-section">
+      <div class="brand-shield-icon" style="width:30px;height:30px">
+        <img src="/static/icon.png" alt="OBSYRON Logo" style="width:16px;height:16px;object-fit:contain">
+      </div>
+      <div class="brand-titles">
+        <span class="brand-name" style="font-size:15px">OBSYRON</span>
+        <span class="brand-subtitle" style="font-size:8px">XTM 2.0 // TRACK C</span>
+      </div>
+    </div>
+    <button class="mobile-drawer-close" onclick="closeMobileMenu()" aria-label="Close menu">&times;</button>
+  </div>
+
+  <nav class="mobile-drawer-nav">
+    <a href="#cockpit" class="mobile-nav-link" onclick="closeMobileMenu()">
+      <span class="mobile-nav-icon">⚡</span>
+      <div class="mobile-nav-text">
+        <span class="mobile-nav-title">Incident Cockpit</span>
+        <span class="mobile-nav-sub">Dynamic Graph Reconstruction &amp; Ingestion Controls</span>
+      </div>
+    </a>
+    <a href="#separate-signal-noise" class="mobile-nav-link" onclick="closeMobileMenu()">
+      <span class="mobile-nav-icon">📊</span>
+      <div class="mobile-nav-text">
+        <span class="mobile-nav-title">Signal vs Noise</span>
+        <span class="mobile-nav-sub">Blast Radius Scope &amp; Exposure Telemetry KPIs</span>
+      </div>
+    </a>
+    <a href="#capabilities" class="mobile-nav-link" onclick="closeMobileMenu()">
+      <span class="mobile-nav-icon">🛠️</span>
+      <div class="mobile-nav-text">
+        <span class="mobile-nav-title">Platform Capabilities</span>
+        <span class="mobile-nav-sub">MultiDiGraph, Gap-Bridging &amp; Audit Ledger</span>
+      </div>
+    </a>
+    <a href="#numbers" class="mobile-nav-link" onclick="closeMobileMenu()">
+      <span class="mobile-nav-icon">📈</span>
+      <div class="mobile-nav-text">
+        <span class="mobile-nav-title">Platform Benchmarks</span>
+        <span class="mobile-nav-sub">Sub-12ms Latency &amp; Zero-Cloud Privacy</span>
+      </div>
+    </a>
+    <a href="#mitre-alliances" class="mobile-nav-link" onclick="closeMobileMenu()">
+      <span class="mobile-nav-icon">🛡️</span>
+      <div class="mobile-nav-text">
+        <span class="mobile-nav-title">MITRE &amp; Standards</span>
+        <span class="mobile-nav-sub">ATT&amp;CK v14, STIX 2.1 &amp; Sigma Rules</span>
+      </div>
+    </a>
+  </nav>
+
+  <div class="mobile-drawer-footer">
+    <div class="mobile-auth-card">
+      <div id="mobile-auth-status" class="mobile-auth-status">OPERATOR STATUS: GUEST</div>
+      <a href="/login" class="mobile-auth-btn" id="mobile-nav-auth" onclick="closeMobileMenu()">
+        <span id="mobile-auth-icon">🔒</span>
+        <span id="mobile-auth-label">Log In / Sign Up</span>
+      </a>
+    </div>
+
+    <div class="mobile-quick-actions">
+      <button class="mobile-quick-btn" onclick="toggleTheme(); updateThemeUI();">
+        <span id="mobile-theme-icon">🌙</span>
+        <span>Toggle Theme</span>
+      </button>
+      <a href="#cockpit" class="mobile-quick-btn mobile-launch-btn" onclick="closeMobileMenu(); runAnalysis();">
+        <span>⚡</span>
+        <span>Investigate</span>
+      </a>
+    </div>
+  </div>
+</aside>
 
 <!-- ── FILIGRAN-STYLE HERO SECTION ───────────────────────────────────────── -->
 <section class="hero-section">

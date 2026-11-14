@@ -373,6 +373,44 @@
     color: var(--text-tertiary);
     text-align: center;
   }
+
+  /* Responsive Mobile Breakpoints */
+  @media (max-width: 600px) {
+    .login-header {
+      padding: 12px 14px;
+    }
+    .login-container {
+      margin: 16px auto;
+      padding: 0 12px;
+    }
+    .login-card {
+      padding: 20px 16px;
+      border-radius: 12px;
+    }
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .quick-roles-grid {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+
+  @media (max-width: 375px) {
+    .login-header {
+      padding: 10px 8px;
+    }
+    .login-title {
+      font-size: 18px;
+    }
+    .login-subtitle {
+      font-size: 11px;
+    }
+    .login-card {
+      padding: 16px 10px;
+    }
+  }
 </style>
 </head>
 <body class="dark-theme login-page">

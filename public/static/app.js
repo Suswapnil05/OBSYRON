@@ -89,7 +89,58 @@ function updateThemeUI() {
   const themeBtn = document.getElementById('btn-theme');
   if (icon) icon.textContent = dark ? '🌙' : '☀️';
   if (themeBtn) themeBtn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+
+  // Mobile drawer theme icon
+  const mobileThemeIcon = document.getElementById('mobile-theme-icon');
+  if (mobileThemeIcon) mobileThemeIcon.textContent = dark ? '🌙' : '☀️';
 }
+
+// ── 0.1 MOBILE NAVIGATION DRAWER ENGINE ───────────────────────────────────
+
+function toggleMobileMenu() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  if (!drawer) return;
+  if (drawer.classList.contains('is-open')) {
+    closeMobileMenu();
+  } else {
+    openMobileMenu();
+  }
+}
+
+function openMobileMenu() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  const overlay = document.getElementById('mobile-nav-overlay');
+  const btn = document.getElementById('btn-hamburger');
+  if (drawer) drawer.classList.add('is-open');
+  if (overlay) overlay.classList.add('is-open');
+  if (btn) {
+    btn.classList.add('is-active');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  document.body.classList.add('menu-open');
+}
+
+function closeMobileMenu() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  const overlay = document.getElementById('mobile-nav-overlay');
+  const btn = document.getElementById('btn-hamburger');
+  if (drawer) drawer.classList.remove('is-open');
+  if (overlay) overlay.classList.remove('is-open');
+  if (btn) {
+    btn.classList.remove('is-active');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  document.body.classList.remove('menu-open');
+}
+
+// Global escape key handler to dismiss overlays
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeMobileMenu();
+    if (typeof closeAuthModal === 'function') closeAuthModal();
+    if (typeof closeDrawer === 'function') closeDrawer();
+  }
+});
 
 // ── 1. API INTEGRATION & AUTOMATIC FAILOVER ────────────────────────────────
 
@@ -1115,6 +1166,15 @@ function initAuth() {
     });
   }
 
+  const mobileNavAuth = document.getElementById('mobile-nav-auth');
+  if (mobileNavAuth) {
+    mobileNavAuth.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeMobileMenu();
+      openAuthModal();
+    });
+  }
+
   // Check URL params for ?authorized=1 notification
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('authorized') === '1') {
@@ -1128,20 +1188,14 @@ function updateAuthUI(op) {
   const badgeElem = document.getElementById('header-auth-badge');
   const navAuth = document.getElementById('nav-link-auth');
 
+  const mobileStatus = document.getElementById('mobile-auth-status');
+  const mobileLabel = document.getElementById('mobile-auth-label');
+  const mobileIcon = document.getElementById('mobile-auth-icon');
+
   const modalActive = document.getElementById('modal-active-operator');
   const modalAvatar = document.getElementById('modal-op-avatar');
   const modalName = document.getElementById('modal-op-name');
   const modalRole = document.getElementById('modal-op-role');
-
-  if (navAuth) {
-    if (op) {
-      navAuth.textContent = `${op.avatar || '🛡️'} ${op.name || op.username} (${op.clearance_code || 'L4'})`;
-      navAuth.style.color = 'var(--text-primary)';
-    } else {
-      navAuth.textContent = 'Log In / Sign Up';
-      navAuth.style.color = 'var(--accent-cyan)';
-    }
-  }
 
   if (op) {
     if (iconElem) iconElem.textContent = op.avatar || '🛡️';
@@ -1154,6 +1208,12 @@ function updateAuthUI(op) {
         op.clearance_code === 'L3' ? 'clearance-l3' : 'clearance-l2'
       );
     }
+    if (mobileStatus) {
+      mobileStatus.innerHTML = `OPERATOR: <strong style="color:var(--text-primary)">${op.name || op.username}</strong> <span class="header-clearance-pill ${op.clearance_code === 'L4' ? 'clearance-l4' : op.clearance_code === 'L3' ? 'clearance-l3' : 'clearance-l2'}">${op.clearance_code || 'L4'}</span>`;
+    }
+    if (mobileLabel) mobileLabel.textContent = `Operator: ${op.name || op.username}`;
+    if (mobileIcon) mobileIcon.textContent = op.avatar || '🛡️';
+
     if (modalActive) modalActive.style.display = 'block';
     if (modalAvatar) modalAvatar.textContent = op.avatar || '🛡️';
     if (modalName) modalName.textContent = op.name || op.username;
@@ -1165,6 +1225,9 @@ function updateAuthUI(op) {
       badgeElem.style.display = 'none';
       badgeElem.className = 'header-clearance-pill';
     }
+    if (mobileStatus) mobileStatus.textContent = 'OPERATOR STATUS: GUEST';
+    if (mobileLabel) mobileLabel.textContent = 'Log In / Sign Up';
+    if (mobileIcon) mobileIcon.textContent = '🔒';
     if (modalActive) modalActive.style.display = 'none';
   }
 }
