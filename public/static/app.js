@@ -15,7 +15,7 @@ const state = {
     drop_rate: 0.15
   },
   currentDataset: 'builtin',
-  graphViewMode: 'threat', // 'threat' = clean simple kill chain (default), 'all' = full network
+  graphViewMode: 'attack_flow', // 'attack_flow' = chronological left-to-right attack flow (default), 'topology' = full asset network
   graphLayoutName: 'breadthfirst',
   searchQuery: '',
   sliderTimeout: null,
@@ -24,6 +24,8 @@ const state = {
   replayIndex: 0,
   replaySpeed: 1.0,
   replayEvents: [],
+  selectedStep: null,
+  activeInspectorLogId: null,
   chaosBenchmarkData: null,
   deceptionData: null,
   isSpeaking: false,
@@ -454,108 +456,338 @@ function entityStrokeColor(type) {
   }
 }
 
+// ── INVESTIGATION PANEL CONTROLLER ──────────────────────────────────────────
+
+function showInvestigationPanel(step) {
+  if (!step) return;
+  state.selectedStep = step;
+
+  // 1. Title & Event Name
+  const titleEl = document.getElementById('insp-title');
+  if (titleEl) {
+    const stepPrefix = step.step ? `${step.step}. ` : '';
+    titleEl.textContent = `${stepPrefix}${step.title || step.action || 'Attack Event'}`;
+  }
+
+  // 2. MITRE Technique
+  const mitreEl = document.getElementById('insp-mitre-badge');
+  if (mitreEl) {
+    mitreEl.textContent = step.mitre || 'ATT&CK';
+  }
+
+  // 3. Severity Badge & Dot
+  const sevEl = document.getElementById('insp-sev-badge');
+  const dotEl = document.getElementById('insp-dot');
+  const sev = (step.severity || 'CRITICAL').toUpperCase();
+  if (sevEl) {
+    sevEl.textContent = sev;
+    sevEl.className = 'investigation-badge';
+    if (sev === 'CRITICAL') {
+      sevEl.classList.add('sev-critical');
+      if (dotEl) dotEl.style.background = '#EF4444';
+    } else if (sev === 'HIGH' || step.is_inferred) {
+      sevEl.classList.add('sev-suspicious');
+      if (dotEl) dotEl.style.background = '#F59E0B';
+    } else {
+      sevEl.classList.add('sev-normal');
+      if (dotEl) dotEl.style.background = '#10B981';
+    }
+  }
+
+  // 4. Timestamp
+  const tsEl = document.getElementById('insp-timestamp');
+  if (tsEl) {
+    tsEl.textContent = step.timestamp ? formatTimestamp(step.timestamp) : '2026-03-31 01:15:00 UTC';
+  }
+
+  // 5. Confidence Score
+  const confEl = document.getElementById('insp-confidence');
+  if (confEl) {
+    const confVal = Math.round((step.confidence || 0.95) * 100);
+    confEl.textContent = `${confVal}% (${step.is_inferred ? 'Inferred Gap Bridge' : 'Corroborated'})`;
+  }
+
+  // 6. Source & Dest IP
+  const ipsEl = document.getElementById('insp-ips');
+  if (ipsEl) {
+    const sIp = step.source_ip || step.source || '185.220.101.47';
+    const dIp = step.dest_ip || step.target || '10.0.4.15';
+    ipsEl.textContent = `${sIp} ➔ ${dIp}`;
+  }
+
+  // 7. Hostname
+  const hostEl = document.getElementById('insp-hostname');
+  if (hostEl) {
+    hostEl.textContent = step.source_host || 'wkst-04-dev';
+  }
+
+  // 8. Suspicion Explanation
+  const suspEl = document.getElementById('insp-suspicion-desc');
+  if (suspEl) {
+    suspEl.textContent = step.suspicion_explanation || step.narrative || 'Adversary behavioral deviation isolated in audit telemetry.';
+  }
+
+  // 9. Original Log Evidence snippet
+  const preEl = document.getElementById('insp-log-payload');
+  const chosenLogId = step.evidence_log_id || (step.log_citations && step.log_citations[0]);
+  state.activeInspectorLogId = chosenLogId;
+
+  if (preEl) {
+    if (step.raw_payload) {
+      try {
+        const parsed = typeof step.raw_payload === 'string' ? JSON.parse(step.raw_payload) : step.raw_payload;
+        preEl.textContent = JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        preEl.textContent = String(step.raw_payload);
+      }
+    } else if (chosenLogId) {
+      preEl.textContent = `{\n  "log_id": "${chosenLogId}",\n  "mitre_tag": "${step.mitre || 'T1078'}",\n  "host": "${step.source_host || 'wkst-04-dev'}",\n  "action": "${step.action || 'STAGE'}"\n}`;
+    } else {
+      preEl.textContent = '{\n  "status": "INFERRED_BRIDGE_NO_DIRECT_RAW_LOG"\n}';
+    }
+  }
+}
+
+function openNodeEvidenceDNA() {
+  if (state.activeInspectorLogId && state.activeInspectorLogId !== 'INFERRED') {
+    fetchEvidence(state.activeInspectorLogId);
+  } else if (state.selectedStep && state.selectedStep.log_citations && state.selectedStep.log_citations[0]) {
+    fetchEvidence(state.selectedStep.log_citations[0]);
+  } else {
+    openDrawer();
+  }
+}
+
+// ── ATTACK GRAPH ENGINE (CHRONOLOGICAL ATTACK FLOW & TOPOLOGY) ─────────────
+
 function renderGraph(data) {
   const container = document.getElementById('cy');
   if (!container) return;
   const dark = isDarkMode();
 
   const nodeTextColor = dark ? '#FFFFFF' : '#0F172A';
-  const edgeLineColor = dark ? '#334155' : '#94A3B8';
-  const edgeCriticalColor = dark ? '#EF4444' : '#DC2626';
-  const edgeInferredColor = dark ? '#F59E0B' : '#D97706';
-  const edgeTextBg = dark ? '#00020C' : '#FFFFFF';
-  const edgeTextColor = dark ? '#E2E8F0' : '#0F172A';
-  const selectBorderColor = dark ? '#6FD7FF' : '#0284C7';
-  const ancestorColor = dark ? '#38BDF8' : '#0284C7';
-  const descendantColor = dark ? '#EF4444' : '#DC2626';
+  const edgeLineColor = '#0284C7';
+  const edgeCriticalColor = '#EF4444';
+  const edgeInferredColor = '#F59E0B';
+  const selectBorderColor = '#38BDF8';
 
-  // 1. Identify Threat-Relevant Edges (Clean & Focused Kill Chain)
-  const allEdges = data.edges || [];
-  let threatEdges = allEdges.filter(e => {
-    return Boolean(e.is_malicious) ||
-      Boolean(e.is_inferred) ||
-      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
-  });
-
-  // Fallback if custom uploaded dataset has no pre-flagged APT IDs
-  if (threatEdges.length === 0) {
-    threatEdges = allEdges.filter(e => e.severity === 'CRITICAL');
-  }
-  if (threatEdges.length === 0) {
-    threatEdges = allEdges.slice(0, 8);
-  }
-
-  // 2. Identify Threat-Relevant Nodes
-  const threatNodeIds = new Set();
-  threatEdges.forEach(e => {
-    threatNodeIds.add(e.source);
-    threatNodeIds.add(e.target);
-  });
-  if (data.initial_access && data.initial_access.entity) {
-    threatNodeIds.add(data.initial_access.entity);
-  }
-  (data.nodes || []).forEach(n => {
-    if (n.is_malicious) threatNodeIds.add(n.id);
-  });
-
-  // 3. Filter Nodes based on state.graphViewMode ('threat' vs 'all')
-  const nodesToRender = (state.graphViewMode === 'threat' && threatNodeIds.size > 0)
-    ? (data.nodes || []).filter(n => threatNodeIds.has(n.id))
-    : (data.nodes || []);
-
-  const nodeSet = new Set(nodesToRender.map(n => n.id));
-
-  // 4. Filter Edges
-  let edgesToRender = [];
-  if (state.graphViewMode === 'threat') {
-    edgesToRender = threatEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
-  } else {
-    edgesToRender = allEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
-  }
-
+  const isFlowMode = (state.graphViewMode === 'attack_flow');
   const elements = [];
 
-  // Add Nodes
-  nodesToRender.forEach(n => {
-    const isThreatNode = threatNodeIds.has(n.id) || n.is_malicious;
-    elements.push({
-      group: 'nodes',
-      data: {
-        id: n.id,
-        label: formatNodeLabel(n),
-        entity_type: n.entity_type,
-        is_malicious: isThreatNode,
-        centrality: n.centrality,
-        log_ids: n.log_ids || [],
-        mitre_tags: n.mitre_tags || [],
-        color: isThreatNode ? (n.id === '185.220.101.47' ? '#EF4444' : entityStrokeColor(n.entity_type)) : (dark ? '#475569' : '#94A3B8'),
-        bg: entityFillColor(n.entity_type, isThreatNode),
-      }
-    });
-  });
+  if (isFlowMode) {
+    // ════════════════════════════════════════════════════════════════════════
+    // 1. CHRONOLOGICAL ATTACK FLOW (LEFT TO RIGHT RECTANGULAR CARDS)
+    // ════════════════════════════════════════════════════════════════════════
+    let steps = (data.xai_report && data.xai_report.length > 0)
+      ? data.xai_report.filter(s => s.present !== false)
+      : [];
 
-  // Add Edges
-  edgesToRender.forEach((e, i) => {
-    const isThreatEdge = Boolean(e.is_inferred) || Boolean(e.is_malicious) ||
-      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
-    elements.push({
-      group: 'edges',
-      data: {
-        id: e.id || `edge-${i}`,
-        source: e.source,
-        target: e.target,
-        label: formatEdgeLabel(e),
-        is_inferred: Boolean(e.is_inferred),
-        confidence: e.confidence,
-        mitre_tag: e.mitre_tag,
-        log_ids: e.log_ids || [],
-        severity: e.severity,
-        raw_payload: e.raw_payload,
-        normalized_timestamp: e.normalized_timestamp,
-        is_threat: isThreatEdge
+    // Fallback if xai_report is empty: extract from threat edges
+    if (steps.length === 0) {
+      const threatEdges = (data.edges || []).filter(e => e.is_malicious || e.is_inferred || (e.log_ids || []).some(id => String(id).startsWith('LOG-APT')));
+      if (threatEdges.length > 0) {
+        steps = threatEdges.map((e, idx) => ({
+          step: idx + 1,
+          title: e.action || `Attack Stage ${idx + 1}`,
+          mitre: e.mitre_tag || 'ATT&CK',
+          action: e.action || 'EXEC',
+          source: e.source,
+          target: e.target,
+          source_host: e.source,
+          dest_ip: e.target,
+          timestamp: e.normalized_timestamp,
+          severity: e.severity || 'CRITICAL',
+          confidence: e.confidence || 0.95,
+          is_inferred: Boolean(e.is_inferred),
+          evidence_log_id: (e.log_ids && e.log_ids[0]) || '',
+          raw_payload: e.raw_payload || '{}',
+          suspicion_explanation: `Suspicious activity connecting ${e.source} to ${e.target} (${e.mitre_tag || 'ATT&CK'}).`
+        }));
+      }
+    }
+
+    // Baseline Normal fallback (0 malicious events)
+    if (steps.length === 0) {
+      steps = [{
+        step: 1,
+        title: 'Normal Enterprise Baseline',
+        mitre: 'BASELINE',
+        action: 'ROUTINE_TRAFFIC',
+        source: 'corp-lan',
+        target: 'gateway-01',
+        source_host: 'gateway-01',
+        dest_ip: '10.0.0.254',
+        timestamp: data.timeline_min || '',
+        severity: 'NORMAL',
+        confidence: 0.99,
+        is_inferred: false,
+        evidence_log_id: 'LOG-0001',
+        raw_payload: '{"status": "NORMAL_ENTERPRISE_BASELINE"}',
+        suspicion_explanation: 'All observed telemetry conforms to legitimate enterprise traffic. No malicious deviation detected.'
+      }];
+    }
+
+    // Build Sequential Rectangular Nodes
+    steps.forEach((s, i) => {
+      const stepNum = s.step || (i + 1);
+      const isCrit = s.severity === 'CRITICAL';
+      const isSusp = s.severity === 'HIGH' || s.is_inferred;
+      const isNorm = s.severity === 'NORMAL';
+
+      let borderColor = '#EF4444'; // Red for critical attacks
+      if (isSusp) borderColor = '#F59E0B'; // Amber for suspicious / inferred
+      else if (isNorm) borderColor = '#10B981'; // Green for normal events
+
+      const timeStr = s.timestamp ? (s.timestamp.length > 19 ? s.timestamp.substring(11, 19) + ' UTC' : s.timestamp) : '—';
+      const confPct = Math.round((s.confidence || 0.95) * 100);
+
+      const label = `${stepNum}. ${s.title}\n${s.mitre || 'ATT&CK'} • ${s.action || 'STAGE'}\n${s.source_host || s.source || 'host'} ➔ ${s.target || s.dest_ip || 'dest'}\n${timeStr} • ${s.severity} (${confPct}%)`;
+
+      const posX = 120 + i * 280;
+      const posY = 220;
+
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: `flow-step-${stepNum}`,
+          label: label,
+          step_data: s,
+          color: borderColor,
+          bg: dark ? '#0F172A' : '#FFFFFF',
+          is_inferred: Boolean(s.is_inferred),
+          is_flow_step: true,
+          step_num: stepNum,
+          default_x: posX,
+          default_y: posY
+        },
+        position: { x: posX, y: posY }
+      });
+
+      // Directional arrow from previous step
+      if (i > 0) {
+        const prev = steps[i - 1];
+        let deltaLabel = '➔';
+        if (prev.timestamp && s.timestamp) {
+          const diff = Math.round((new Date(s.timestamp) - new Date(prev.timestamp)) / 1000);
+          if (!isNaN(diff) && diff >= 0) deltaLabel = `+${diff}s`;
+        }
+        elements.push({
+          group: 'edges',
+          data: {
+            id: `flow-edge-${prev.step || i}-${stepNum}`,
+            source: `flow-step-${prev.step || i}`,
+            target: `flow-step-${stepNum}`,
+            label: deltaLabel,
+            is_inferred: Boolean(s.is_inferred),
+            line_color: '#0284C7',
+            target_arrow_color: '#0284C7'
+          }
+        });
       }
     });
-  });
+
+    // Deception Intel Decoy Node (if deception data present)
+    const deceptionEvents = (data.deception && data.deception.events && data.deception.events.length > 0)
+      ? data.deception.events
+      : [];
+    if (deceptionEvents.length > 0) {
+      const dec = deceptionEvents[0];
+      const decX = 120;
+      const decY = 70;
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: 'flow-step-decoy',
+          label: `🍯 Honeypot Decoy Trap\n${dec.sensor_type || 'Cowrie / Canary'}\n${dec.src_ip || '185.220.101.47'} ➔ Decoy\nDecoy Interaction Captured`,
+          step_data: {
+            step: 0,
+            title: 'Honeypot Decoy Trap Triggered',
+            mitre: 'T1059 / T1083',
+            timestamp: dec.timestamp || '',
+            source_ip: dec.src_ip || '185.220.101.47',
+            dest_ip: '192.168.1.99',
+            source_host: 'honeypot-ssh-01',
+            raw_payload: JSON.stringify(dec, null, 2),
+            severity: 'NORMAL',
+            confidence: 1.0,
+            suspicion_explanation: 'Attacker touched deception tripwire before engaging production targets, providing early threat attribution.'
+          },
+          color: '#10B981',
+          bg: dark ? '#062B1D' : '#ECFDF5',
+          is_flow_step: true,
+          default_x: decX,
+          default_y: decY
+        },
+        position: { x: decX, y: decY }
+      });
+
+      if (steps.length > 0) {
+        elements.push({
+          group: 'edges',
+          data: {
+            id: 'flow-edge-decoy-to-1',
+            source: 'flow-step-decoy',
+            target: `flow-step-${steps[0].step || 1}`,
+            label: 'EARLY TRAP',
+            line_color: '#10B981',
+            target_arrow_color: '#10B981',
+            line_style: 'dashed'
+          }
+        });
+      }
+    }
+
+  } else {
+    // ════════════════════════════════════════════════════════════════════════
+    // 2. FULL INFRASTRUCTURE TOPOLOGY GRAPH
+    // ════════════════════════════════════════════════════════════════════════
+    const allNodes = data.nodes || [];
+    const allEdges = data.edges || [];
+
+    allNodes.forEach(n => {
+      let bColor = dark ? '#475569' : '#94A3B8';
+      if (n.is_malicious) bColor = (n.id === '185.220.101.47' ? '#EF4444' : entityStrokeColor(n.entity_type));
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: n.id,
+          label: formatNodeLabel(n),
+          entity_type: n.entity_type,
+          is_malicious: Boolean(n.is_malicious),
+          centrality: n.centrality,
+          log_ids: n.log_ids || [],
+          mitre_tags: n.mitre_tags || [],
+          color: bColor,
+          bg: entityFillColor(n.entity_type, Boolean(n.is_malicious)),
+          is_flow_step: false
+        }
+      });
+    });
+
+    const nodeSet = new Set(allNodes.map(n => n.id));
+    allEdges.forEach((e, i) => {
+      if (nodeSet.has(e.source) && nodeSet.has(e.target)) {
+        const isThreat = Boolean(e.is_inferred) || Boolean(e.is_malicious);
+        elements.push({
+          group: 'edges',
+          data: {
+            id: e.id || `edge-${i}`,
+            source: e.source,
+            target: e.target,
+            label: formatEdgeLabel(e),
+            is_inferred: Boolean(e.is_inferred),
+            confidence: e.confidence,
+            mitre_tag: e.mitre_tag,
+            log_ids: e.log_ids || [],
+            severity: e.severity,
+            raw_payload: e.raw_payload,
+            line_color: isThreat ? (e.is_inferred ? edgeInferredColor : edgeCriticalColor) : edgeLineColor,
+            target_arrow_color: isThreat ? (e.is_inferred ? edgeInferredColor : edgeCriticalColor) : edgeLineColor
+          }
+        });
+      }
+    });
+  }
 
   if (state.cy) {
     state.cy.destroy();
@@ -569,56 +801,27 @@ function renderGraph(data) {
     return;
   }
 
-  // Layout configuration
-  const rootId = (data.initial_access && data.initial_access.entity) || '185.220.101.47';
-  const hasRoot = elements.some(e => e.group === 'nodes' && e.data.id === rootId);
-  const rootSelector = hasRoot ? `[id = "${rootId}"]` : undefined;
-
-  let layoutOpts = {
-    name: 'breadthfirst',
-    directed: true,
-    roots: rootSelector,
-    padding: 45,
-    spacingFactor: 1.5,
-    avoidOverlap: true,
-    maximal: true,
-    animate: false
-  };
-
-  if (state.graphLayoutName === 'concentric') {
-    layoutOpts = {
-      name: 'concentric',
-      concentric: function(node) {
-        return (node.data('centrality') || 0) * 100 + (node.data('is_malicious') ? 50 : 0);
-      },
-      levelWidth: function() { return 25; },
-      padding: 35,
-      animate: false
-    };
-  } else if (state.graphLayoutName === 'cose') {
-    layoutOpts = {
-      name: 'cose',
-      animate: false,
-      padding: 35,
-      componentSpacing: 60,
-      nodeRepulsion: 6000,
-      idealEdgeLength: 100
-    };
-  } else if (state.graphLayoutName === 'circle') {
-    layoutOpts = {
-      name: 'circle',
-      padding: 35,
-      animate: false
-    };
-  }
+  let layoutOpts = isFlowMode
+    ? { name: 'preset', padding: 45 }
+    : {
+        name: state.graphLayoutName || 'breadthfirst',
+        directed: true,
+        padding: 45,
+        spacingFactor: 1.4,
+        avoidOverlap: true,
+        animate: false
+      };
 
   const cyStyle = [
     {
       selector: 'node',
       style: {
+        'shape': 'roundrectangle',
+        'width': 224,
+        'height': 76,
         'background-color': 'data(bg)',
         'border-color': 'data(color)',
-        'border-width': 2.0,
+        'border-width': 1.5,
         'label': 'data(label)',
         'text-valign': 'center',
         'text-halign': 'center',
@@ -627,109 +830,58 @@ function renderGraph(data) {
         'font-weight': 600,
         'font-family': 'JetBrains Mono, monospace',
         'text-wrap': 'wrap',
-        'width': 130,
-        'height': 52,
-        'shape': 'roundrectangle',
-        'text-max-width': 122,
+        'text-max-width': 214,
         'transition-property': 'background-color, border-color, opacity, border-width',
-        'transition-duration': '0.2s',
+        'transition-duration': '0.15s',
         'cursor': 'pointer'
       }
     },
     {
-      selector: 'node[entity_type = "USER"]',
-      style: { shape: 'roundrectangle', width: 125, height: 50 }
-    },
-    {
-      selector: 'node[entity_type = "PROCESS"]',
-      style: { shape: 'roundrectangle', width: 130, height: 50, 'border-color': '#C084FC' }
-    },
-    {
-      selector: 'node[entity_type = "SERVICE"]',
-      style: { shape: 'roundrectangle', width: 130, height: 50 }
-    },
-    {
-      selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-      style: { shape: 'hexagon', width: 135, height: 54 }
-    },
-    {
-      selector: 'node[entity_type = "HONEYPOT"]',
-      style: { shape: 'diamond', width: 135, height: 54, 'border-color': '#10B981' }
-    },
-    {
-      selector: 'node[?is_malicious]',
+      selector: 'node[?is_inferred]',
       style: {
-        'border-width': 2.6,
-      }
-    },
-    {
-      selector: 'node[id = "185.220.101.47"]',
-      style: {
-        'border-color': '#EF4444',
-        'border-width': 3.0,
-      }
-    },
-    {
-      selector: 'node[id = "wkst-04-dev"]',
-      style: {
-        'border-color': '#38BDF8',
-        'border-width': 2.8,
+        'border-style': 'dashed',
+        'border-dash-pattern': [6, 4]
       }
     },
     {
       selector: 'edge',
       style: {
-        'width': 2.2,
-        'line-color': edgeLineColor,
-        'target-arrow-color': edgeLineColor,
+        'width': 1.8,
+        'line-color': 'data(line_color)',
+        'target-arrow-color': 'data(target_arrow_color)',
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
         'label': 'data(label)',
         'font-size': 8.5,
         'font-weight': 600,
         'font-family': 'JetBrains Mono, monospace',
-        'color': edgeTextColor,
-        'text-background-color': edgeTextBg,
+        'color': dark ? '#94A3B8' : '#475569',
+        'text-background-color': dark ? '#080D1A' : '#FFFFFF',
         'text-background-opacity': 0.95,
-        'text-background-padding': 3,
-        'text-wrap': 'wrap',
-        'text-max-width': 105,
+        'text-background-padding': 2.5,
         'edge-text-rotation': 'autorotate',
         'arrow-scale': 1.15,
         'cursor': 'pointer'
       }
     },
     {
-      selector: 'edge[?is_threat]',
+      selector: 'edge[line_style = "dashed"]',
       style: {
-        'line-color': edgeCriticalColor,
-        'target-arrow-color': edgeCriticalColor,
-        'width': 2.6,
-        'color': dark ? '#FCA5A5' : '#991B1B',
-      }
-    },
-    {
-      selector: 'edge[?is_inferred]',
-      style: {
-        'line-color': edgeInferredColor,
-        'target-arrow-color': edgeInferredColor,
         'line-style': 'dashed',
-        'line-dash-pattern': [6, 4],
-        'width': 2.4,
-        'color': dark ? '#FCD34D' : '#92400E',
+        'line-dash-pattern': [6, 4]
       }
     },
     {
       selector: 'node:selected',
       style: {
-        'border-width': 3.6,
+        'border-width': 2.6,
         'border-color': selectBorderColor
       }
     },
-    { selector: '.dimmed', style: { 'opacity': 0.12 } },
+    { selector: '.dimmed', style: { 'opacity': 0.18 } },
     { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-    { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 3.2, 'opacity': 1 } },
-    { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 3.2, 'opacity': 1 } },
+    { selector: '.ancestor-highlight', style: { 'border-color': '#0284C7', 'border-width': 2.6, 'opacity': 1 } },
+    { selector: '.descendant-highlight', style: { 'border-color': '#EF4444', 'border-width': 2.6, 'opacity': 1 } },
   ];
 
   let cyInstance = null;
@@ -739,53 +891,55 @@ function renderGraph(data) {
       elements,
       layout: layoutOpts,
       style: cyStyle,
-      wheelSensitivity: 0.1,    // Smooth, gentle mousewheel zoom (prevents flying/spinning)
-      minZoom: 0.35,
-      maxZoom: 2.2,
+      wheelSensitivity: 0.1,
+      minZoom: 0.25,
+      maxZoom: 2.5,
       boxSelectionEnabled: false
     });
   } catch (cyErr) {
-    console.warn('Primary Cytoscape layout failed, falling back:', cyErr);
-    try {
-      cyInstance = cytoscape({
-        container,
-        elements,
-        layout: { name: 'breadthfirst', directed: true, padding: 35, animate: false },
-        style: cyStyle,
-        wheelSensitivity: 0.1,
-        minZoom: 0.35,
-        maxZoom: 2.2
-      });
-    } catch (fallbackErr) {
-      console.warn('Breadthfirst fallback failed, using grid layout:', fallbackErr);
-      cyInstance = cytoscape({
-        container,
-        elements,
-        layout: { name: 'grid', padding: 35 },
-        style: cyStyle,
-        wheelSensitivity: 0.1
-      });
-    }
+    console.warn('Cytoscape layout initialization failed, falling back:', cyErr);
+    cyInstance = cytoscape({
+      container,
+      elements,
+      layout: { name: 'preset', padding: 35 },
+      style: cyStyle,
+      wheelSensitivity: 0.1
+    });
   }
 
   if (!cyInstance) return;
   state.cy = cyInstance;
 
-  // Node Click -> Evidence DNA + Blast Radius Highlight (Stable viewport, no camera jerk)
+  // Node Click -> Update Investigation Panel + Highlight Attack Path
   state.cy.on('tap', 'node', function(evt) {
     const node = evt.target;
-    const logIds = node.data('log_ids') || [];
-    const chosenId = logIds.find(id => id.startsWith('LOG-APT') || id.startsWith('UPLOAD')) || logIds[0];
-    if (chosenId) fetchEvidence(chosenId);
-    highlightBlastRadius(node);
+    const stepData = node.data('step_data');
+    if (stepData) {
+      showInvestigationPanel(stepData);
+    } else {
+      const id = node.data('id');
+      showInvestigationPanel({
+        step: 1,
+        title: `${node.data('entity_type') || 'Entity'}: ${id}`,
+        mitre: (node.data('mitre_tags') || [])[0] || 'T1078',
+        timestamp: state.timelineMax || '',
+        source_ip: id,
+        dest_ip: 'Internal Asset',
+        source_host: id,
+        raw_payload: `{"entity_id": "${id}", "type": "${node.data('entity_type')}", "centrality": ${node.data('centrality') || 0}}`,
+        severity: node.data('is_malicious') ? 'CRITICAL' : 'NORMAL',
+        confidence: 0.95,
+        suspicion_explanation: node.data('is_malicious') ? `Compromised ${node.data('entity_type')} involved in active kill chain.` : `Benign enterprise infrastructure asset.`
+      });
+    }
+    highlightAttackPath(node);
   });
 
-  // Edge Click -> Evidence DNA (Stable viewport)
+  // Edge Click -> Highlight connected nodes
   state.cy.on('tap', 'edge', function(evt) {
     const edge = evt.target;
     const logIds = edge.data('log_ids') || [];
-    const firstId = logIds[0];
-    if (firstId) fetchEvidence(firstId);
+    if (logIds[0]) fetchEvidence(logIds[0]);
 
     state.cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
     edge.removeClass('dimmed').addClass('highlighted');
@@ -793,36 +947,28 @@ function renderGraph(data) {
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
   });
 
-  // Hover Tooltip
-  state.cy.on('mouseover', 'node', function(evt) {
-    const node = evt.target;
-    const pos = evt.renderedPosition;
-    const bbox = container.getBoundingClientRect();
-    showTooltip(
-      node.data('label').replace('\n', ' — '),
-      `Entity Class: ${node.data('entity_type')} | ${node.data('is_malicious') ? 'COMPROMISED' : 'Benign Asset'}`,
-      `Betweenness Centrality: ${(node.data('centrality') * 100).toFixed(1)}% (Internal Pivot Metric)`,
-      `Correlated Audit Logs: ${(node.data('log_ids') || []).length} events`,
-      bbox.left + pos.x, bbox.top + pos.y
-    );
-  });
-
-  state.cy.on('mouseout', 'node', hideTooltip);
-
-  // Background Tap -> Reset Dimming & Close Drawer
+  // Background Tap -> Reset Dimming
   state.cy.on('tap', function(evt) {
     if (evt.target === state.cy) {
       resetGraphFocus();
-      closeDrawer();
     }
   });
 
+  // Fit View
   setTimeout(() => {
     if (state.cy) {
       state.cy.resize();
-      state.cy.fit(null, 35);
+      state.cy.fit(null, 45);
     }
-  }, 100);
+  }, 120);
+
+  // Automatically select and display Step 1 in the Investigation Panel on initial load!
+  const firstNode = state.cy.nodes().filter(n => n.data('step_num') === 1);
+  if (firstNode.length > 0) {
+    showInvestigationPanel(firstNode[0].data('step_data'));
+  } else if (data.xai_report && data.xai_report[0]) {
+    showInvestigationPanel(data.xai_report[0]);
+  }
 }
 
 window.addEventListener('resize', () => {
@@ -831,29 +977,48 @@ window.addEventListener('resize', () => {
   }
 });
 
-function highlightBlastRadius(node) {
+function highlightAttackPath(node) {
   if (!state.cy) return;
   const cy = state.cy;
-  cy.elements().addClass('dimmed');
+  cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
   node.removeClass('dimmed').addClass('highlighted');
 
-  // Upstream root cause path in Sky Blue
+  // Ancestors in Blue/Teal
   node.predecessors().removeClass('dimmed').addClass('highlighted ancestor-highlight');
 
-  // Downstream blast radius path in Crimson
+  // Descendants in Red
   node.successors().removeClass('dimmed').addClass('highlighted descendant-highlight');
 
   node.connectedEdges().removeClass('dimmed').addClass('highlighted');
 }
 
-// ── USER-RESPONSIVE INTERACTIVE GRAPH CONTROLS ─────────────────────────────
+function resetGraphPosition() {
+  if (!state.cy) return;
+  const cy = state.cy;
+  cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
+
+  if (state.graphViewMode === 'attack_flow') {
+    cy.batch(() => {
+      cy.nodes().forEach(n => {
+        const defX = n.data('default_x');
+        const defY = n.data('default_y');
+        if (typeof defX === 'number' && typeof defY === 'number') {
+          n.position({ x: defX, y: defY });
+        }
+      });
+    });
+  } else {
+    changeGraphLayout(state.graphLayoutName || 'breadthfirst');
+  }
+  cy.fit(null, 45);
+}
 
 function setGraphViewMode(mode) {
   state.graphViewMode = mode;
-  const btnThreat = document.getElementById('btn-view-threat');
-  const btnAll = document.getElementById('btn-view-all');
-  if (btnThreat) btnThreat.classList.toggle('active', mode === 'threat');
-  if (btnAll) btnAll.classList.toggle('active', mode === 'all');
+  const btnFlow = document.getElementById('btn-view-flow');
+  const btnTopology = document.getElementById('btn-view-topology');
+  if (btnFlow) btnFlow.classList.toggle('active', mode === 'attack_flow');
+  if (btnTopology) btnTopology.classList.toggle('active', mode === 'topology');
   if (state.analysisResult) {
     renderGraph(state.analysisResult);
   }
@@ -933,9 +1098,13 @@ function onGraphSearch(query) {
 
   const matchedNodes = cy.nodes().filter(n => {
     const label = (n.data('label') || '').toLowerCase();
-    const id = n.data('id').toLowerCase();
+    const id = (n.data('id') || '').toLowerCase();
     const type = (n.data('entity_type') || '').toLowerCase();
-    return id.includes(q) || label.includes(q) || type.includes(q);
+    const s = n.data('step_data') || {};
+    const title = (s.title || '').toLowerCase();
+    const mitre = (s.mitre || '').toLowerCase();
+    const host = (s.source_host || '').toLowerCase();
+    return id.includes(q) || label.includes(q) || type.includes(q) || title.includes(q) || mitre.includes(q) || host.includes(q);
   });
 
   if (matchedNodes.length > 0) {
@@ -944,8 +1113,11 @@ function onGraphSearch(query) {
     matchedNodes.connectedEdges().removeClass('dimmed').addClass('highlighted');
     cy.animate({
       center: { eles: matchedNodes[0] },
-      zoom: 1.3
+      zoom: 1.25
     }, { duration: 300 });
+
+    const stepData = matchedNodes[0].data('step_data');
+    if (stepData) showInvestigationPanel(stepData);
   }
 }
 
@@ -959,12 +1131,25 @@ function resetGraphFocus() {
   if (!state.cy) return;
   state.cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
   state.cy.animate({
-    fit: { padding: 40 }
+    fit: { padding: 45 }
   }, { duration: 350 });
 }
 
 function focusAttackStep(stepNum) {
   if (!state.cy) return;
+  const cy = state.cy;
+
+  if (state.graphViewMode === 'attack_flow') {
+    const node = cy.getElementById(`flow-step-${stepNum}`);
+    if (node.length > 0) {
+      highlightAttackPath(node);
+      const stepData = node.data('step_data');
+      if (stepData) showInvestigationPanel(stepData);
+      cy.animate({ center: { eles: node } }, { duration: 250 });
+    }
+    return;
+  }
+
   const stepMap = {
     1: { mitre: 'T1078', action: 'AUTH_ANOMALY', src: '185.220.101.47', tgt: 'emp_rohan' },
     2: { mitre: 'T1087', action: 'RECON_ENUM', src: 'emp_rohan', tgt: 'wkst-04-dev' },
@@ -977,7 +1162,6 @@ function focusAttackStep(stepNum) {
   const targetInfo = stepMap[stepNum];
   if (!targetInfo) return;
 
-  const cy = state.cy;
   let matchEdge = cy.edges().filter(e => {
     const d = e.data();
     return (d.mitre_tag === targetInfo.mitre) || (d.action === targetInfo.action) ||
@@ -1120,38 +1304,61 @@ function applyReplayStep(index) {
     }
   }
 
+  // Update Investigation Panel in real time!
+  if (step) {
+    showInvestigationPanel(step);
+  }
+
   // Focus and highlight in Attack Story
   if (step && typeof focusAttackStep === 'function') {
     focusAttackStep(step.step);
   }
 
-  // If evidence ID exists, load into DNA
-  if (step && step.evidence_log_id && step.evidence_log_id !== 'INFERRED') {
-    fetchEvidence(step.evidence_log_id);
-  }
-
   // Highlight in Cytoscape
   if (state.cy && step) {
-    state.cy.batch(() => {
-      state.cy.elements().removeClass('highlighted ancestor-highlight descendant-highlight').addClass('dimmed');
+    const cy = state.cy;
+    cy.batch(() => {
+      cy.elements().removeClass('highlighted ancestor-highlight descendant-highlight').addClass('dimmed');
       
-      // Highlight all steps up to current index
-      for (let i = 0; i <= index; i++) {
-        const s = state.replayEvents[i];
-        if (!s) continue;
-        const srcNode = state.cy.getElementById(s.source);
-        const tgtNode = state.cy.getElementById(s.target);
-        if (srcNode.length) srcNode.removeClass('dimmed').addClass('highlighted ancestor-highlight');
-        if (tgtNode.length) tgtNode.removeClass('dimmed').addClass('highlighted descendant-highlight');
-      }
-
-      // Center active nodes
-      const activeSrc = state.cy.getElementById(step.source);
-      const activeTgt = state.cy.getElementById(step.target);
-      if (activeSrc.length && activeTgt.length) {
-        state.cy.animate({
-          center: { eles: activeSrc.union(activeTgt) }
-        }, { duration: 250 });
+      if (state.graphViewMode === 'attack_flow') {
+        for (let i = 0; i <= index; i++) {
+          const s = state.replayEvents[i];
+          if (!s) continue;
+          const node = cy.getElementById(`flow-step-${s.step}`);
+          if (node.length) {
+            node.removeClass('dimmed').addClass('highlighted');
+            if (i < index) node.addClass('ancestor-highlight');
+            else node.addClass('descendant-highlight');
+          }
+          if (i > 0) {
+            const prevS = state.replayEvents[i - 1];
+            const edge = cy.getElementById(`flow-edge-${prevS.step}-${s.step}`);
+            if (edge.length) edge.removeClass('dimmed').addClass('highlighted');
+          }
+        }
+        const activeNode = cy.getElementById(`flow-step-${step.step}`);
+        if (activeNode.length) {
+          cy.animate({
+            center: { eles: activeNode }
+          }, { duration: 250 });
+        }
+      } else {
+        // Topology mode
+        for (let i = 0; i <= index; i++) {
+          const s = state.replayEvents[i];
+          if (!s) continue;
+          const srcNode = cy.getElementById(s.source);
+          const tgtNode = cy.getElementById(s.target);
+          if (srcNode.length) srcNode.removeClass('dimmed').addClass('highlighted ancestor-highlight');
+          if (tgtNode.length) tgtNode.removeClass('dimmed').addClass('highlighted descendant-highlight');
+        }
+        const activeSrc = cy.getElementById(step.source);
+        const activeTgt = cy.getElementById(step.target);
+        if (activeSrc.length && activeTgt.length) {
+          cy.animate({
+            center: { eles: activeSrc.union(activeTgt) }
+          }, { duration: 250 });
+        }
       }
     });
   }
