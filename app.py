@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
 from log_generator import generate_logs
-from ingestor import normalize_logs, parse_uploaded_file, parse_uploaded_file_with_stats, get_timeline_snapshot, compute_log_sha256
+from ingestor import normalize_logs, parse_uploaded_file, parse_uploaded_file_with_stats, get_timeline_snapshot, compute_log_sha256, get_reconstruction_diff
 from graph_engine import (
     build_attack_graph,
     get_root_cause,
@@ -34,7 +34,7 @@ from containment_engine import (
     list_containment_history
 )
 from merkle_tree import ForensicMerkleTree, verify_merkle_proof, generate_merkle_tree
-from scenario_manager import list_available_scenarios, get_scenario_metadata, load_scenario_telemetry
+from scenario_manager import list_available_scenarios, get_scenario_metadata, load_scenario_telemetry, generate_lab_test_script
 from chaos_engine import run_ingestion_chaos_simulation, generate_deterministic_chaos_dataset
 from deception_engine import convert_deception_to_normalized_logs, correlate_deception_with_investigation
 from supabase_client import supabase_client
@@ -666,6 +666,15 @@ async def vercel_universal_handler(request: Request):
     if method == "POST":
         if "seed-demo" in q_path:
             return await seed_database_demo_endpoint(user={"id": "usr_maya_thorne"})
+        if "simulation/execute" in q_path or "scenarios/load" in q_path:
+            req_data = {}
+            try:
+                body = await request.body()
+                if body:
+                    req_data = json.loads(body.decode("utf-8"))
+            except Exception:
+                pass
+            return await execute_simulation(SimulationExecuteRequest(**req_data), user={"id": "usr_maya_thorne"})
         req_data = {}
         try:
             body = await request.body()
@@ -675,6 +684,12 @@ async def vercel_universal_handler(request: Request):
             pass
         return await analyze(AnalyzeRequest(**req_data))
     else:
+        if "simulation/scenarios" in q_path or "scenarios" in q_path:
+            return await get_scenarios()
+        if "simulation/reconstruction-diff" in q_path or "reconstruction-diff" in q_path:
+            return await get_simulation_reconstruction_diff()
+        if "simulation/sessions" in q_path:
+            return await get_simulation_sessions(user={"id": "usr_maya_thorne"})
         if "stats" in q_path or "dashboard" in q_path:
             return await get_dashboard_stats(user={"id": "usr_maya_thorne"})
         if "investigations" in q_path:
@@ -1799,33 +1814,117 @@ async def simulation_what_if(req: WhatIfRequest):
 
 class ScenarioLoadRequest(BaseModel):
     scenario_id: str
+    provenance: Optional[str] = "CONTROLLED_SIMULATION"
+
+
+class SimulationExecuteRequest(BaseModel):
+    scenario_id: str
+    provenance: Optional[str] = "CONTROLLED_SIMULATION"
 
 
 @app.get("/api/scenarios")
 @app.get("/scenarios")
+@app.get("/api/simulation/scenarios")
+@app.get("/simulation/scenarios")
 async def get_scenarios():
     """Retrieve catalog of pre-configured enterprise cyber investigation scenarios."""
     return JSONResponse({"scenarios": list_available_scenarios()})
 
 
+@app.post("/api/simulation/execute")
+@app.post("/simulation/execute")
 @app.post("/api/scenarios/load")
 @app.post("/scenarios/load")
-async def load_scenario(req: ScenarioLoadRequest):
-    """Load a specific cyber scenario and reconstruct its dynamic attack graph."""
+async def execute_simulation(req: SimulationExecuteRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    """
+    Execute a controlled, non-destructive cyber attack scenario in the Simulation Lab.
+    Normalizes telemetry, executes out-of-order clock skew reconstruction,
+    generates dynamic attack graph, and logs session provenance.
+    """
     meta = get_scenario_metadata(req.scenario_id)
     if not meta:
-        raise HTTPException(status_code=404, detail=f"Scenario '{req.scenario_id}' not found in catalog.")
+        raise HTTPException(status_code=404, detail=f"Simulation scenario '{req.scenario_id}' not found.")
+
     raw_logs = load_scenario_telemetry(req.scenario_id)
     normalized = normalize_logs(raw_logs)
+    diff = get_reconstruction_diff(raw_logs, normalized)
     result = _run_full_analysis(normalized, len(raw_logs))
+
+    provenance = req.provenance or meta.get("provenance", "CONTROLLED_SIMULATION")
+    user_id = user.get("id") or "usr_maya_thorne"
+
+    session_id = sqlite_storage.save_simulation_session(
+        user_id=user_id,
+        scenario_id=req.scenario_id,
+        scenario_name=meta.get("title", req.scenario_id),
+        mitre_technique=meta.get("mitre_technique_id", ""),
+        events_count=len(normalized),
+        telemetry_type=meta.get("telemetry_source", "Windows Sysmon / Linux Syslog"),
+        provenance=provenance
+    )
+
+    _cache["raw_logs"] = raw_logs
     _cache["normalized_logs"] = normalized
+    _cache["reconstruction_diff"] = diff
     _cache["analysis_result"] = result
     _cache["current_scenario"] = meta
+
     return JSONResponse({
         "success": True,
+        "session_id": session_id,
         "scenario": meta,
-        "analysis_result": result
+        "provenance": provenance,
+        "events_count": len(normalized),
+        "reconstruction_diff": diff,
+        "analysis_result": result,
+        "message": f"Executed scenario '{meta.get('title')}' with {len(normalized)} normalized events."
     })
+
+
+@app.get("/api/simulation/download-script/{scenario_id}")
+@app.get("/simulation/download-script/{scenario_id}")
+async def download_simulation_script(scenario_id: str, platform: str = Query("powershell")):
+    """
+    Download non-destructive Atomic Red Team simulation test harness script (.ps1 or .sh)
+    for authorized execution in isolated guest sandbox or lab VM.
+    """
+    meta = get_scenario_metadata(scenario_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found.")
+    plat = "windows" if any(x in platform.lower() for x in ["win", "ps", "power"]) else "linux"
+    ext = "ps1" if plat == "windows" else "sh"
+    script = generate_lab_test_script(scenario_id, platform=plat)
+    filename = f"obsyron_sim_{scenario_id}.{ext}"
+    return PlainTextResponse(
+        script,
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.get("/api/simulation/reconstruction-diff")
+@app.get("/simulation/reconstruction-diff")
+async def get_simulation_reconstruction_diff():
+    """
+    Returns exact before-and-after audit comparison matrix between
+    raw log ingestion order and calibrated chronological event order.
+    """
+    diff = _cache.get("reconstruction_diff")
+    if not diff:
+        raw_logs = _cache.get("raw_logs") or generate_logs()
+        norm_logs = _cache.get("normalized_logs") or normalize_logs(raw_logs)
+        diff = get_reconstruction_diff(raw_logs, norm_logs)
+        _cache["reconstruction_diff"] = diff
+    return JSONResponse(diff)
+
+
+@app.get("/api/simulation/sessions")
+@app.get("/simulation/sessions")
+async def get_simulation_sessions(limit: int = Query(20, ge=1, le=100), user: Dict[str, Any] = Depends(get_current_user)):
+    """Retrieve audit history of simulation sessions executed in the lab."""
+    user_id = user.get("id") or "usr_maya_thorne"
+    sessions = sqlite_storage.list_simulation_sessions(user_id=user_id, limit=limit)
+    return JSONResponse({"sessions": sessions, "count": len(sessions)})
 
 
 # ── Ingestion Chaos Simulation Benchmark ────────────────────────────────────

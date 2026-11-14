@@ -34,7 +34,12 @@ const state = {
   deceptionData: null,
   isSpeaking: false,
   currentEvidenceJson: '',
-  currentReportMarkdown: ''
+  currentReportMarkdown: '',
+  currentProvenance: 'CONTROLLED_SIMULATION',
+  simulationScenarios: [],
+  currentReconstructionDiff: null,
+  judgeDemoStep: 1,
+  judgeDemoActive: false
 };
 
 // ── 0. THEME MANAGEMENT ───────────────────────────────────────────────────
@@ -4915,17 +4920,632 @@ function downloadForensicToolOutput() {
   URL.revokeObjectURL(url);
 }
 
+// ── 13.5 SIMULATION LAB & CHRONOLOGICAL RECONSTRUCTION ENGINE ──────────────
+
+const DEFAULT_SIMULATION_SCENARIOS = [
+  {
+    id: "powershell_exec",
+    title: "1. Suspicious PowerShell Execution",
+    threat_actor: "Atomic Red Team (T1059.001 Test Harness)",
+    complexity: "MEDIUM",
+    category: "Execution",
+    mitre_technique_id: "T1059.001",
+    mitre_technique_name: "Command and Scripting Interpreter: PowerShell",
+    mitre_tactic: "Execution",
+    description: "Simulates adversary executing base64 encoded download cradle (powershell -enc) with -ExecutionPolicy Bypass to fetch stage-2 payload into memory.",
+    target_assets: ["wkst-04-dev", "powershell.exe"],
+    telemetry_source: "Windows Sysmon Event ID 1 (Process Creation)",
+    telemetry_count: 185,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "failed_auth_spray",
+    title: "2. Failed Authentication & Password Spray",
+    threat_actor: "External Ingress (Bulletproof ASN51167 / 45.33.32.156)",
+    complexity: "LOW",
+    category: "Credential Access",
+    mitre_technique_id: "T1110.003",
+    mitre_technique_name: "Brute Force: Password Spraying",
+    mitre_tactic: "Credential Access",
+    description: "Simulates low-and-slow authentication spray targeting corporate SSH bastion and VPN gateway across 50 enterprise usernames.",
+    target_assets: ["bastion-ssh-01", "vpn.obsyron.corp"],
+    telemetry_source: "Linux /var/log/auth.log & OpenCanary SSH Honeypot",
+    telemetry_count: 142,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "process_masquerade",
+    title: "3. Suspicious Process Creation & Masquerading",
+    threat_actor: "Defense Evasion Payload (svchost.exe spoof)",
+    complexity: "MEDIUM",
+    category: "Defense Evasion",
+    mitre_technique_id: "T1036.005",
+    mitre_technique_name: "Masquerading: Match Legitimate Name or Location",
+    mitre_tactic: "Defense Evasion",
+    description: "Adversary launches binary named 'svchost.exe' from unusual directory path (C:\\Users\\Public or /tmp) with parent process cmd.exe.",
+    target_assets: ["wkst-09-fin", "svchost.exe"],
+    telemetry_source: "Windows Sysmon Event ID 1 & Event ID 7",
+    telemetry_count: 210,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "credential_access",
+    title: "4. Credential Access & Kerberoasting Simulation",
+    threat_actor: "Internal Threat / Kerberoasting Actor",
+    complexity: "HIGH",
+    category: "Credential Access",
+    mitre_technique_id: "T1558.003",
+    mitre_technique_name: "Steal or Forge Kerberos Tickets: Kerberoasting",
+    mitre_tactic: "Credential Access",
+    description: "Requests Kerberos Ticket Granting Service (TGS) tickets for Service Principal Names (SPNs) with RC4 encryption downgrade to crack offline.",
+    target_assets: ["CORP-DC-01", "svc_sql_admin", "wkst-12-qa"],
+    telemetry_source: "Windows Security Event 4769 & Sysmon Event ID 10",
+    telemetry_count: 194,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "lateral_movement",
+    title: "5. Lateral Movement Simulation (RDP & SMB Admin Share)",
+    threat_actor: "Compromised Service Token (svc_ci_deploy)",
+    complexity: "HIGH",
+    category: "Lateral Movement",
+    mitre_technique_id: "T1021.002",
+    mitre_technique_name: "Remote Services: SMB/Windows Admin Shares",
+    mitre_tactic: "Lateral Movement",
+    description: "Pivoting across internal workstation VLAN using interactive Remote Desktop (RDP) and administrative C$ network share mounting to production SQL cluster.",
+    target_assets: ["wkst-04-dev", "svc_ci_deploy", "db-prod-01"],
+    telemetry_source: "Windows Security Event 4624 (Logon Type 10) & Sysmon Event 3",
+    telemetry_count: 275,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "c2_network_beacon",
+    title: "6. Suspicious Network Connection & C2 Beaconing",
+    threat_actor: "Cobalt Strike / Sliver C2 Beacon (84.17.42.19)",
+    complexity: "MEDIUM",
+    category: "Command and Control",
+    mitre_technique_id: "T1071.001",
+    mitre_technique_name: "Application Layer Protocol: Web Protocols",
+    mitre_tactic: "Command and Control",
+    description: "Persistent, periodic outbound TCP connections with jitter established to external unclassified IP address on HTTPS port 8443.",
+    target_assets: ["wkst-04-dev", "198.51.100.23"],
+    telemetry_source: "Palo Alto NetFlow Logs & Sysmon Event ID 3",
+    telemetry_count: 220,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "data_exfil",
+    title: "7. Simulated Data Exfiltration Over Alternative Protocol",
+    threat_actor: "External Drop Server (198.51.100.23)",
+    complexity: "CRITICAL",
+    category: "Exfiltration",
+    mitre_technique_id: "T1048",
+    mitre_technique_name: "Exfiltration Over Alternative Protocol",
+    mitre_tactic: "Exfiltration",
+    description: "Database archive dump compressed into password-protected archive and transmitted outbound via encrypted TLS tunnel to cloud drop server.",
+    target_assets: ["db-prod-01", "198.51.100.23"],
+    telemetry_source: "Perimeter Firewall NetFlow & Database Audit Logs",
+    telemetry_count: 357,
+    provenance: "CONTROLLED_SIMULATION"
+  },
+  {
+    id: "apt29_stealth_exfil",
+    title: "APT29 Stealth Ingress & Exfiltration (Full Multi-Stage Attack)",
+    threat_actor: "APT29 / Cozy Bear (TOR Relay 185.220.101.47)",
+    complexity: "CRITICAL",
+    category: "Targeted Cyber Espionage",
+    mitre_technique_id: "T1078",
+    mitre_technique_name: "Valid Accounts: Initial Ingress",
+    mitre_tactic: "Initial Access",
+    description: "Full end-to-end multi-stage cyber intrusion: TOR ingress -> developer host hijack -> PowerShell execution -> privilege escalation bridge -> SMB lateral move -> production database exfiltration.",
+    target_assets: ["wkst-04-dev", "svc_ci_deploy", "db-prod-01", "198.51.100.23"],
+    telemetry_source: "Integrated Enterprise SIEM & Sysmon Cluster",
+    telemetry_count: 357,
+    provenance: "CONTROLLED_SIMULATION"
+  }
+];
+
+async function initSimulationLab() {
+  await loadSimulationScenarios();
+}
+
+async function loadSimulationScenarios() {
+  const grid = document.getElementById('simulation-scenarios-grid');
+  if (!grid) return;
+
+  let scenarios = DEFAULT_SIMULATION_SCENARIOS;
+  try {
+    const res = await apiFetch('/api/simulation/scenarios');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.scenarios && data.scenarios.length > 0) {
+        scenarios = data.scenarios;
+      }
+    }
+  } catch (err) {
+    console.warn('[Simulation Lab] Using embedded scenario catalog:', err);
+  }
+
+  state.simulationScenarios = scenarios;
+  renderSimulationScenarios(scenarios);
+}
+
+function renderSimulationScenarios(scenarios) {
+  const grid = document.getElementById('simulation-scenarios-grid');
+  if (!grid) return;
+
+  grid.innerHTML = scenarios.map(sc => {
+    const isCritical = sc.complexity === 'CRITICAL' || sc.category === 'Exfiltration';
+    const isHigh = sc.complexity === 'HIGH';
+    const badgeColor = isCritical ? '#EF4444' : (isHigh ? '#F59E0B' : '#0284C7');
+
+    return `
+      <div class="sim-card" id="sim-card-${sc.id}">
+        <div>
+          <div class="sim-card-header">
+            <span class="sim-card-title">${sc.title}</span>
+            <span class="sim-technique-pill">${sc.mitre_technique_id || 'T1059'}</span>
+          </div>
+          <p class="sim-card-desc">${sc.description}</p>
+          <div class="sim-card-meta">
+            <div><span style="color:var(--text-tertiary)">TACTIC:</span> <strong style="color:${badgeColor}">${sc.mitre_tactic || sc.category}</strong></div>
+            <div><span style="color:var(--text-tertiary)">TARGET:</span> ${(sc.target_assets || []).join(', ') || 'N/A'}</div>
+            <div><span style="color:var(--text-tertiary)">TELEMETRY:</span> ${sc.telemetry_source || 'Sysmon'}</div>
+          </div>
+        </div>
+        <div class="sim-card-actions">
+          <button class="sim-btn-run" onclick="executeSimulation('${sc.id}')" title="Safely execute scenario in simulation enclave">
+            <span>⚡ Run Safe Simulation</span>
+          </button>
+          <button class="sim-btn-script" onclick="downloadLabScript('${sc.id}', 'powershell')" title="Download Atomic Red Team PowerShell harness">
+            .ps1
+          </button>
+          <button class="sim-btn-script" onclick="downloadLabScript('${sc.id}', 'bash')" title="Download Linux Bash test harness">
+            .sh
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setProvenanceMode(mode) {
+  state.currentProvenance = mode;
+  document.querySelectorAll('.provenance-chip').forEach(c => c.classList.remove('active'));
+  if (mode === 'CONTROLLED_SIMULATION') {
+    const chip = document.getElementById('chip-prov-simulation');
+    if (chip) chip.classList.add('active');
+    updateProvenanceBadge('🟢 CONTROLLED_SIMULATION', '#10B981');
+  } else if (mode === 'LAB_COLLECTED') {
+    const chip = document.getElementById('chip-prov-lab');
+    if (chip) chip.classList.add('active');
+    updateProvenanceBadge('🔒 LAB_COLLECTED_TELEMETRY', '#06B6D4');
+  } else {
+    const chip = document.getElementById('chip-prov-enclave');
+    if (chip) chip.classList.add('active');
+    updateProvenanceBadge('📦 PRE_SEEDED_ENCLAVE', '#A855F7');
+  }
+}
+
+function updateProvenanceBadge(label, color) {
+  const b = document.getElementById('sim-active-prov-badge');
+  if (b) {
+    b.textContent = label;
+    b.style.color = color;
+  }
+}
+
+async function executeSimulation(scenarioId) {
+  showLoading(true);
+  try {
+    const prov = state.currentProvenance || 'CONTROLLED_SIMULATION';
+    const res = await apiFetch('/api/simulation/execute', {
+      method: 'POST',
+      body: JSON.stringify({ scenario_id: scenarioId, provenance: prov })
+    });
+
+    if (!res.ok) {
+      throw new Error(`Execution returned HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (data.reconstruction_diff) {
+      state.currentReconstructionDiff = data.reconstruction_diff;
+      updateReconstructionSummary(data.reconstruction_diff);
+    }
+
+    if (data.analysis_result) {
+      state.analysisResult = data.analysis_result;
+      renderAll(data.analysis_result);
+    }
+
+    // Update stats bar
+    const statsLabel = document.getElementById('sim-ingestion-stats-label');
+    if (statsLabel) {
+      const count = data.events_count || (data.analysis_result ? data.analysis_result.raw_log_count : 180);
+      statsLabel.textContent = `${count} Total | ${count} Valid | 0 Invalid | 0 Dupes`;
+    }
+
+    const reconLabel = document.getElementById('sim-recon-stats-label');
+    if (reconLabel && data.reconstruction_diff) {
+      const ooo = data.reconstruction_diff.out_of_order_count || 0;
+      const skew = data.reconstruction_diff.skew_compensated_count || 0;
+      const maxSkew = data.reconstruction_diff.max_skew_sec || 0;
+      reconLabel.textContent = `${skew} Skew Compensated (±${maxSkew}s) | ${ooo} OOO Resolved`;
+    }
+
+    // Highlight active card
+    document.querySelectorAll('.sim-card').forEach(c => c.style.borderColor = 'var(--border-default)');
+    const activeCard = document.getElementById(`sim-card-${scenarioId}`);
+    if (activeCard) {
+      activeCard.style.borderColor = 'var(--accent-cyan)';
+      activeCard.style.boxShadow = '0 0 16px rgba(6,182,212,0.3)';
+    }
+
+    // Scroll to cockpit
+    scrollToSection('cockpit');
+
+  } catch (err) {
+    console.error('Simulation execution failed:', err);
+    loadScenario(scenarioId);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function downloadLabScript(scenarioId, platform) {
+  const url = `/api/simulation/download-script/${scenarioId}?platform=${platform}`;
+  window.open(url, '_blank');
+}
+
+async function handleSimulationFileUpload(file) {
+  if (!file) return;
+  setProvenanceMode('LAB_COLLECTED');
+  await handleFileUpload(file);
+  updateProvenanceBadge('🔒 LAB_COLLECTED_TELEMETRY', '#06B6D4');
+}
+
+// ── RECONSTRUCTION DIFF MATRIX MODAL ──────────────────────────────────────
+
+async function openReconstructionModal() {
+  const modal = document.getElementById('modal-reconstruction-engine');
+  if (!modal) return;
+  modal.style.display = 'flex';
+
+  if (!state.currentReconstructionDiff) {
+    try {
+      const res = await apiFetch('/api/simulation/reconstruction-diff');
+      if (res.ok) {
+        state.currentReconstructionDiff = await res.json();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch reconstruction diff:', e);
+    }
+  }
+
+  if (state.currentReconstructionDiff) {
+    populateReconstructionTable(state.currentReconstructionDiff);
+  }
+}
+
+function closeReconstructionModal() {
+  const modal = document.getElementById('modal-reconstruction-engine');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleReconstructionModalClick(event) {
+  if (event.target.id === 'modal-reconstruction-engine') {
+    closeReconstructionModal();
+  }
+}
+
+function updateReconstructionSummary(diff) {
+  const totalEl = document.getElementById('recon-summary-total');
+  const oooEl = document.getElementById('recon-summary-ooo');
+  const skewEl = document.getElementById('recon-summary-skew');
+  const maxSkewEl = document.getElementById('recon-summary-max-skew');
+
+  if (totalEl) totalEl.textContent = diff.total_events || 0;
+  if (oooEl) oooEl.textContent = `${diff.out_of_order_count || 0} Resolved`;
+  if (skewEl) skewEl.textContent = `${diff.skew_compensated_count || 0} Synchronized`;
+  if (maxSkewEl) maxSkewEl.textContent = `±${diff.max_skew_sec || 0}s Drift`;
+}
+
+function populateReconstructionTable(diff) {
+  updateReconstructionSummary(diff);
+  const tbody = document.getElementById('reconstruction-table-body');
+  if (!tbody) return;
+
+  const rows = diff.comparison_table || [];
+  state._allReconRows = rows;
+  renderReconstructionRows(rows);
+}
+
+function renderReconstructionRows(rows) {
+  const tbody = document.getElementById('reconstruction-table-body');
+  if (!tbody) return;
+
+  const countEl = document.getElementById('recon-filtered-count');
+  if (countEl) countEl.textContent = `Showing ${rows.length} / ${(state._allReconRows || rows).length} records`;
+
+  tbody.innerHTML = rows.slice(0, 150).map(r => {
+    const shiftStr = r.order_shift > 0 ? `+${r.order_shift}` : `${r.order_shift}`;
+    const badge = r.is_out_of_order
+      ? `<span class="reconstruction-badge-ooo">⚠️ REORDERED (${shiftStr})</span>`
+      : `<span class="reconstruction-badge-synced">✓ CHRONO</span>`;
+
+    const skewBadge = r.host_skew_sec !== 0
+      ? `<span style="color:#F59E0B;font-family:var(--font-mono)">${r.skew_direction}</span>`
+      : `<span style="color:var(--text-tertiary);font-family:var(--font-mono)">0s (Synced)</span>`;
+
+    return `
+      <tr>
+        <td style="font-family:var(--font-mono);font-weight:700">#${r.raw_order}</td>
+        <td style="font-family:var(--font-mono);font-weight:700;color:var(--accent-cyan)">#${r.calibrated_order}</td>
+        <td style="font-family:var(--font-mono);color:${r.order_shift !== 0 ? '#EF4444' : 'var(--text-tertiary)'}">${shiftStr}</td>
+        <td>${badge}</td>
+        <td><strong style="color:var(--text-primary)">${r.source_host}</strong></td>
+        <td style="font-family:var(--font-mono);font-size:10px">${r.raw_timestamp}</td>
+        <td style="font-family:var(--font-mono);font-size:10px;color:var(--accent-cyan)">${r.normalized_timestamp}</td>
+        <td>${skewBadge}</td>
+        <td style="font-family:var(--font-mono);font-size:10.5px">${r.source} ➔ ${r.target} <span style="color:var(--text-tertiary)">(${r.action})</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterReconstructionTable(term) {
+  if (!state._allReconRows) return;
+  const q = (term || '').toLowerCase().trim();
+  if (!q) {
+    renderReconstructionRows(state._allReconRows);
+    return;
+  }
+  const filtered = state._allReconRows.filter(r =>
+    (r.source_host && r.source_host.toLowerCase().includes(q)) ||
+    (r.source && r.source.toLowerCase().includes(q)) ||
+    (r.target && r.target.toLowerCase().includes(q)) ||
+    (r.action && r.action.toLowerCase().includes(q)) ||
+    (r.log_id && r.log_id.toLowerCase().includes(q))
+  );
+  renderReconstructionRows(filtered);
+}
+
+// ── 16. JUDGE DEMONSTRATION MODE (14-STEP WALKTHROUGH) ───────────────────
+
+const JUDGE_DEMO_STEPS = [
+  {
+    step: 1,
+    title: "1. Operator Clearance & Authentication Verification",
+    desc: "Verify identity as Cmdr. Maya Thorne (Lead Forensic Director) with Level 4 Top Secret / SCI clearance and full containment privileges.",
+    actionName: "Verify L4 Clearance",
+    run: async () => {
+      openProfileModal();
+      setTimeout(() => closeProfileModal(), 2200);
+    }
+  },
+  {
+    step: 2,
+    title: "2. Open Simulation Lab Enclave",
+    desc: "Navigate to the Simulation Lab testing module with 7 predefined safe cyber scenarios and guest VM script exporters.",
+    actionName: "Navigate to Lab",
+    run: async () => {
+      scrollToSection('simulation-lab');
+      const badge = document.getElementById('sim-active-prov-badge');
+      if (badge) badge.style.transform = 'scale(1.1)';
+      setTimeout(() => { if (badge) badge.style.transform = 'scale(1)'; }, 1000);
+    }
+  },
+  {
+    step: 3,
+    title: "3. Select Controlled Attack Scenario (PowerShell T1059.001)",
+    desc: "Choose predefined safe scenario #1: Suspicious PowerShell Execution with base64 encoded download cradle.",
+    actionName: "Select Scenario #1",
+    run: async () => {
+      scrollToSection('simulation-lab');
+      const card = document.getElementById('sim-card-powershell_exec');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.borderColor = '#0284C7';
+        card.style.boxShadow = '0 0 20px rgba(2,132,199,0.6)';
+      }
+    }
+  },
+  {
+    step: 4,
+    title: "4. Download Atomic Red Team Lab Test Harness Script",
+    desc: "Download safe non-destructive Atomic Red Team PowerShell script (.ps1) for isolated VM execution.",
+    actionName: "Download .ps1 Script",
+    run: async () => {
+      downloadLabScript('powershell_exec', 'powershell');
+    }
+  },
+  {
+    step: 5,
+    title: "5. Ingest Telemetry & Execute Safe Simulation",
+    desc: "Ingest Windows Sysmon Event ID 1 telemetry generated from the isolated lab through the OBSYRON ingestion pipeline.",
+    actionName: "Ingest & Simulate",
+    run: async () => {
+      await executeSimulation('powershell_exec');
+    }
+  },
+  {
+    step: 6,
+    title: "6. View Telemetry Ingestion Statistics",
+    desc: "Inspect real parsing stats: Total Records, Valid Records, Invalid, Duplicate Records, and Data Provenance.",
+    actionName: "Inspect Ingestion KPIs",
+    run: async () => {
+      scrollToSection('simulation-lab');
+      const stats = document.getElementById('sim-ingestion-stats-label');
+      if (stats) {
+        stats.style.color = '#10B981';
+        stats.style.fontSize = '14px';
+        setTimeout(() => { stats.style.fontSize = '12px'; }, 2000);
+      }
+    }
+  },
+  {
+    step: 7,
+    title: "7. Trigger Chronological Event Reconstruction Engine",
+    desc: "Open side-by-side audit matrix demonstrating out-of-order resolution and host clock skew (Δt) compensation without altering evidence.",
+    actionName: "Open Reconstruction Matrix",
+    run: async () => {
+      await openReconstructionModal();
+    }
+  },
+  {
+    step: 8,
+    title: "8. View Dynamic Attack Graph in Attack Flow Storyboard",
+    desc: "Observe dynamic rectangular node graph with relationship-based causal edges and MITRE technique tags.",
+    actionName: "View Attack Flow Storyboard",
+    run: async () => {
+      closeReconstructionModal();
+      scrollToSection('cockpit');
+      setGraphViewMode('attack_flow');
+    }
+  },
+  {
+    step: 9,
+    title: "9. Switch to Cytoscape 2D Asset Topology Network",
+    desc: "Inspect the infrastructure asset network graph with zoom, pan, and force-directed concentric layouts.",
+    actionName: "Switch to 2D Topology",
+    run: async () => {
+      scrollToSection('cockpit');
+      setGraphViewMode('topology');
+      if (state.cy) state.cy.fit();
+    }
+  },
+  {
+    step: 10,
+    title: "10. Inspect Evidence DNA & SHA-256 Merkle Proof",
+    desc: "Select attack node to review immutable forensic evidence, original log payload, raw vs corrected timestamps, and Merkle root.",
+    actionName: "Inspect Evidence DNA",
+    run: async () => {
+      scrollToSection('cockpit');
+      const sampleLog = (state.analysisResult && state.analysisResult.edges && state.analysisResult.edges.length > 0)
+        ? state.analysisResult.edges[0]
+        : {
+            log_id: 'LOG-0001',
+            action: 'PROCESS_CREATE',
+            mitre_tag: 'T1059.001',
+            source: 'wkst-04-dev',
+            target: 'powershell.exe',
+            severity: 'CRITICAL',
+            confidence: 0.98,
+            sha256_hash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+            raw_payload: '{"EventID":1,"Image":"C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe","CommandLine":"powershell.exe -enc SQBFAFgA..."}'
+          };
+      renderEvidenceDNA(sampleLog);
+      openDrawer();
+    }
+  },
+  {
+    step: 11,
+    title: "11. Replay Attack Timeline with Time Travel Forensics",
+    desc: "Scrub the chronological timeline slider from T=0% to T=100% to witness the cyberattack unfold step-by-step.",
+    actionName: "Play Incident Replay",
+    run: async () => {
+      closeDrawer();
+      scrollToSection('cockpit');
+      toggleTimelinePlay();
+      setTimeout(() => { toggleTimelinePlay(); }, 3500);
+    }
+  },
+  {
+    step: 12,
+    title: "12. Correlate Deception Intelligence & Decoy Traps",
+    desc: "Correlate Cowrie SSH honeypots and OpenCanary traps to confirm adversary reconnaissance against decoys.",
+    actionName: "Correlate Decoy Traps",
+    run: async () => {
+      await loadDeceptionTelemetry();
+    }
+  },
+  {
+    step: 13,
+    title: "13. Review Root Cause Analysis & Patient Zero Attribution",
+    desc: "Examine Explainable AI (XAI) kill-chain story steps, patient zero attribution, and forward reachability blast radius.",
+    actionName: "Review Root Cause",
+    run: async () => {
+      scrollToSection('cockpit');
+      switchTab('xai');
+      scrollToSection('separate-signal-noise');
+    }
+  },
+  {
+    step: 14,
+    title: "14. Export Complete NIST SP 800-61 Incident Report",
+    desc: "Generate and review downloadable executive briefing (PDF, Markdown, JSON, and CSV ledger).",
+    actionName: "Open Incident Report",
+    run: async () => {
+      openReportModal();
+    }
+  }
+];
+
+function startJudgeDemonstrationMode() {
+  state.judgeDemoActive = true;
+  state.judgeDemoStep = 1;
+  const banner = document.getElementById('judge-demo-banner');
+  if (banner) banner.style.display = 'flex';
+  updateJudgeDemoBanner();
+  executeCurrentJudgeStep();
+}
+
+function exitJudgeDemonstrationMode() {
+  state.judgeDemoActive = false;
+  const banner = document.getElementById('judge-demo-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function updateJudgeDemoBanner() {
+  const stepObj = JUDGE_DEMO_STEPS.find(s => s.step === state.judgeDemoStep) || JUDGE_DEMO_STEPS[0];
+  const indEl = document.getElementById('judge-step-indicator');
+  const titleEl = document.getElementById('judge-step-title');
+  const descEl = document.getElementById('judge-step-desc');
+  const execBtn = document.getElementById('judge-btn-exec');
+
+  if (indEl) indEl.textContent = `STEP ${stepObj.step} / 14`;
+  if (titleEl) titleEl.textContent = stepObj.title;
+  if (descEl) descEl.textContent = stepObj.desc;
+  if (execBtn) execBtn.innerHTML = `⚡ ${stepObj.actionName || 'Auto-Perform Step'}`;
+}
+
+async function executeCurrentJudgeStep() {
+  const stepObj = JUDGE_DEMO_STEPS.find(s => s.step === state.judgeDemoStep);
+  if (stepObj && stepObj.run) {
+    await stepObj.run();
+  }
+}
+
+function nextJudgeStep() {
+  if (state.judgeDemoStep < 14) {
+    state.judgeDemoStep++;
+    updateJudgeDemoBanner();
+    executeCurrentJudgeStep();
+  }
+}
+
+function prevJudgeStep() {
+  if (state.judgeDemoStep > 1) {
+    state.judgeDemoStep--;
+    updateJudgeDemoBanner();
+    executeCurrentJudgeStep();
+  }
+}
+
 // ── 14. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAuth();
   initDatabaseStatus();
+  initSimulationLab();
   runAnalysis(state.currentSettings);
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeForensicToolModal();
+      closeReconstructionModal();
       closeChaosModal();
       closeReportModal();
       closeProfileModal();

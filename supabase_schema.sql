@@ -293,3 +293,27 @@ VALUES
 ('REP-02', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'json', 'Technical Incident Data Exchange (OASIS STIX 2.1)', '{"spec_version": "2.1", "type": "bundle", "id": "bundle--8f7a8b9c", "objects_count": 230}'),
 ('REP-03', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'csv', 'Full CIRT Forensic Evidence Ledger Export', 'event_id,timestamp,source,target,action,mitre_tag,severity,sha256\nEVT-001,2026-03-31T01:14:02Z,185.220.101.47,vpn.obsyron.corp,EXTERNAL_INGRESS,T1078,CRITICAL,160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0\n')
 ON CONFLICT (id) DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 12. SIMULATION SESSIONS TABLE & POLICIES
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS public.simulation_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    scenario_id TEXT NOT NULL,
+    scenario_name TEXT NOT NULL,
+    status TEXT DEFAULT 'COMPLETED',
+    mitre_technique TEXT,
+    events_generated INTEGER DEFAULT 0,
+    telemetry_type TEXT DEFAULT 'SYSMON_WINDOWS',
+    provenance TEXT DEFAULT 'CONTROLLED_SIMULATION',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.simulation_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Operators manage their own simulation sessions"
+ON public.simulation_sessions
+FOR ALL
+USING (auth.uid()::text = user_id OR user_id = 'usr_maya_thorne');
