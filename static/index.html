@@ -845,21 +845,21 @@
         <div id="graph-panel">
           <div class="graph-watermark">
             <span style="width:6px;height:6px;border-radius:50%;background:var(--color-critical);display:inline-block"></span>
-            <span>DYNAMIC ATTACK GRAPH — MITRE ATT&amp;CK RECONSTRUCTION</span>
+            <span>CHRONOLOGICAL ATTACK FLOW // INCIDENT WORKBENCH</span>
           </div>
 
           <!-- Floating Canvas Toolbar -->
           <div class="graph-toolbar">
             <div style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:5px;padding:2px;gap:2px">
-              <button class="tool-btn active" id="btn-view-threat" onclick="setGraphViewMode('threat')" title="Show clean, focused attack path (Zero Clutter)">🎯 Threat Path</button>
-              <button class="tool-btn" id="btn-view-all" onclick="setGraphViewMode('all')" title="Show all infrastructure nodes">🌐 All Assets</button>
+              <button class="tool-btn active" id="btn-view-flow" onclick="setGraphViewMode('attack_flow')" title="Chronological Left-to-Right Attack Flow Storyboard">⚡ Attack Flow Storyboard</button>
+              <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')" title="Full Infrastructure Asset Topology Graph">🌐 Asset Topology Graph</button>
             </div>
             <div class="graph-search-wrap">
-              <input type="text" id="graph-search" class="graph-search-input" placeholder="🔍 Search entity..." oninput="onGraphSearch(this.value)">
+              <input type="text" id="graph-search" class="graph-search-input" placeholder="🔍 Search event or entity..." oninput="onGraphSearch(this.value)">
               <button class="clear-search-btn" onclick="clearGraphSearch()" title="Clear search">✕</button>
             </div>
             <select class="tool-select" id="sel-graph-layout" onchange="changeGraphLayout(this.value)" title="Change Graph Layout">
-              <option value="breadthfirst">Flow Hierarchy</option>
+              <option value="breadthfirst">Flow Hierarchy (L➔R)</option>
               <option value="concentric">Concentric Rings</option>
               <option value="cose">Force-Directed</option>
               <option value="circle">Circular</option>
@@ -868,27 +868,98 @@
               <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
               <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">−</button>
               <button class="tool-btn" onclick="fitGraph()" title="Fit View">⛶ FIT</button>
-              <button class="tool-btn" onclick="resetGraphFocus()" title="Reset Focus & Un-dim">↺ RESET</button>
+              <button class="tool-btn" onclick="resetGraphPosition()" title="Reset Graph Position">↺ RESET</button>
             </div>
           </div>
 
-          <div id="cy"></div>
+          <!-- VIEW 1: GRAPHICAL ATTACK FLOW STORYBOARD (RICH HTML/SVG PIPELINE) -->
+          <div id="graph-flow-view" class="graph-flow-view">
+            <!-- Stage Sequence Progress Header -->
+            <div class="flow-stage-nav" id="flow-stage-nav"></div>
 
-          <!-- Visual Legend -->
-          <div class="legend-box">
-            <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-user-color);background:var(--entity-user-bg)"></div><span>[USER] Compromised Identity</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-device-color);background:var(--entity-device-bg)"></div><span>[DEVICE] Host Asset</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:#C084FC;background:rgba(192,132,252,0.15)"></div><span>[PROCESS] Executed Binary</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-service-color);background:var(--entity-service-bg)"></div><span>[SERVICE] Service Account</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.15)"></div><span>[HONEYPOT] Decoy Trap</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-endpoint-color);background:var(--entity-endpoint-bg)"></div><span>[EXT_IP] Ingress / C2 Endpoint</span></div>
-            <div class="legend-item"><div class="leg-line-solid"></div><span>Corroborated Edge (90–98%)</span></div>
-            <div class="legend-item"><div class="leg-line-dash"></div><span>Inferred Gap Bridge (58–65%)</span></div>
+            <!-- Flow Pipeline Stage Cards Container (Horizontal Scrollable) -->
+            <div class="flow-pipeline-scroll" id="flow-pipeline-scroll">
+              <div class="flow-pipeline-track" id="flow-pipeline-track">
+                <!-- Dynamically populated with graphical cards and animated laser connectors -->
+              </div>
+            </div>
+          </div>
+
+          <!-- VIEW 2: 2D CYTOSCAPE CANVAS -->
+          <div id="cy" style="display:none;"></div>
+
+          <!-- Visual Legend & Step Controller Strip -->
+          <div class="graph-bottom-strip">
+            <div class="step-controller-box">
+              <button class="step-ctrl-btn" onclick="prevAttackStep()" title="Previous Attack Stage">◀ Prev</button>
+              <div class="step-status-pill" id="step-status-pill">
+                <span class="step-num-badge" id="step-num-badge">STAGE 1</span>
+                <span class="step-title-text" id="step-title-text">Awaiting Forensic Ingestion...</span>
+              </div>
+              <button class="step-ctrl-btn" onclick="nextAttackStep()" title="Next Attack Stage">Next ▶</button>
+              <button class="step-play-toggle" id="btn-play-flow" onclick="toggleAttackFlowPlay()">
+                <span id="flow-play-icon">▶</span> <span id="flow-play-label">Play Flow</span>
+              </button>
+            </div>
+
+            <!-- Visual Legend -->
+            <div class="legend-box">
+              <div class="legend-item"><div class="leg-dot" style="border-color:#EF4444;background:rgba(239,68,68,0.25)"></div><span>Critical Attack (MITRE ATT&amp;CK)</span></div>
+              <div class="legend-item"><div class="leg-dot" style="border-color:#F59E0B;background:rgba(245,158,11,0.25)"></div><span>Suspicious / Inferred Gap Bridge</span></div>
+              <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.25)"></div><span>Normal Event / Honeypot Decoy</span></div>
+              <div class="legend-item"><div class="leg-line-solid" style="background:#0284C7;height:2.5px;width:24px"></div><span>Chronological Attack Flow</span></div>
+            </div>
           </div>
         </div>
 
         <!-- RIGHT PANEL: EXPLAINABLE AI & PLAYBOOK -->
         <div id="right-panel">
+          <!-- Active Event Investigation Panel (Selected Node Forensics) -->
+          <div id="investigation-panel" class="investigation-card">
+            <div class="investigation-card-header">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="investigation-dot" id="insp-dot"></span>
+                <span class="investigation-title" id="insp-title">1. Initial Access</span>
+                <span class="investigation-badge sev-critical" id="insp-sev-badge">CRITICAL</span>
+              </div>
+              <span class="investigation-mitre" id="insp-mitre-badge">T1078</span>
+            </div>
+
+            <div class="investigation-grid">
+              <div class="insp-field">
+                <span class="insp-label">TIMESTAMP</span>
+                <span class="insp-val" id="insp-timestamp">2026-03-31 01:15:00 UTC</span>
+              </div>
+              <div class="insp-field">
+                <span class="insp-label">CONFIDENCE</span>
+                <span class="insp-val" id="insp-confidence">96.0% (Corroborated)</span>
+              </div>
+              <div class="insp-field">
+                <span class="insp-label">SRC / DEST IP</span>
+                <span class="insp-val" id="insp-ips">185.220.101.47 ➔ 10.0.4.15</span>
+              </div>
+              <div class="insp-field">
+                <span class="insp-label">HOSTNAME</span>
+                <span class="insp-val" id="insp-hostname">wkst-04-dev</span>
+              </div>
+            </div>
+
+            <div class="insp-suspicion-box">
+              <div class="insp-label">WHY THIS EVENT IS SUSPICIOUS</div>
+              <div class="insp-suspicion-desc" id="insp-suspicion-desc">
+                Off-hours authentication anomaly from external TOR exit node utilizing compromised employee credentials.
+              </div>
+            </div>
+
+            <div class="insp-evidence-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span class="insp-label">ORIGINAL LOG EVIDENCE</span>
+                <button class="insp-evidence-btn" id="insp-dna-btn" onclick="openNodeEvidenceDNA()">View in Evidence DNA 🧬</button>
+              </div>
+              <pre class="insp-log-pre" id="insp-log-payload">{"log_id": "LOG-APT-001", "source": "185.220.101.47", ...}</pre>
+            </div>
+          </div>
+
           <div class="panel-tabs">
             <button class="tab-btn active" onclick="switchTab('xai')">Root Cause AI</button>
             <button class="tab-btn" onclick="switchTab('playbook')">Containment</button>

@@ -57,32 +57,35 @@ Every aspect of OBSYRON is thoroughly documented in dedicated specifications:
 
 | Document | Focus & Scope |
 |---|---|
-| [PROJECT_OVERVIEW.md](file:///d:/HACK%20INNOVISION/PROJECT_OVERVIEW.md) | High-level executive overview, problem statement, and key differentiators |
-| [ARCHITECTURE.md](file:///d:/HACK%20INNOVISION/ARCHITECTURE.md) | System topology, modular structure, and dual-mode execution details |
-| [SYSTEM_DESIGN.md](file:///d:/HACK%20INNOVISION/SYSTEM_DESIGN.md) | End-to-end component interactions, schema definitions, and air-gap security |
-| [FEATURES.md](file:///d:/HACK%20INNOVISION/FEATURES.md) | Exhaustive catalog of forensic capabilities, chaos controls, and UI tools |
-| [TECH_STACK.md](file:///d:/HACK%20INNOVISION/TECH_STACK.md) | Justifications for Python, FastAPI, NetworkX, Cytoscape.js, and dependencies |
-| [DATA_FLOW.md](file:///d:/HACK%20INNOVISION/DATA_FLOW.md) | Detailed sequence and data flow diagrams from ingestion to visualization |
-| [API_DOCUMENTATION.md](file:///d:/HACK%20INNOVISION/API_DOCUMENTATION.md) | Complete OpenAPI/REST specification for all dual-bound endpoints |
-| [DATABASE_AND_STORAGE.md](file:///d:/HACK%20INNOVISION/DATABASE_AND_STORAGE.md) | In-memory cache architecture, zero-external-database design, and persistence |
-| [SECURITY_MODEL.md](file:///d:/HACK%20INNOVISION/SECURITY_MODEL.md) | Defensive-only guardrails, air-gapped guarantees, and RBAC clearances |
-| [MITRE_MAPPING.md](file:///d:/HACK%20INNOVISION/MITRE_MAPPING.md) | Mapping matrix for T1078, T1087, T1558, T1021, and T1048 |
-| [CONFIDENCE_SCORING.md](file:///d:/HACK%20INNOVISION/CONFIDENCE_SCORING.md) | Mathematical formulas for edge and graph-level corroboration scores |
-| [EVIDENCE_DNA.md](file:///d:/HACK%20INNOVISION/EVIDENCE_DNA.md) | Immutable provenance ledger format and verification protocols |
-| [TIMELINE_ENGINE.md](file:///d:/HACK%20INNOVISION/TIMELINE_ENGINE.md) | Clock-skew compensation mathematics and dynamic snapshot slicing |
-| [GRAPH_ENGINE.md](file:///d:/HACK%20INNOVISION/GRAPH_ENGINE.md) | NetworkX multigraph algorithms, betweenness centrality, and Cytoscape styling |
-| [GAP_BRIDGING.md](file:///d:/HACK%20INNOVISION/GAP_BRIDGING.md) | Heuristic interpolation of missing telemetry steps with confidence penalties |
-| [ROOT_CAUSE_ANALYSIS.md](file:///d:/HACK%20INNOVISION/ROOT_CAUSE_ANALYSIS.md) | Backward reachability traversal and Patient Zero attribution logic |
-| [BLAST_RADIUS_ANALYSIS.md](file:///d:/HACK%20INNOVISION/BLAST_RADIUS_ANALYSIS.md) | Forward reachability algorithm, asset criticality ranking, and containment |
-| [DATASET_DOCUMENTATION.md](file:///d:/HACK%20INNOVISION/DATASET_DOCUMENTATION.md) | Documentation for the 6 synthetic datasets in `sample-data/` |
-| [TESTING_GUIDE.md](file:///d:/HACK%20INNOVISION/TESTING_GUIDE.md) | How to execute automated direct test suites and manual verification |
-| [DEPLOYMENT_GUIDE.md](file:///d:/HACK%20INNOVISION/DEPLOYMENT_GUIDE.md) | Deployment guides for local air-gapped workstations and Vercel Serverless |
-| [LOCAL_SETUP.md](file:///d:/HACK%20INNOVISION/LOCAL_SETUP.md) | 1-click startup, virtual environments, and Windows batch file usage |
-| [TROUBLESHOOTING.md](file:///d:/HACK%20INNOVISION/TROUBLESHOOTING.md) | Solutions for port conflicts, Vercel routing 404s, and audio policies |
-| [CONTRIBUTING.md](file:///d:/HACK%20INNOVISION/CONTRIBUTING.md) | Guidelines for contributing code, tests, and documentation |
-| [CHANGELOG.md](file:///d:/HACK%20INNOVISION/CHANGELOG.md) | Version history and release notes for v2.0.0-CIRT |
+| [FEATURE_AUDIT.md](file:///d:/HACK%20INNOVISION/FEATURE_AUDIT.md) | Exhaustive audit of every UI component, form, slider, canvas control, and route |
+| [IMPLEMENTATION_STATUS.md](file:///d:/HACK%20INNOVISION/IMPLEMENTATION_STATUS.md) | Full-stack implementation verification across all 12 core platform features |
+| [BACKEND_SETUP.md](file:///d:/HACK%20INNOVISION/BACKEND_SETUP.md) | Backend architecture, setup guide, SQLite persistence, and API reference |
+| [PROJECT_OVERVIEW.md](file:///d:/HACK%20INNOVISION/docs/PROJECT_OVERVIEW.md) | High-level executive overview, problem statement, and key differentiators |
+| [ARCHITECTURE.md](file:///d:/HACK%20INNOVISION/docs/ARCHITECTURE.md) | System topology, modular structure, and dual-mode execution details |
+| [SYSTEM_DESIGN.md](file:///d:/HACK%20INNOVISION/docs/SYSTEM_DESIGN.md) | End-to-end component interactions, schema definitions, and air-gap security |
+| [FEATURES.md](file:///d:/HACK%20INNOVISION/docs/FEATURES.md) | Exhaustive catalog of forensic capabilities, chaos controls, and UI tools |
+| [TECH_STACK.md](file:///d:/HACK%20INNOVISION/docs/TECH_STACK.md) | Justifications for Python, FastAPI, NetworkX, Cytoscape.js, and dependencies |
+| [DATA_FLOW.md](file:///d:/HACK%20INNOVISION/docs/DATA_FLOW.md) | Detailed sequence and data flow diagrams from ingestion to visualization |
+| [API_DOCUMENTATION.md](file:///d:/HACK%20INNOVISION/docs/API_DOCUMENTATION.md) | Complete OpenAPI/REST specification for all dual-bound endpoints |
+| [DATABASE_AND_STORAGE.md](file:///d:/HACK%20INNOVISION/docs/DATABASE_AND_STORAGE.md) | In-memory cache architecture, zero-external-database design, and persistence |
+| [SECURITY_MODEL.md](file:///d:/HACK%20INNOVISION/docs/SECURITY_MODEL.md) | Defensive-only guardrails, air-gapped guarantees, and RBAC clearances |
+| [MITRE_MAPPING.md](file:///d:/HACK%20INNOVISION/docs/MITRE_MAPPING.md) | Mapping matrix for T1078, T1087, T1558, T1021, and T1048 |
+| [CONFIDENCE_SCORING.md](file:///d:/HACK%20INNOVISION/docs/CONFIDENCE_SCORING.md) | Mathematical formulas for edge and graph-level corroboration scores |
+| [EVIDENCE_DNA.md](file:///d:/HACK%20INNOVISION/docs/EVIDENCE_DNA.md) | Immutable provenance ledger format and verification protocols |
+| [TIMELINE_ENGINE.md](file:///d:/HACK%20INNOVISION/docs/TIMELINE_ENGINE.md) | Clock-skew compensation mathematics and dynamic snapshot slicing |
+| [GRAPH_ENGINE.md](file:///d:/HACK%20INNOVISION/docs/GRAPH_ENGINE.md) | NetworkX multigraph algorithms, betweenness centrality, and Cytoscape styling |
+| [GAP_BRIDGING.md](file:///d:/HACK%20INNOVISION/docs/GAP_BRIDGING.md) | Heuristic interpolation of missing telemetry steps with confidence penalties |
+| [ROOT_CAUSE_ANALYSIS.md](file:///d:/HACK%20INNOVISION/docs/ROOT_CAUSE_ANALYSIS.md) | Backward reachability traversal and Patient Zero attribution logic |
+| [BLAST_RADIUS_ANALYSIS.md](file:///d:/HACK%20INNOVISION/docs/BLAST_RADIUS_ANALYSIS.md) | Forward reachability algorithm, asset criticality ranking, and containment |
+| [DATASET_DOCUMENTATION.md](file:///d:/HACK%20INNOVISION/docs/DATASET_DOCUMENTATION.md) | Documentation for the 6 synthetic datasets in `sample-data/` |
+| [TESTING_GUIDE.md](file:///d:/HACK%20INNOVISION/docs/TESTING_GUIDE.md) | How to execute automated direct test suites and manual verification |
+| [DEPLOYMENT_GUIDE.md](file:///d:/HACK%20INNOVISION/docs/DEPLOYMENT_GUIDE.md) | Deployment guides for local air-gapped workstations and Vercel Serverless |
+| [LOCAL_SETUP.md](file:///d:/HACK%20INNOVISION/docs/LOCAL_SETUP.md) | 1-click startup, virtual environments, and Windows batch file usage |
+| [TROUBLESHOOTING.md](file:///d:/HACK%20INNOVISION/docs/TROUBLESHOOTING.md) | Solutions for port conflicts, Vercel routing 404s, and audio policies |
+| [CONTRIBUTING.md](file:///d:/HACK%20INNOVISION/docs/CONTRIBUTING.md) | Guidelines for contributing code, tests, and documentation |
+| [CHANGELOG.md](file:///d:/HACK%20INNOVISION/docs/CHANGELOG.md) | Version history and release notes for v2.0.0-CIRT |
 | [LICENSE](file:///d:/HACK%20INNOVISION/LICENSE) | Apache 2.0 open-source license with defensive-use clause |
-| [CITATIONS.md](file:///d:/HACK%20INNOVISION/CITATIONS.md) | Academic references (Brandes, Shannon, Hagberg) and standards (NIST, STIX) |
+| [CITATIONS.md](file:///d:/HACK%20INNOVISION/docs/CITATIONS.md) | Academic references (Brandes, Shannon, Hagberg) and standards (NIST, STIX) |
 
 ---
 

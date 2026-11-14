@@ -15,8 +15,12 @@ const state = {
     drop_rate: 0.15
   },
   currentDataset: 'builtin',
-  graphViewMode: 'threat', // 'threat' = clean simple kill chain (default), 'all' = full network
+  graphViewMode: 'attack_flow', // 'attack_flow' = chronological left-to-right attack flow (default), 'topology' = full asset network
   graphLayoutName: 'breadthfirst',
+  currentAttackStep: 1,
+  attackStorySteps: [],
+  isAttackFlowPlaying: false,
+  attackFlowInterval: null,
   searchQuery: '',
   sliderTimeout: null,
   isPlayingTimeline: false,
@@ -24,6 +28,8 @@ const state = {
   replayIndex: 0,
   replaySpeed: 1.0,
   replayEvents: [],
+  selectedStep: null,
+  activeInspectorLogId: null,
   chaosBenchmarkData: null,
   deceptionData: null,
   isSpeaking: false,
@@ -363,6 +369,9 @@ function formatNodeLabel(n) {
 
 function formatEdgeLabel(e) {
   const confVal = Math.round((e.confidence || 0.75) * 100);
+  const action = e.action || '';
+  const mitre = e.mitre_tag || '';
+
   if (e.is_inferred) {
     return `④ [INFERRED] Priv Esc\n${confVal}% [T1558] ⚠️`;
   }
@@ -395,7 +404,7 @@ function formatEdgeLabel(e) {
     return `⚠️ Canary Trip\n${confVal}% [T1083]`;
   }
 
-  return `${e.action || 'TRAFFIC'}\n${confVal}%`;
+  return `${action || 'TRAFFIC'}\n${confVal}%`;
 }
 
 function entityFillColor(type, isMalicious) {
@@ -454,108 +463,638 @@ function entityStrokeColor(type) {
   }
 }
 
+// ── 4.1 GRAPHICAL ATTACK FLOW STORYBOARD ENGINE ────────────────────────────
+
+function shortenStageTitle(title) {
+  if (!title) return 'Stage';
+  if (title.includes('Initial Access') || title.includes('Credential') || title.includes('Ingress')) return 'Ingress Auth';
+  if (title.includes('Process Execution') || title.includes('Shell') || title.includes('PowerShell')) return 'Shell Spawn';
+  if (title.includes('Reconnaissance') || title.includes('Discovery') || title.includes('Recon')) return 'AD Recon';
+  if (title.includes('Privilege Escalation') || title.includes('Token') || title.includes('Kerberos')) return 'Priv Escalation';
+  if (title.includes('Lateral Movement') || title.includes('Lateral')) return 'Lateral SMB';
+  if (title.includes('Exfiltration') || title.includes('Exfil')) return 'Data Exfil';
+  if (title.includes('Command and Control') || title.includes('Beacon') || title.includes('C2')) return 'C2 Beacon';
+  if (title.includes('Honeypot') || title.includes('Cowrie')) return 'Honeypot Trap';
+  if (title.includes('Canary')) return 'Canary Trip';
+  return title.split(' ')[0] || 'Stage';
+}
+
+function getStepHeroIcon(step) {
+  const t = (step.title || '').toLowerCase();
+  const m = (step.mitre || '').toUpperCase();
+  const src = (step.source || '').toLowerCase();
+  const tgt = (step.target || '').toLowerCase();
+
+  if (step.step === 1 || src.includes('185.220') || m === 'T1078' || t.includes('initial') || t.includes('ingress')) {
+    return { emoji: '🌐', bg: 'rgba(239, 68, 68, 0.18)', color: '#EF4444', sub: 'Tor Ingress / Patient Zero' };
+  }
+  if (tgt.includes('powershell') || tgt.includes('cmd') || m.includes('1059') || t.includes('process') || t.includes('shell')) {
+    return { emoji: '⚡', bg: 'rgba(192, 132, 252, 0.18)', color: '#C084FC', sub: 'Endpoint Process Execution' };
+  }
+  if (tgt.includes('dc-01') || m.includes('1087') || t.includes('recon') || t.includes('discovery')) {
+    return { emoji: '🏛️', bg: 'rgba(56, 189, 248, 0.18)', color: '#38BDF8', sub: 'Active Directory Enumeration' };
+  }
+  if (m === 'T1558' || tgt.includes('svc_') || t.includes('privilege') || t.includes('inferred') || step.is_inferred) {
+    return { emoji: '🔑', bg: 'rgba(245, 158, 11, 0.18)', color: '#F59E0B', sub: step.is_inferred ? 'Inferred Privilege Bridge' : 'Service Token Impersonation' };
+  }
+  if (m === 'T1021' || tgt.includes('db-prod') || t.includes('lateral')) {
+    return { emoji: '💻', bg: 'rgba(129, 140, 248, 0.18)', color: '#818CF8', sub: 'Production Host Pivot (SMB)' };
+  }
+  if (m === 'T1048' || t.includes('exfil')) {
+    return { emoji: '🗄️', bg: 'rgba(236, 72, 153, 0.18)', color: '#EC4899', sub: 'Database Table Exfiltration' };
+  }
+  if (t.includes('c2') || t.includes('beacon')) {
+    return { emoji: '📡', bg: 'rgba(244, 63, 94, 0.18)', color: '#F43F5E', sub: 'Encrypted C2 Beaconing' };
+  }
+  if (t.includes('honey') || t.includes('canary') || src.includes('honey')) {
+    return { emoji: '🍯', bg: 'rgba(16, 185, 129, 0.18)', color: '#10B981', sub: 'Deception Trap Interaction' };
+  }
+  return { emoji: '⬡', bg: 'rgba(56, 189, 248, 0.18)', color: '#38BDF8', sub: 'Observed Telemetry Signal' };
+}
+
+function getStepProtocol(step) {
+  const m = (step.mitre || '').toUpperCase();
+  const tgt = (step.target || '').toLowerCase();
+  const act = (step.action || '').toUpperCase();
+
+  if (m === 'T1078' || act.includes('AUTH')) return 'HTTPS : 443';
+  if (m.includes('1059') || tgt.includes('powershell')) return 'IPC / Local Process';
+  if (m.includes('1087') || tgt.includes('dc-01')) return 'LDAP : 389';
+  if (m === 'T1558' || act.includes('PRIV') || step.is_inferred) return 'Kerberos / RPC : 135';
+  if (m === 'T1021' || act.includes('LATERAL')) return 'SMB : 445 (ADMIN$)';
+  if (m === 'T1048' || act.includes('EXFIL')) return 'TCP : 4444 (Drop)';
+  if (act.includes('C2')) return 'HTTPS : 8443 (Beacon)';
+  if (act.includes('COWRIE')) return 'SSH : 2222 (Decoy)';
+  if (act.includes('CANARY')) return 'Samba / HTTP (Canary)';
+  return 'TCP/IP Flow';
+}
+
+function buildFallbackStorySteps(data) {
+  const edges = (data.edges || []).filter(e => e.is_malicious || e.is_inferred || (e.log_ids || []).some(id => String(id).startsWith('LOG-APT')));
+  if (edges.length === 0) {
+    return [{
+      step: 1,
+      title: 'Baseline Telemetry Activity',
+      narrative: 'All observed interactions conform to expected operational baselines.',
+      source: (data.nodes && data.nodes[0] && data.nodes[0].id) || 'Gateway',
+      target: (data.nodes && data.nodes[1] && data.nodes[1].id) || 'Host',
+      mitre: 'T1078',
+      mitre_name: 'Valid Accounts',
+      confidence: 0.95,
+      is_inferred: false,
+      log_citations: ['LOG-001']
+    }];
+  }
+
+  return edges.map((e, idx) => ({
+    step: idx + 1,
+    title: e.mitre_technique || e.action || `Attack Stage ${idx + 1}`,
+    narrative: e.causal_connection || `Adversary transitioned from ${e.source} to ${e.target} via ${e.action}.`,
+    source: e.source,
+    target: e.target,
+    mitre: e.mitre_tag || 'ATT&CK',
+    mitre_name: e.mitre_technique || e.action,
+    confidence: e.confidence || 0.92,
+    is_inferred: Boolean(e.is_inferred),
+    log_citations: e.log_ids || []
+  }));
+}
+
+function renderGraphicalFlow(data) {
+  const stageNav = document.getElementById('flow-stage-nav');
+  const track = document.getElementById('flow-pipeline-track');
+  if (!track) return;
+
+  const steps = (data.xai_report && data.xai_report.length) ? data.xai_report : buildFallbackStorySteps(data);
+  state.attackStorySteps = steps;
+
+  // 1. Render Top Nav Pills
+  if (stageNav) {
+    stageNav.innerHTML = steps.map((s, idx) => {
+      const isCur = s.step === state.currentAttackStep;
+      const hero = getStepHeroIcon(s);
+      return `
+        <button class="flow-nav-pill ${isCur ? 'active' : ''}" onclick="activateAttackStage(${s.step})" title="${escapeHtml(s.title)}">
+          <span>${hero.emoji}</span>
+          <span>${s.step}. ${escapeHtml(shortenStageTitle(s.title))}</span>
+          ${s.is_inferred ? '<span style="color:#F59E0B">⚠️</span>' : ''}
+        </button>
+      `;
+    }).join('');
+  }
+
+  // 2. Render Pipeline Cards & Animated Connectors
+  let html = '';
+  steps.forEach((s, idx) => {
+    const isCur = s.step === state.currentAttackStep;
+    const hero = getStepHeroIcon(s);
+    const cardClass = s.step === 1 ? 'is-attacker' : (s.is_inferred ? 'is-inferred' : (s.mitre === 'T1048' || s.title.includes('Exfiltration') ? 'is-exfil' : ''));
+    const confVal = Math.round((s.confidence || 0.90) * 100);
+    const timeDisplay = s.time || (idx === 0 ? '01:15 IST' : `+${idx * 1.5}m norm`);
+    const citation = (s.log_citations && s.log_citations[0]) || (s.is_inferred ? 'INFERRED' : `LOG-APT-00${s.step}`);
+
+    html += `
+      <div class="flow-stage-card ${cardClass} ${isCur ? 'active' : ''}" id="flow-card-${s.step}" onclick="activateAttackStage(${s.step})">
+        <div class="flow-card-header">
+          <span class="flow-stage-chip">STAGE ${s.step}</span>
+          <span class="flow-time-chip">${timeDisplay}</span>
+          <span class="flow-conf-chip">${confVal}% Certainty</span>
+        </div>
+
+        <div class="flow-card-hero">
+          <div class="flow-hero-icon" style="background:${hero.bg};border-color:${hero.color};color:${hero.color}">
+            ${hero.emoji}
+          </div>
+          <div class="flow-hero-info">
+            <div class="flow-hero-title">${escapeHtml(s.title)}</div>
+            <div class="flow-hero-sub">${escapeHtml(hero.sub)}</div>
+          </div>
+        </div>
+
+        <div class="flow-card-transition">
+          <span class="flow-ent-src">${escapeHtml(s.source || 'Attacker')}</span>
+          <span class="flow-ent-arrow">➔</span>
+          <span class="flow-ent-tgt">${escapeHtml(s.target || 'Victim')}</span>
+        </div>
+
+        <div class="flow-card-tactic">
+          <span class="flow-mitre-badge">${s.mitre || 'ATT&CK'}</span>
+          <span class="flow-proto-badge">${getStepProtocol(s)}</span>
+          ${s.is_inferred ? '<span style="font-size:9px;font-family:var(--font-mono);font-weight:700;color:#F59E0B">INFERRED BRIDGE</span>' : ''}
+        </div>
+
+        <p style="font-size:10px;color:var(--text-secondary);margin:0;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+          ${escapeHtml(s.narrative)}
+        </p>
+
+        <div class="flow-card-footer">
+          <button class="flow-evidence-btn" onclick="event.stopPropagation(); fetchEvidence('${citation}')" title="Inspect immutable raw JSON provenance">
+            📄 Evidence [${citation}]
+          </button>
+          <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono);font-weight:600">
+            ${isCur ? '● ACTIVE' : 'Inspect ➔'}
+          </span>
+        </div>
+      </div>
+    `;
+
+    // Connector between cards
+    if (idx < steps.length - 1) {
+      const nextStep = steps[idx + 1];
+      const proto = getStepProtocol(nextStep);
+      const isInf = nextStep.is_inferred;
+      html += `
+        <div class="flow-connector ${isInf ? 'is-inferred' : ''}">
+          <div class="flow-connector-line">
+            <div class="flow-connector-pulse"></div>
+          </div>
+          <div class="flow-connector-pill">${proto}</div>
+        </div>
+      `;
+    }
+  });
+
+  track.innerHTML = html;
+  updateStepControllerUI();
+}
+
+function activateAttackStage(stepNum) {
+  state.currentAttackStep = stepNum;
+
+  // 1. Highlight active card in Storyboard
+  const allCards = document.querySelectorAll('.flow-stage-card');
+  allCards.forEach(c => c.classList.remove('active'));
+  const activeCard = document.getElementById(`flow-card-${stepNum}`);
+  if (activeCard) {
+    activeCard.classList.add('active');
+    activeCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  // 2. Highlight active nav pill
+  const allNavPills = document.querySelectorAll('.flow-nav-pill');
+  allNavPills.forEach((p, idx) => {
+    p.classList.toggle('active', (idx + 1) === stepNum);
+  });
+
+  // 3. Update bottom controller UI
+  updateStepControllerUI();
+
+  // 4. Update Investigation Panel and load Evidence DNA
+  const step = (state.attackStorySteps || []).find(s => s.step === stepNum);
+  if (step) {
+    showInvestigationPanel(step);
+    const citation = (step.log_citations && step.log_citations[0]) || (step.is_inferred ? 'INFERRED' : `LOG-APT-00${stepNum}`);
+    if (citation) fetchEvidence(citation);
+    if (typeof focusAttackStep === 'function') {
+      focusAttackStep(stepNum);
+    }
+  }
+}
+
+function prevAttackStep() {
+  const total = (state.attackStorySteps || []).length || 6;
+  let prev = state.currentAttackStep - 1;
+  if (prev < 1) prev = total;
+  activateAttackStage(prev);
+}
+
+function nextAttackStep() {
+  const total = (state.attackStorySteps || []).length || 6;
+  let next = state.currentAttackStep + 1;
+  if (next > total) next = 1;
+  activateAttackStage(next);
+}
+
+function toggleAttackFlowPlay() {
+  const btn = document.getElementById('btn-play-flow');
+  const icon = document.getElementById('flow-play-icon');
+  const label = document.getElementById('flow-play-label');
+
+  if (state.isAttackFlowPlaying) {
+    clearInterval(state.attackFlowInterval);
+    state.isAttackFlowPlaying = false;
+    if (btn) btn.classList.remove('playing');
+    if (icon) icon.textContent = '▶';
+    if (label) label.textContent = 'Play Flow';
+  } else {
+    state.isAttackFlowPlaying = true;
+    if (btn) btn.classList.add('playing');
+    if (icon) icon.textContent = '⏸';
+    if (label) label.textContent = 'Pause';
+
+    state.attackFlowInterval = setInterval(() => {
+      const total = (state.attackStorySteps || []).length || 6;
+      let next = state.currentAttackStep + 1;
+      if (next > total) {
+        next = 1;
+      }
+      activateAttackStage(next);
+    }, 1800);
+  }
+}
+
+function updateStepControllerUI() {
+  const badge = document.getElementById('step-num-badge');
+  const text = document.getElementById('step-title-text');
+  const total = (state.attackStorySteps || []).length || 6;
+  const current = state.currentAttackStep || 1;
+  const step = (state.attackStorySteps || []).find(s => s.step === current);
+
+  if (badge) {
+    badge.textContent = `STAGE ${current} of ${total}`;
+  }
+  if (text && step) {
+    text.textContent = `${step.title}: ${step.source || ''} ➔ ${step.target || ''}`;
+  }
+}
+
+// ── INVESTIGATION PANEL CONTROLLER ──────────────────────────────────────────
+
+function showInvestigationPanel(step) {
+  if (!step) return;
+  state.selectedStep = step;
+
+  // 1. Title & Event Name
+  const titleEl = document.getElementById('insp-title');
+  if (titleEl) {
+    const stepPrefix = step.step ? `${step.step}. ` : '';
+    titleEl.textContent = `${stepPrefix}${step.title || step.action || 'Attack Event'}`;
+  }
+
+  // 2. MITRE Technique
+  const mitreEl = document.getElementById('insp-mitre-badge');
+  if (mitreEl) {
+    mitreEl.textContent = step.mitre || 'ATT&CK';
+  }
+
+  // 3. Severity Badge & Dot
+  const sevEl = document.getElementById('insp-sev-badge');
+  const dotEl = document.getElementById('insp-dot');
+  const sev = (step.severity || 'CRITICAL').toUpperCase();
+  if (sevEl) {
+    sevEl.textContent = sev;
+    sevEl.className = 'investigation-badge';
+    if (sev === 'CRITICAL') {
+      sevEl.classList.add('sev-critical');
+      if (dotEl) dotEl.style.background = '#EF4444';
+    } else if (sev === 'HIGH' || step.is_inferred) {
+      sevEl.classList.add('sev-suspicious');
+      if (dotEl) dotEl.style.background = '#F59E0B';
+    } else {
+      sevEl.classList.add('sev-normal');
+      if (dotEl) dotEl.style.background = '#10B981';
+    }
+  }
+
+  // 4. Timestamp
+  const tsEl = document.getElementById('insp-timestamp');
+  if (tsEl) {
+    tsEl.textContent = step.timestamp ? formatTimestamp(step.timestamp) : '2026-03-31 01:15:00 UTC';
+  }
+
+  // 5. Confidence Score
+  const confEl = document.getElementById('insp-confidence');
+  if (confEl) {
+    const confVal = Math.round((step.confidence || 0.95) * 100);
+    confEl.textContent = `${confVal}% (${step.is_inferred ? 'Inferred Gap Bridge' : 'Corroborated'})`;
+  }
+
+  // 6. Source & Dest IP
+  const ipsEl = document.getElementById('insp-ips');
+  if (ipsEl) {
+    const sIp = step.source_ip || step.source || '185.220.101.47';
+    const dIp = step.dest_ip || step.target || '10.0.4.15';
+    ipsEl.textContent = `${sIp} ➔ ${dIp}`;
+  }
+
+  // 7. Hostname
+  const hostEl = document.getElementById('insp-hostname');
+  if (hostEl) {
+    hostEl.textContent = step.source_host || 'wkst-04-dev';
+  }
+
+  // 8. Suspicion Explanation
+  const suspEl = document.getElementById('insp-suspicion-desc');
+  if (suspEl) {
+    suspEl.textContent = step.suspicion_explanation || step.narrative || 'Adversary behavioral deviation isolated in audit telemetry.';
+  }
+
+  // 9. Original Log Evidence snippet
+  const preEl = document.getElementById('insp-log-payload');
+  const chosenLogId = step.evidence_log_id || (step.log_citations && step.log_citations[0]);
+  state.activeInspectorLogId = chosenLogId;
+
+  if (preEl) {
+    if (step.raw_payload) {
+      try {
+        const parsed = typeof step.raw_payload === 'string' ? JSON.parse(step.raw_payload) : step.raw_payload;
+        preEl.textContent = JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        preEl.textContent = String(step.raw_payload);
+      }
+    } else if (chosenLogId) {
+      preEl.textContent = `{\n  "log_id": "${chosenLogId}",\n  "mitre_tag": "${step.mitre || 'T1078'}",\n  "host": "${step.source_host || 'wkst-04-dev'}",\n  "action": "${step.action || 'STAGE'}"\n}`;
+    } else {
+      preEl.textContent = '{\n  "status": "INFERRED_BRIDGE_NO_DIRECT_RAW_LOG"\n}';
+    }
+  }
+}
+
+function openNodeEvidenceDNA() {
+  if (state.activeInspectorLogId && state.activeInspectorLogId !== 'INFERRED') {
+    fetchEvidence(state.activeInspectorLogId);
+  } else if (state.selectedStep && state.selectedStep.log_citations && state.selectedStep.log_citations[0]) {
+    fetchEvidence(state.selectedStep.log_citations[0]);
+  } else {
+    openDrawer();
+  }
+}
+
+// ── ATTACK GRAPH ENGINE (CHRONOLOGICAL ATTACK FLOW & TOPOLOGY) ─────────────
+
 function renderGraph(data) {
+  if (!data) return;
+
+  // 1. Always update the rich graphical flow storyboard
+  try {
+    renderGraphicalFlow(data);
+  } catch (flowErr) {
+    console.error('Error rendering graphical flow storyboard:', flowErr);
+  }
+
+  // 2. Select initial step in investigation panel if not selected
+  const steps = (data.xai_report && data.xai_report.length) ? data.xai_report : buildFallbackStorySteps(data);
+  if (steps.length > 0 && (!state.selectedStep || state.selectedStep.step === 1)) {
+    showInvestigationPanel(steps[0]);
+  }
+
   const container = document.getElementById('cy');
   if (!container) return;
   const dark = isDarkMode();
 
   const nodeTextColor = dark ? '#FFFFFF' : '#0F172A';
-  const edgeLineColor = dark ? '#334155' : '#94A3B8';
-  const edgeCriticalColor = dark ? '#EF4444' : '#DC2626';
-  const edgeInferredColor = dark ? '#F59E0B' : '#D97706';
-  const edgeTextBg = dark ? '#00020C' : '#FFFFFF';
-  const edgeTextColor = dark ? '#E2E8F0' : '#0F172A';
-  const selectBorderColor = dark ? '#6FD7FF' : '#0284C7';
-  const ancestorColor = dark ? '#38BDF8' : '#0284C7';
-  const descendantColor = dark ? '#EF4444' : '#DC2626';
+  const edgeLineColor = '#0284C7';
+  const edgeCriticalColor = '#EF4444';
+  const edgeInferredColor = '#F59E0B';
+  const selectBorderColor = '#38BDF8';
 
-  // 1. Identify Threat-Relevant Edges (Clean & Focused Kill Chain)
-  const allEdges = data.edges || [];
-  let threatEdges = allEdges.filter(e => {
-    return Boolean(e.is_malicious) ||
-      Boolean(e.is_inferred) ||
-      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
-  });
-
-  // Fallback if custom uploaded dataset has no pre-flagged APT IDs
-  if (threatEdges.length === 0) {
-    threatEdges = allEdges.filter(e => e.severity === 'CRITICAL');
-  }
-  if (threatEdges.length === 0) {
-    threatEdges = allEdges.slice(0, 8);
-  }
-
-  // 2. Identify Threat-Relevant Nodes
-  const threatNodeIds = new Set();
-  threatEdges.forEach(e => {
-    threatNodeIds.add(e.source);
-    threatNodeIds.add(e.target);
-  });
-  if (data.initial_access && data.initial_access.entity) {
-    threatNodeIds.add(data.initial_access.entity);
-  }
-  (data.nodes || []).forEach(n => {
-    if (n.is_malicious) threatNodeIds.add(n.id);
-  });
-
-  // 3. Filter Nodes based on state.graphViewMode ('threat' vs 'all')
-  const nodesToRender = (state.graphViewMode === 'threat' && threatNodeIds.size > 0)
-    ? (data.nodes || []).filter(n => threatNodeIds.has(n.id))
-    : (data.nodes || []);
-
-  const nodeSet = new Set(nodesToRender.map(n => n.id));
-
-  // 4. Filter Edges
-  let edgesToRender = [];
-  if (state.graphViewMode === 'threat') {
-    edgesToRender = threatEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
-  } else {
-    edgesToRender = allEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
-  }
-
+  const isFlowMode = (state.graphViewMode === 'attack_flow');
   const elements = [];
 
-  // Add Nodes
-  nodesToRender.forEach(n => {
-    const isThreatNode = threatNodeIds.has(n.id) || n.is_malicious;
-    elements.push({
-      group: 'nodes',
-      data: {
-        id: n.id,
-        label: formatNodeLabel(n),
-        entity_type: n.entity_type,
-        is_malicious: isThreatNode,
-        centrality: n.centrality,
-        log_ids: n.log_ids || [],
-        mitre_tags: n.mitre_tags || [],
-        color: isThreatNode ? (n.id === '185.220.101.47' ? '#EF4444' : entityStrokeColor(n.entity_type)) : (dark ? '#475569' : '#94A3B8'),
-        bg: entityFillColor(n.entity_type, isThreatNode),
-      }
-    });
-  });
+  if (isFlowMode) {
+    // ════════════════════════════════════════════════════════════════════════
+    // 1. CHRONOLOGICAL ATTACK FLOW (LEFT TO RIGHT RECTANGULAR CARDS)
+    // ════════════════════════════════════════════════════════════════════════
+    let steps = (data.xai_report && data.xai_report.length > 0)
+      ? data.xai_report.filter(s => s.present !== false)
+      : [];
 
-  // Add Edges
-  edgesToRender.forEach((e, i) => {
-    const isThreatEdge = Boolean(e.is_inferred) || Boolean(e.is_malicious) ||
-      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
-    elements.push({
-      group: 'edges',
-      data: {
-        id: e.id || `edge-${i}`,
-        source: e.source,
-        target: e.target,
-        label: formatEdgeLabel(e),
-        is_inferred: Boolean(e.is_inferred),
-        confidence: e.confidence,
-        mitre_tag: e.mitre_tag,
-        log_ids: e.log_ids || [],
-        severity: e.severity,
-        raw_payload: e.raw_payload,
-        normalized_timestamp: e.normalized_timestamp,
-        is_threat: isThreatEdge
+    // Fallback if xai_report is empty: extract from threat edges
+    if (steps.length === 0) {
+      const threatEdges = (data.edges || []).filter(e => e.is_malicious || e.is_inferred || (e.log_ids || []).some(id => String(id).startsWith('LOG-APT')));
+      if (threatEdges.length > 0) {
+        steps = threatEdges.map((e, idx) => ({
+          step: idx + 1,
+          title: e.action || `Attack Stage ${idx + 1}`,
+          mitre: e.mitre_tag || 'ATT&CK',
+          action: e.action || 'EXEC',
+          source: e.source,
+          target: e.target,
+          source_host: e.source,
+          dest_ip: e.target,
+          timestamp: e.normalized_timestamp,
+          severity: e.severity || 'CRITICAL',
+          confidence: e.confidence || 0.95,
+          is_inferred: Boolean(e.is_inferred),
+          evidence_log_id: (e.log_ids && e.log_ids[0]) || '',
+          raw_payload: e.raw_payload || '{}',
+          suspicion_explanation: `Suspicious activity connecting ${e.source} to ${e.target} (${e.mitre_tag || 'ATT&CK'}).`
+        }));
+      }
+    }
+
+    // Baseline Normal fallback (0 malicious events)
+    if (steps.length === 0) {
+      steps = [{
+        step: 1,
+        title: 'Normal Enterprise Baseline',
+        mitre: 'BASELINE',
+        action: 'ROUTINE_TRAFFIC',
+        source: 'corp-lan',
+        target: 'gateway-01',
+        source_host: 'gateway-01',
+        dest_ip: '10.0.0.254',
+        timestamp: data.timeline_min || '',
+        severity: 'NORMAL',
+        confidence: 0.99,
+        is_inferred: false,
+        evidence_log_id: 'LOG-0001',
+        raw_payload: '{"status": "NORMAL_ENTERPRISE_BASELINE"}',
+        suspicion_explanation: 'All observed telemetry conforms to legitimate enterprise traffic. No malicious deviation detected.'
+      }];
+    }
+
+    // Build Sequential Rectangular Nodes
+    steps.forEach((s, i) => {
+      const stepNum = s.step || (i + 1);
+      const isCrit = s.severity === 'CRITICAL';
+      const isSusp = s.severity === 'HIGH' || s.is_inferred;
+      const isNorm = s.severity === 'NORMAL';
+
+      let borderColor = '#EF4444'; // Red for critical attacks
+      if (isSusp) borderColor = '#F59E0B'; // Amber for suspicious / inferred
+      else if (isNorm) borderColor = '#10B981'; // Green for normal events
+
+      const timeStr = s.timestamp ? (s.timestamp.length > 19 ? s.timestamp.substring(11, 19) + ' UTC' : s.timestamp) : '—';
+      const confPct = Math.round((s.confidence || 0.95) * 100);
+
+      const label = `${stepNum}. ${s.title}\n${s.mitre || 'ATT&CK'} • ${s.action || 'STAGE'}\n${s.source_host || s.source || 'host'} ➔ ${s.target || s.dest_ip || 'dest'}\n${timeStr} • ${s.severity} (${confPct}%)`;
+
+      const posX = 120 + i * 280;
+      const posY = 220;
+
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: `flow-step-${stepNum}`,
+          label: label,
+          step_data: s,
+          color: borderColor,
+          bg: dark ? '#0F172A' : '#FFFFFF',
+          is_inferred: Boolean(s.is_inferred),
+          is_flow_step: true,
+          step_num: stepNum,
+          default_x: posX,
+          default_y: posY
+        },
+        position: { x: posX, y: posY }
+      });
+
+      // Directional arrow from previous step
+      if (i > 0) {
+        const prev = steps[i - 1];
+        let deltaLabel = '➔';
+        if (prev.timestamp && s.timestamp) {
+          const diff = Math.round((new Date(s.timestamp) - new Date(prev.timestamp)) / 1000);
+          if (!isNaN(diff) && diff >= 0) deltaLabel = `+${diff}s`;
+        }
+        elements.push({
+          group: 'edges',
+          data: {
+            id: `flow-edge-${prev.step || i}-${stepNum}`,
+            source: `flow-step-${prev.step || i}`,
+            target: `flow-step-${stepNum}`,
+            label: deltaLabel,
+            is_inferred: Boolean(s.is_inferred),
+            line_color: '#0284C7',
+            target_arrow_color: '#0284C7'
+          }
+        });
       }
     });
-  });
+
+    // Deception Intel Decoy Node (if deception data present)
+    const deceptionEvents = (data.deception && data.deception.events && data.deception.events.length > 0)
+      ? data.deception.events
+      : [];
+    if (deceptionEvents.length > 0) {
+      const dec = deceptionEvents[0];
+      const decX = 120;
+      const decY = 70;
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: 'flow-step-decoy',
+          label: `🍯 Honeypot Decoy Trap\n${dec.sensor_type || 'Cowrie / Canary'}\n${dec.src_ip || '185.220.101.47'} ➔ Decoy\nDecoy Interaction Captured`,
+          step_data: {
+            step: 0,
+            title: 'Honeypot Decoy Trap Triggered',
+            mitre: 'T1059 / T1083',
+            timestamp: dec.timestamp || '',
+            source_ip: dec.src_ip || '185.220.101.47',
+            dest_ip: '192.168.1.99',
+            source_host: 'honeypot-ssh-01',
+            raw_payload: JSON.stringify(dec, null, 2),
+            severity: 'NORMAL',
+            confidence: 1.0,
+            suspicion_explanation: 'Attacker touched deception tripwire before engaging production targets, providing early threat attribution.'
+          },
+          color: '#10B981',
+          bg: dark ? '#062B1D' : '#ECFDF5',
+          is_flow_step: true,
+          default_x: decX,
+          default_y: decY
+        },
+        position: { x: decX, y: decY }
+      });
+
+      if (steps.length > 0) {
+        elements.push({
+          group: 'edges',
+          data: {
+            id: 'flow-edge-decoy-to-1',
+            source: 'flow-step-decoy',
+            target: `flow-step-${steps[0].step || 1}`,
+            label: 'EARLY TRAP',
+            line_color: '#10B981',
+            target_arrow_color: '#10B981',
+            line_style: 'dashed'
+          }
+        });
+      }
+    }
+
+  } else {
+    // ════════════════════════════════════════════════════════════════════════
+    // 2. FULL INFRASTRUCTURE TOPOLOGY GRAPH
+    // ════════════════════════════════════════════════════════════════════════
+    const allNodes = data.nodes || [];
+    const allEdges = data.edges || [];
+
+    allNodes.forEach(n => {
+      let bColor = dark ? '#475569' : '#94A3B8';
+      if (n.is_malicious) bColor = (n.id === '185.220.101.47' ? '#EF4444' : entityStrokeColor(n.entity_type));
+      elements.push({
+        group: 'nodes',
+        data: {
+          id: n.id,
+          label: formatNodeLabel(n),
+          entity_type: n.entity_type,
+          is_malicious: Boolean(n.is_malicious),
+          centrality: n.centrality,
+          log_ids: n.log_ids || [],
+          mitre_tags: n.mitre_tags || [],
+          color: bColor,
+          bg: entityFillColor(n.entity_type, Boolean(n.is_malicious)),
+          is_flow_step: false
+        }
+      });
+    });
+
+    const nodeSet = new Set(allNodes.map(n => n.id));
+    allEdges.forEach((e, i) => {
+      if (nodeSet.has(e.source) && nodeSet.has(e.target)) {
+        const isThreat = Boolean(e.is_inferred) || Boolean(e.is_malicious);
+        elements.push({
+          group: 'edges',
+          data: {
+            id: e.id || `edge-${i}`,
+            source: e.source,
+            target: e.target,
+            label: formatEdgeLabel(e),
+            is_inferred: Boolean(e.is_inferred),
+            confidence: e.confidence,
+            mitre_tag: e.mitre_tag,
+            log_ids: e.log_ids || [],
+            severity: e.severity,
+            raw_payload: e.raw_payload,
+            line_color: isThreat ? (e.is_inferred ? edgeInferredColor : edgeCriticalColor) : edgeLineColor,
+            target_arrow_color: isThreat ? (e.is_inferred ? edgeInferredColor : edgeCriticalColor) : edgeLineColor
+          }
+        });
+      }
+    });
+  }
 
   if (state.cy) {
     state.cy.destroy();
@@ -569,56 +1108,27 @@ function renderGraph(data) {
     return;
   }
 
-  // Layout configuration
-  const rootId = (data.initial_access && data.initial_access.entity) || '185.220.101.47';
-  const hasRoot = elements.some(e => e.group === 'nodes' && e.data.id === rootId);
-  const rootSelector = hasRoot ? `[id = "${rootId}"]` : undefined;
-
-  let layoutOpts = {
-    name: 'breadthfirst',
-    directed: true,
-    roots: rootSelector,
-    padding: 45,
-    spacingFactor: 1.5,
-    avoidOverlap: true,
-    maximal: true,
-    animate: false
-  };
-
-  if (state.graphLayoutName === 'concentric') {
-    layoutOpts = {
-      name: 'concentric',
-      concentric: function(node) {
-        return (node.data('centrality') || 0) * 100 + (node.data('is_malicious') ? 50 : 0);
-      },
-      levelWidth: function() { return 25; },
-      padding: 35,
-      animate: false
-    };
-  } else if (state.graphLayoutName === 'cose') {
-    layoutOpts = {
-      name: 'cose',
-      animate: false,
-      padding: 35,
-      componentSpacing: 60,
-      nodeRepulsion: 6000,
-      idealEdgeLength: 100
-    };
-  } else if (state.graphLayoutName === 'circle') {
-    layoutOpts = {
-      name: 'circle',
-      padding: 35,
-      animate: false
-    };
-  }
+  let layoutOpts = isFlowMode
+    ? { name: 'preset', padding: 45 }
+    : {
+        name: state.graphLayoutName || 'breadthfirst',
+        directed: true,
+        padding: 45,
+        spacingFactor: 1.4,
+        avoidOverlap: true,
+        animate: false
+      };
 
   const cyStyle = [
     {
       selector: 'node',
       style: {
+        'shape': 'roundrectangle',
+        'width': 224,
+        'height': 76,
         'background-color': 'data(bg)',
         'border-color': 'data(color)',
-        'border-width': 2.0,
+        'border-width': 1.5,
         'label': 'data(label)',
         'text-valign': 'center',
         'text-halign': 'center',
@@ -627,109 +1137,58 @@ function renderGraph(data) {
         'font-weight': 600,
         'font-family': 'JetBrains Mono, monospace',
         'text-wrap': 'wrap',
-        'width': 130,
-        'height': 52,
-        'shape': 'roundrectangle',
-        'text-max-width': 122,
+        'text-max-width': 214,
         'transition-property': 'background-color, border-color, opacity, border-width',
-        'transition-duration': '0.2s',
+        'transition-duration': '0.15s',
         'cursor': 'pointer'
       }
     },
     {
-      selector: 'node[entity_type = "USER"]',
-      style: { shape: 'roundrectangle', width: 125, height: 50 }
-    },
-    {
-      selector: 'node[entity_type = "PROCESS"]',
-      style: { shape: 'roundrectangle', width: 130, height: 50, 'border-color': '#C084FC' }
-    },
-    {
-      selector: 'node[entity_type = "SERVICE"]',
-      style: { shape: 'roundrectangle', width: 130, height: 50 }
-    },
-    {
-      selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-      style: { shape: 'hexagon', width: 135, height: 54 }
-    },
-    {
-      selector: 'node[entity_type = "HONEYPOT"]',
-      style: { shape: 'diamond', width: 135, height: 54, 'border-color': '#10B981' }
-    },
-    {
-      selector: 'node[?is_malicious]',
+      selector: 'node[?is_inferred]',
       style: {
-        'border-width': 2.6,
-      }
-    },
-    {
-      selector: 'node[id = "185.220.101.47"]',
-      style: {
-        'border-color': '#EF4444',
-        'border-width': 3.0,
-      }
-    },
-    {
-      selector: 'node[id = "wkst-04-dev"]',
-      style: {
-        'border-color': '#38BDF8',
-        'border-width': 2.8,
+        'border-style': 'dashed',
+        'border-dash-pattern': [6, 4]
       }
     },
     {
       selector: 'edge',
       style: {
-        'width': 2.2,
-        'line-color': edgeLineColor,
-        'target-arrow-color': edgeLineColor,
+        'width': 1.8,
+        'line-color': 'data(line_color)',
+        'target-arrow-color': 'data(target_arrow_color)',
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
         'label': 'data(label)',
         'font-size': 8.5,
         'font-weight': 600,
         'font-family': 'JetBrains Mono, monospace',
-        'color': edgeTextColor,
-        'text-background-color': edgeTextBg,
+        'color': dark ? '#94A3B8' : '#475569',
+        'text-background-color': dark ? '#080D1A' : '#FFFFFF',
         'text-background-opacity': 0.95,
-        'text-background-padding': 3,
-        'text-wrap': 'wrap',
-        'text-max-width': 105,
+        'text-background-padding': 2.5,
         'edge-text-rotation': 'autorotate',
         'arrow-scale': 1.15,
         'cursor': 'pointer'
       }
     },
     {
-      selector: 'edge[?is_threat]',
+      selector: 'edge[line_style = "dashed"]',
       style: {
-        'line-color': edgeCriticalColor,
-        'target-arrow-color': edgeCriticalColor,
-        'width': 2.6,
-        'color': dark ? '#FCA5A5' : '#991B1B',
-      }
-    },
-    {
-      selector: 'edge[?is_inferred]',
-      style: {
-        'line-color': edgeInferredColor,
-        'target-arrow-color': edgeInferredColor,
         'line-style': 'dashed',
-        'line-dash-pattern': [6, 4],
-        'width': 2.4,
-        'color': dark ? '#FCD34D' : '#92400E',
+        'line-dash-pattern': [6, 4]
       }
     },
     {
       selector: 'node:selected',
       style: {
-        'border-width': 3.6,
+        'border-width': 2.6,
         'border-color': selectBorderColor
       }
     },
-    { selector: '.dimmed', style: { 'opacity': 0.12 } },
+    { selector: '.dimmed', style: { 'opacity': 0.18 } },
     { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-    { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 3.2, 'opacity': 1 } },
-    { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 3.2, 'opacity': 1 } },
+    { selector: '.ancestor-highlight', style: { 'border-color': '#0284C7', 'border-width': 2.6, 'opacity': 1 } },
+    { selector: '.descendant-highlight', style: { 'border-color': '#EF4444', 'border-width': 2.6, 'opacity': 1 } },
   ];
 
   let cyInstance = null;
@@ -739,53 +1198,55 @@ function renderGraph(data) {
       elements,
       layout: layoutOpts,
       style: cyStyle,
-      wheelSensitivity: 0.1,    // Smooth, gentle mousewheel zoom (prevents flying/spinning)
-      minZoom: 0.35,
-      maxZoom: 2.2,
+      wheelSensitivity: 0.1,
+      minZoom: 0.25,
+      maxZoom: 2.5,
       boxSelectionEnabled: false
     });
   } catch (cyErr) {
-    console.warn('Primary Cytoscape layout failed, falling back:', cyErr);
-    try {
-      cyInstance = cytoscape({
-        container,
-        elements,
-        layout: { name: 'breadthfirst', directed: true, padding: 35, animate: false },
-        style: cyStyle,
-        wheelSensitivity: 0.1,
-        minZoom: 0.35,
-        maxZoom: 2.2
-      });
-    } catch (fallbackErr) {
-      console.warn('Breadthfirst fallback failed, using grid layout:', fallbackErr);
-      cyInstance = cytoscape({
-        container,
-        elements,
-        layout: { name: 'grid', padding: 35 },
-        style: cyStyle,
-        wheelSensitivity: 0.1
-      });
-    }
+    console.warn('Cytoscape layout initialization failed, falling back:', cyErr);
+    cyInstance = cytoscape({
+      container,
+      elements,
+      layout: { name: 'preset', padding: 35 },
+      style: cyStyle,
+      wheelSensitivity: 0.1
+    });
   }
 
   if (!cyInstance) return;
   state.cy = cyInstance;
 
-  // Node Click -> Evidence DNA + Blast Radius Highlight (Stable viewport, no camera jerk)
+  // Node Click -> Update Investigation Panel + Highlight Attack Path
   state.cy.on('tap', 'node', function(evt) {
     const node = evt.target;
-    const logIds = node.data('log_ids') || [];
-    const chosenId = logIds.find(id => id.startsWith('LOG-APT') || id.startsWith('UPLOAD')) || logIds[0];
-    if (chosenId) fetchEvidence(chosenId);
-    highlightBlastRadius(node);
+    const stepData = node.data('step_data');
+    if (stepData) {
+      showInvestigationPanel(stepData);
+    } else {
+      const id = node.data('id');
+      showInvestigationPanel({
+        step: 1,
+        title: `${node.data('entity_type') || 'Entity'}: ${id}`,
+        mitre: (node.data('mitre_tags') || [])[0] || 'T1078',
+        timestamp: state.timelineMax || '',
+        source_ip: id,
+        dest_ip: 'Internal Asset',
+        source_host: id,
+        raw_payload: `{"entity_id": "${id}", "type": "${node.data('entity_type')}", "centrality": ${node.data('centrality') || 0}}`,
+        severity: node.data('is_malicious') ? 'CRITICAL' : 'NORMAL',
+        confidence: 0.95,
+        suspicion_explanation: node.data('is_malicious') ? `Compromised ${node.data('entity_type')} involved in active kill chain.` : `Benign enterprise infrastructure asset.`
+      });
+    }
+    highlightAttackPath(node);
   });
 
-  // Edge Click -> Evidence DNA (Stable viewport)
+  // Edge Click -> Highlight connected nodes
   state.cy.on('tap', 'edge', function(evt) {
     const edge = evt.target;
     const logIds = edge.data('log_ids') || [];
-    const firstId = logIds[0];
-    if (firstId) fetchEvidence(firstId);
+    if (logIds[0]) fetchEvidence(logIds[0]);
 
     state.cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
     edge.removeClass('dimmed').addClass('highlighted');
@@ -793,36 +1254,28 @@ function renderGraph(data) {
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
   });
 
-  // Hover Tooltip
-  state.cy.on('mouseover', 'node', function(evt) {
-    const node = evt.target;
-    const pos = evt.renderedPosition;
-    const bbox = container.getBoundingClientRect();
-    showTooltip(
-      node.data('label').replace('\n', ' — '),
-      `Entity Class: ${node.data('entity_type')} | ${node.data('is_malicious') ? 'COMPROMISED' : 'Benign Asset'}`,
-      `Betweenness Centrality: ${(node.data('centrality') * 100).toFixed(1)}% (Internal Pivot Metric)`,
-      `Correlated Audit Logs: ${(node.data('log_ids') || []).length} events`,
-      bbox.left + pos.x, bbox.top + pos.y
-    );
-  });
-
-  state.cy.on('mouseout', 'node', hideTooltip);
-
-  // Background Tap -> Reset Dimming & Close Drawer
+  // Background Tap -> Reset Dimming
   state.cy.on('tap', function(evt) {
     if (evt.target === state.cy) {
       resetGraphFocus();
-      closeDrawer();
     }
   });
 
+  // Fit View
   setTimeout(() => {
     if (state.cy) {
       state.cy.resize();
-      state.cy.fit(null, 35);
+      state.cy.fit(null, 45);
     }
-  }, 100);
+  }, 120);
+
+  // Automatically select and display Step 1 in the Investigation Panel on initial load!
+  const firstNode = state.cy.nodes().filter(n => n.data('step_num') === 1);
+  if (firstNode.length > 0) {
+    showInvestigationPanel(firstNode[0].data('step_data'));
+  } else if (data.xai_report && data.xai_report[0]) {
+    showInvestigationPanel(data.xai_report[0]);
+  }
 }
 
 window.addEventListener('resize', () => {
@@ -831,31 +1284,68 @@ window.addEventListener('resize', () => {
   }
 });
 
-function highlightBlastRadius(node) {
+function highlightAttackPath(node) {
   if (!state.cy) return;
   const cy = state.cy;
-  cy.elements().addClass('dimmed');
+  cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
   node.removeClass('dimmed').addClass('highlighted');
 
-  // Upstream root cause path in Sky Blue
+  // Ancestors in Blue/Teal
   node.predecessors().removeClass('dimmed').addClass('highlighted ancestor-highlight');
 
-  // Downstream blast radius path in Crimson
+  // Descendants in Red
   node.successors().removeClass('dimmed').addClass('highlighted descendant-highlight');
 
   node.connectedEdges().removeClass('dimmed').addClass('highlighted');
 }
 
-// ── USER-RESPONSIVE INTERACTIVE GRAPH CONTROLS ─────────────────────────────
+function resetGraphPosition() {
+  if (!state.cy) return;
+  const cy = state.cy;
+  cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
+
+  if (state.graphViewMode === 'attack_flow') {
+    cy.batch(() => {
+      cy.nodes().forEach(n => {
+        const defX = n.data('default_x');
+        const defY = n.data('default_y');
+        if (typeof defX === 'number' && typeof defY === 'number') {
+          n.position({ x: defX, y: defY });
+        }
+      });
+    });
+  } else {
+    changeGraphLayout(state.graphLayoutName || 'breadthfirst');
+  }
+  cy.fit(null, 45);
+}
 
 function setGraphViewMode(mode) {
   state.graphViewMode = mode;
-  const btnThreat = document.getElementById('btn-view-threat');
-  const btnAll = document.getElementById('btn-view-all');
-  if (btnThreat) btnThreat.classList.toggle('active', mode === 'threat');
-  if (btnAll) btnAll.classList.toggle('active', mode === 'all');
-  if (state.analysisResult) {
-    renderGraph(state.analysisResult);
+  const btnFlow = document.getElementById('btn-view-flow');
+  const btnTopology = document.getElementById('btn-view-topology');
+  const flowView = document.getElementById('graph-flow-view');
+  const cyView = document.getElementById('cy');
+
+  if (btnFlow) btnFlow.classList.toggle('active', mode === 'attack_flow');
+  if (btnTopology) btnTopology.classList.toggle('active', mode === 'topology');
+
+  if (mode === 'attack_flow') {
+    if (flowView) flowView.style.display = 'flex';
+    if (cyView) cyView.style.display = 'none';
+    if (state.analysisResult) {
+      renderGraphicalFlow(state.analysisResult);
+    }
+  } else {
+    if (flowView) flowView.style.display = 'none';
+    if (cyView) {
+      cyView.style.display = 'block';
+      cyView.style.visibility = 'visible';
+    }
+    if (state.analysisResult) {
+      renderGraph(state.analysisResult);
+      setTimeout(() => fitGraph(), 50);
+    }
   }
 }
 
@@ -933,9 +1423,13 @@ function onGraphSearch(query) {
 
   const matchedNodes = cy.nodes().filter(n => {
     const label = (n.data('label') || '').toLowerCase();
-    const id = n.data('id').toLowerCase();
+    const id = (n.data('id') || '').toLowerCase();
     const type = (n.data('entity_type') || '').toLowerCase();
-    return id.includes(q) || label.includes(q) || type.includes(q);
+    const s = n.data('step_data') || {};
+    const title = (s.title || '').toLowerCase();
+    const mitre = (s.mitre || '').toLowerCase();
+    const host = (s.source_host || '').toLowerCase();
+    return id.includes(q) || label.includes(q) || type.includes(q) || title.includes(q) || mitre.includes(q) || host.includes(q);
   });
 
   if (matchedNodes.length > 0) {
@@ -944,8 +1438,11 @@ function onGraphSearch(query) {
     matchedNodes.connectedEdges().removeClass('dimmed').addClass('highlighted');
     cy.animate({
       center: { eles: matchedNodes[0] },
-      zoom: 1.3
+      zoom: 1.25
     }, { duration: 300 });
+
+    const stepData = matchedNodes[0].data('step_data');
+    if (stepData) showInvestigationPanel(stepData);
   }
 }
 
@@ -959,12 +1456,25 @@ function resetGraphFocus() {
   if (!state.cy) return;
   state.cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
   state.cy.animate({
-    fit: { padding: 40 }
+    fit: { padding: 45 }
   }, { duration: 350 });
 }
 
 function focusAttackStep(stepNum) {
   if (!state.cy) return;
+  const cy = state.cy;
+
+  if (state.graphViewMode === 'attack_flow') {
+    const node = cy.getElementById(`flow-step-${stepNum}`);
+    if (node.length > 0) {
+      highlightAttackPath(node);
+      const stepData = node.data('step_data');
+      if (stepData) showInvestigationPanel(stepData);
+      cy.animate({ center: { eles: node } }, { duration: 250 });
+    }
+    return;
+  }
+
   const stepMap = {
     1: { mitre: 'T1078', action: 'AUTH_ANOMALY', src: '185.220.101.47', tgt: 'emp_rohan' },
     2: { mitre: 'T1087', action: 'RECON_ENUM', src: 'emp_rohan', tgt: 'wkst-04-dev' },
@@ -977,7 +1487,6 @@ function focusAttackStep(stepNum) {
   const targetInfo = stepMap[stepNum];
   if (!targetInfo) return;
 
-  const cy = state.cy;
   let matchEdge = cy.edges().filter(e => {
     const d = e.data();
     return (d.mitre_tag === targetInfo.mitre) || (d.action === targetInfo.action) ||
@@ -1120,38 +1629,61 @@ function applyReplayStep(index) {
     }
   }
 
+  // Update Investigation Panel in real time!
+  if (step) {
+    showInvestigationPanel(step);
+  }
+
   // Focus and highlight in Attack Story
   if (step && typeof focusAttackStep === 'function') {
     focusAttackStep(step.step);
   }
 
-  // If evidence ID exists, load into DNA
-  if (step && step.evidence_log_id && step.evidence_log_id !== 'INFERRED') {
-    fetchEvidence(step.evidence_log_id);
-  }
-
   // Highlight in Cytoscape
   if (state.cy && step) {
-    state.cy.batch(() => {
-      state.cy.elements().removeClass('highlighted ancestor-highlight descendant-highlight').addClass('dimmed');
+    const cy = state.cy;
+    cy.batch(() => {
+      cy.elements().removeClass('highlighted ancestor-highlight descendant-highlight').addClass('dimmed');
       
-      // Highlight all steps up to current index
-      for (let i = 0; i <= index; i++) {
-        const s = state.replayEvents[i];
-        if (!s) continue;
-        const srcNode = state.cy.getElementById(s.source);
-        const tgtNode = state.cy.getElementById(s.target);
-        if (srcNode.length) srcNode.removeClass('dimmed').addClass('highlighted ancestor-highlight');
-        if (tgtNode.length) tgtNode.removeClass('dimmed').addClass('highlighted descendant-highlight');
-      }
-
-      // Center active nodes
-      const activeSrc = state.cy.getElementById(step.source);
-      const activeTgt = state.cy.getElementById(step.target);
-      if (activeSrc.length && activeTgt.length) {
-        state.cy.animate({
-          center: { eles: activeSrc.union(activeTgt) }
-        }, { duration: 250 });
+      if (state.graphViewMode === 'attack_flow') {
+        for (let i = 0; i <= index; i++) {
+          const s = state.replayEvents[i];
+          if (!s) continue;
+          const node = cy.getElementById(`flow-step-${s.step}`);
+          if (node.length) {
+            node.removeClass('dimmed').addClass('highlighted');
+            if (i < index) node.addClass('ancestor-highlight');
+            else node.addClass('descendant-highlight');
+          }
+          if (i > 0) {
+            const prevS = state.replayEvents[i - 1];
+            const edge = cy.getElementById(`flow-edge-${prevS.step}-${s.step}`);
+            if (edge.length) edge.removeClass('dimmed').addClass('highlighted');
+          }
+        }
+        const activeNode = cy.getElementById(`flow-step-${step.step}`);
+        if (activeNode.length) {
+          cy.animate({
+            center: { eles: activeNode }
+          }, { duration: 250 });
+        }
+      } else {
+        // Topology mode
+        for (let i = 0; i <= index; i++) {
+          const s = state.replayEvents[i];
+          if (!s) continue;
+          const srcNode = cy.getElementById(s.source);
+          const tgtNode = cy.getElementById(s.target);
+          if (srcNode.length) srcNode.removeClass('dimmed').addClass('highlighted ancestor-highlight');
+          if (tgtNode.length) tgtNode.removeClass('dimmed').addClass('highlighted descendant-highlight');
+        }
+        const activeSrc = cy.getElementById(step.source);
+        const activeTgt = cy.getElementById(step.target);
+        if (activeSrc.length && activeTgt.length) {
+          cy.animate({
+            center: { eles: activeSrc.union(activeTgt) }
+          }, { duration: 250 });
+        }
       }
     });
   }
