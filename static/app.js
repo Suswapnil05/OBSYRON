@@ -17,6 +17,10 @@ const state = {
   currentDataset: 'builtin',
   graphViewMode: 'attack_flow', // 'attack_flow' = chronological left-to-right attack flow (default), 'topology' = full asset network
   graphLayoutName: 'breadthfirst',
+  currentAttackStep: 1,
+  attackStorySteps: [],
+  isAttackFlowPlaying: false,
+  attackFlowInterval: null,
   searchQuery: '',
   sliderTimeout: null,
   isPlayingTimeline: false,
@@ -365,6 +369,9 @@ function formatNodeLabel(n) {
 
 function formatEdgeLabel(e) {
   const confVal = Math.round((e.confidence || 0.75) * 100);
+  const action = e.action || '';
+  const mitre = e.mitre_tag || '';
+
   if (e.is_inferred) {
     return `④ [INFERRED] Priv Esc\n${confVal}% [T1558] ⚠️`;
   }
@@ -397,7 +404,7 @@ function formatEdgeLabel(e) {
     return `⚠️ Canary Trip\n${confVal}% [T1083]`;
   }
 
-  return `${e.action || 'TRAFFIC'}\n${confVal}%`;
+  return `${action || 'TRAFFIC'}\n${confVal}%`;
 }
 
 function entityFillColor(type, isMalicious) {
@@ -453,6 +460,291 @@ function entityStrokeColor(type) {
       HONEYPOT: '#059669'
     };
     return map[type] || '#64748B';
+  }
+}
+
+// ── 4.1 GRAPHICAL ATTACK FLOW STORYBOARD ENGINE ────────────────────────────
+
+function shortenStageTitle(title) {
+  if (!title) return 'Stage';
+  if (title.includes('Initial Access') || title.includes('Credential') || title.includes('Ingress')) return 'Ingress Auth';
+  if (title.includes('Process Execution') || title.includes('Shell') || title.includes('PowerShell')) return 'Shell Spawn';
+  if (title.includes('Reconnaissance') || title.includes('Discovery') || title.includes('Recon')) return 'AD Recon';
+  if (title.includes('Privilege Escalation') || title.includes('Token') || title.includes('Kerberos')) return 'Priv Escalation';
+  if (title.includes('Lateral Movement') || title.includes('Lateral')) return 'Lateral SMB';
+  if (title.includes('Exfiltration') || title.includes('Exfil')) return 'Data Exfil';
+  if (title.includes('Command and Control') || title.includes('Beacon') || title.includes('C2')) return 'C2 Beacon';
+  if (title.includes('Honeypot') || title.includes('Cowrie')) return 'Honeypot Trap';
+  if (title.includes('Canary')) return 'Canary Trip';
+  return title.split(' ')[0] || 'Stage';
+}
+
+function getStepHeroIcon(step) {
+  const t = (step.title || '').toLowerCase();
+  const m = (step.mitre || '').toUpperCase();
+  const src = (step.source || '').toLowerCase();
+  const tgt = (step.target || '').toLowerCase();
+
+  if (step.step === 1 || src.includes('185.220') || m === 'T1078' || t.includes('initial') || t.includes('ingress')) {
+    return { emoji: '🌐', bg: 'rgba(239, 68, 68, 0.18)', color: '#EF4444', sub: 'Tor Ingress / Patient Zero' };
+  }
+  if (tgt.includes('powershell') || tgt.includes('cmd') || m.includes('1059') || t.includes('process') || t.includes('shell')) {
+    return { emoji: '⚡', bg: 'rgba(192, 132, 252, 0.18)', color: '#C084FC', sub: 'Endpoint Process Execution' };
+  }
+  if (tgt.includes('dc-01') || m.includes('1087') || t.includes('recon') || t.includes('discovery')) {
+    return { emoji: '🏛️', bg: 'rgba(56, 189, 248, 0.18)', color: '#38BDF8', sub: 'Active Directory Enumeration' };
+  }
+  if (m === 'T1558' || tgt.includes('svc_') || t.includes('privilege') || t.includes('inferred') || step.is_inferred) {
+    return { emoji: '🔑', bg: 'rgba(245, 158, 11, 0.18)', color: '#F59E0B', sub: step.is_inferred ? 'Inferred Privilege Bridge' : 'Service Token Impersonation' };
+  }
+  if (m === 'T1021' || tgt.includes('db-prod') || t.includes('lateral')) {
+    return { emoji: '💻', bg: 'rgba(129, 140, 248, 0.18)', color: '#818CF8', sub: 'Production Host Pivot (SMB)' };
+  }
+  if (m === 'T1048' || t.includes('exfil')) {
+    return { emoji: '🗄️', bg: 'rgba(236, 72, 153, 0.18)', color: '#EC4899', sub: 'Database Table Exfiltration' };
+  }
+  if (t.includes('c2') || t.includes('beacon')) {
+    return { emoji: '📡', bg: 'rgba(244, 63, 94, 0.18)', color: '#F43F5E', sub: 'Encrypted C2 Beaconing' };
+  }
+  if (t.includes('honey') || t.includes('canary') || src.includes('honey')) {
+    return { emoji: '🍯', bg: 'rgba(16, 185, 129, 0.18)', color: '#10B981', sub: 'Deception Trap Interaction' };
+  }
+  return { emoji: '⬡', bg: 'rgba(56, 189, 248, 0.18)', color: '#38BDF8', sub: 'Observed Telemetry Signal' };
+}
+
+function getStepProtocol(step) {
+  const m = (step.mitre || '').toUpperCase();
+  const tgt = (step.target || '').toLowerCase();
+  const act = (step.action || '').toUpperCase();
+
+  if (m === 'T1078' || act.includes('AUTH')) return 'HTTPS : 443';
+  if (m.includes('1059') || tgt.includes('powershell')) return 'IPC / Local Process';
+  if (m.includes('1087') || tgt.includes('dc-01')) return 'LDAP : 389';
+  if (m === 'T1558' || act.includes('PRIV') || step.is_inferred) return 'Kerberos / RPC : 135';
+  if (m === 'T1021' || act.includes('LATERAL')) return 'SMB : 445 (ADMIN$)';
+  if (m === 'T1048' || act.includes('EXFIL')) return 'TCP : 4444 (Drop)';
+  if (act.includes('C2')) return 'HTTPS : 8443 (Beacon)';
+  if (act.includes('COWRIE')) return 'SSH : 2222 (Decoy)';
+  if (act.includes('CANARY')) return 'Samba / HTTP (Canary)';
+  return 'TCP/IP Flow';
+}
+
+function buildFallbackStorySteps(data) {
+  const edges = (data.edges || []).filter(e => e.is_malicious || e.is_inferred || (e.log_ids || []).some(id => String(id).startsWith('LOG-APT')));
+  if (edges.length === 0) {
+    return [{
+      step: 1,
+      title: 'Baseline Telemetry Activity',
+      narrative: 'All observed interactions conform to expected operational baselines.',
+      source: (data.nodes && data.nodes[0] && data.nodes[0].id) || 'Gateway',
+      target: (data.nodes && data.nodes[1] && data.nodes[1].id) || 'Host',
+      mitre: 'T1078',
+      mitre_name: 'Valid Accounts',
+      confidence: 0.95,
+      is_inferred: false,
+      log_citations: ['LOG-001']
+    }];
+  }
+
+  return edges.map((e, idx) => ({
+    step: idx + 1,
+    title: e.mitre_technique || e.action || `Attack Stage ${idx + 1}`,
+    narrative: e.causal_connection || `Adversary transitioned from ${e.source} to ${e.target} via ${e.action}.`,
+    source: e.source,
+    target: e.target,
+    mitre: e.mitre_tag || 'ATT&CK',
+    mitre_name: e.mitre_technique || e.action,
+    confidence: e.confidence || 0.92,
+    is_inferred: Boolean(e.is_inferred),
+    log_citations: e.log_ids || []
+  }));
+}
+
+function renderGraphicalFlow(data) {
+  const stageNav = document.getElementById('flow-stage-nav');
+  const track = document.getElementById('flow-pipeline-track');
+  if (!track) return;
+
+  const steps = (data.xai_report && data.xai_report.length) ? data.xai_report : buildFallbackStorySteps(data);
+  state.attackStorySteps = steps;
+
+  // 1. Render Top Nav Pills
+  if (stageNav) {
+    stageNav.innerHTML = steps.map((s, idx) => {
+      const isCur = s.step === state.currentAttackStep;
+      const hero = getStepHeroIcon(s);
+      return `
+        <button class="flow-nav-pill ${isCur ? 'active' : ''}" onclick="activateAttackStage(${s.step})" title="${escapeHtml(s.title)}">
+          <span>${hero.emoji}</span>
+          <span>${s.step}. ${escapeHtml(shortenStageTitle(s.title))}</span>
+          ${s.is_inferred ? '<span style="color:#F59E0B">⚠️</span>' : ''}
+        </button>
+      `;
+    }).join('');
+  }
+
+  // 2. Render Pipeline Cards & Animated Connectors
+  let html = '';
+  steps.forEach((s, idx) => {
+    const isCur = s.step === state.currentAttackStep;
+    const hero = getStepHeroIcon(s);
+    const cardClass = s.step === 1 ? 'is-attacker' : (s.is_inferred ? 'is-inferred' : (s.mitre === 'T1048' || s.title.includes('Exfiltration') ? 'is-exfil' : ''));
+    const confVal = Math.round((s.confidence || 0.90) * 100);
+    const timeDisplay = s.time || (idx === 0 ? '01:15 IST' : `+${idx * 1.5}m norm`);
+    const citation = (s.log_citations && s.log_citations[0]) || (s.is_inferred ? 'INFERRED' : `LOG-APT-00${s.step}`);
+
+    html += `
+      <div class="flow-stage-card ${cardClass} ${isCur ? 'active' : ''}" id="flow-card-${s.step}" onclick="activateAttackStage(${s.step})">
+        <div class="flow-card-header">
+          <span class="flow-stage-chip">STAGE ${s.step}</span>
+          <span class="flow-time-chip">${timeDisplay}</span>
+          <span class="flow-conf-chip">${confVal}% Certainty</span>
+        </div>
+
+        <div class="flow-card-hero">
+          <div class="flow-hero-icon" style="background:${hero.bg};border-color:${hero.color};color:${hero.color}">
+            ${hero.emoji}
+          </div>
+          <div class="flow-hero-info">
+            <div class="flow-hero-title">${escapeHtml(s.title)}</div>
+            <div class="flow-hero-sub">${escapeHtml(hero.sub)}</div>
+          </div>
+        </div>
+
+        <div class="flow-card-transition">
+          <span class="flow-ent-src">${escapeHtml(s.source || 'Attacker')}</span>
+          <span class="flow-ent-arrow">➔</span>
+          <span class="flow-ent-tgt">${escapeHtml(s.target || 'Victim')}</span>
+        </div>
+
+        <div class="flow-card-tactic">
+          <span class="flow-mitre-badge">${s.mitre || 'ATT&CK'}</span>
+          <span class="flow-proto-badge">${getStepProtocol(s)}</span>
+          ${s.is_inferred ? '<span style="font-size:9px;font-family:var(--font-mono);font-weight:700;color:#F59E0B">INFERRED BRIDGE</span>' : ''}
+        </div>
+
+        <p style="font-size:10px;color:var(--text-secondary);margin:0;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+          ${escapeHtml(s.narrative)}
+        </p>
+
+        <div class="flow-card-footer">
+          <button class="flow-evidence-btn" onclick="event.stopPropagation(); fetchEvidence('${citation}')" title="Inspect immutable raw JSON provenance">
+            📄 Evidence [${citation}]
+          </button>
+          <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono);font-weight:600">
+            ${isCur ? '● ACTIVE' : 'Inspect ➔'}
+          </span>
+        </div>
+      </div>
+    `;
+
+    // Connector between cards
+    if (idx < steps.length - 1) {
+      const nextStep = steps[idx + 1];
+      const proto = getStepProtocol(nextStep);
+      const isInf = nextStep.is_inferred;
+      html += `
+        <div class="flow-connector ${isInf ? 'is-inferred' : ''}">
+          <div class="flow-connector-line">
+            <div class="flow-connector-pulse"></div>
+          </div>
+          <div class="flow-connector-pill">${proto}</div>
+        </div>
+      `;
+    }
+  });
+
+  track.innerHTML = html;
+  updateStepControllerUI();
+}
+
+function activateAttackStage(stepNum) {
+  state.currentAttackStep = stepNum;
+
+  // 1. Highlight active card in Storyboard
+  const allCards = document.querySelectorAll('.flow-stage-card');
+  allCards.forEach(c => c.classList.remove('active'));
+  const activeCard = document.getElementById(`flow-card-${stepNum}`);
+  if (activeCard) {
+    activeCard.classList.add('active');
+    activeCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  // 2. Highlight active nav pill
+  const allNavPills = document.querySelectorAll('.flow-nav-pill');
+  allNavPills.forEach((p, idx) => {
+    p.classList.toggle('active', (idx + 1) === stepNum);
+  });
+
+  // 3. Update bottom controller UI
+  updateStepControllerUI();
+
+  // 4. Update Investigation Panel and load Evidence DNA
+  const step = (state.attackStorySteps || []).find(s => s.step === stepNum);
+  if (step) {
+    showInvestigationPanel(step);
+    const citation = (step.log_citations && step.log_citations[0]) || (step.is_inferred ? 'INFERRED' : `LOG-APT-00${stepNum}`);
+    if (citation) fetchEvidence(citation);
+    if (typeof focusAttackStep === 'function') {
+      focusAttackStep(stepNum);
+    }
+  }
+}
+
+function prevAttackStep() {
+  const total = (state.attackStorySteps || []).length || 6;
+  let prev = state.currentAttackStep - 1;
+  if (prev < 1) prev = total;
+  activateAttackStage(prev);
+}
+
+function nextAttackStep() {
+  const total = (state.attackStorySteps || []).length || 6;
+  let next = state.currentAttackStep + 1;
+  if (next > total) next = 1;
+  activateAttackStage(next);
+}
+
+function toggleAttackFlowPlay() {
+  const btn = document.getElementById('btn-play-flow');
+  const icon = document.getElementById('flow-play-icon');
+  const label = document.getElementById('flow-play-label');
+
+  if (state.isAttackFlowPlaying) {
+    clearInterval(state.attackFlowInterval);
+    state.isAttackFlowPlaying = false;
+    if (btn) btn.classList.remove('playing');
+    if (icon) icon.textContent = '▶';
+    if (label) label.textContent = 'Play Flow';
+  } else {
+    state.isAttackFlowPlaying = true;
+    if (btn) btn.classList.add('playing');
+    if (icon) icon.textContent = '⏸';
+    if (label) label.textContent = 'Pause';
+
+    state.attackFlowInterval = setInterval(() => {
+      const total = (state.attackStorySteps || []).length || 6;
+      let next = state.currentAttackStep + 1;
+      if (next > total) {
+        next = 1;
+      }
+      activateAttackStage(next);
+    }, 1800);
+  }
+}
+
+function updateStepControllerUI() {
+  const badge = document.getElementById('step-num-badge');
+  const text = document.getElementById('step-title-text');
+  const total = (state.attackStorySteps || []).length || 6;
+  const current = state.currentAttackStep || 1;
+  const step = (state.attackStorySteps || []).find(s => s.step === current);
+
+  if (badge) {
+    badge.textContent = `STAGE ${current} of ${total}`;
+  }
+  if (text && step) {
+    text.textContent = `${step.title}: ${step.source || ''} ➔ ${step.target || ''}`;
   }
 }
 
@@ -561,6 +853,21 @@ function openNodeEvidenceDNA() {
 // ── ATTACK GRAPH ENGINE (CHRONOLOGICAL ATTACK FLOW & TOPOLOGY) ─────────────
 
 function renderGraph(data) {
+  if (!data) return;
+
+  // 1. Always update the rich graphical flow storyboard
+  try {
+    renderGraphicalFlow(data);
+  } catch (flowErr) {
+    console.error('Error rendering graphical flow storyboard:', flowErr);
+  }
+
+  // 2. Select initial step in investigation panel if not selected
+  const steps = (data.xai_report && data.xai_report.length) ? data.xai_report : buildFallbackStorySteps(data);
+  if (steps.length > 0 && (!state.selectedStep || state.selectedStep.step === 1)) {
+    showInvestigationPanel(steps[0]);
+  }
+
   const container = document.getElementById('cy');
   if (!container) return;
   const dark = isDarkMode();
@@ -1017,10 +1324,28 @@ function setGraphViewMode(mode) {
   state.graphViewMode = mode;
   const btnFlow = document.getElementById('btn-view-flow');
   const btnTopology = document.getElementById('btn-view-topology');
+  const flowView = document.getElementById('graph-flow-view');
+  const cyView = document.getElementById('cy');
+
   if (btnFlow) btnFlow.classList.toggle('active', mode === 'attack_flow');
   if (btnTopology) btnTopology.classList.toggle('active', mode === 'topology');
-  if (state.analysisResult) {
-    renderGraph(state.analysisResult);
+
+  if (mode === 'attack_flow') {
+    if (flowView) flowView.style.display = 'flex';
+    if (cyView) cyView.style.display = 'none';
+    if (state.analysisResult) {
+      renderGraphicalFlow(state.analysisResult);
+    }
+  } else {
+    if (flowView) flowView.style.display = 'none';
+    if (cyView) {
+      cyView.style.display = 'block';
+      cyView.style.visibility = 'visible';
+    }
+    if (state.analysisResult) {
+      renderGraph(state.analysisResult);
+      setTimeout(() => fitGraph(), 50);
+    }
   }
 }
 

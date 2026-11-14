@@ -390,15 +390,15 @@
           <!-- Floating Canvas Toolbar -->
           <div class="graph-toolbar">
             <div style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:5px;padding:2px;gap:2px">
-              <button class="tool-btn active" id="btn-view-flow" onclick="setGraphViewMode('attack_flow')" title="Chronological Left-to-Right Attack Flow">⚡ Attack Flow</button>
-              <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')" title="Full Infrastructure Asset Topology">🌐 Asset Topology</button>
+              <button class="tool-btn active" id="btn-view-flow" onclick="setGraphViewMode('attack_flow')" title="Chronological Left-to-Right Attack Flow Storyboard">⚡ Attack Flow Storyboard</button>
+              <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')" title="Full Infrastructure Asset Topology Graph">🌐 Asset Topology Graph</button>
             </div>
             <div class="graph-search-wrap">
               <input type="text" id="graph-search" class="graph-search-input" placeholder="🔍 Search event or entity..." oninput="onGraphSearch(this.value)">
               <button class="clear-search-btn" onclick="clearGraphSearch()" title="Clear search">✕</button>
             </div>
             <select class="tool-select" id="sel-graph-layout" onchange="changeGraphLayout(this.value)" title="Change Graph Layout">
-              <option value="breadthfirst">Flow Hierarchy</option>
+              <option value="breadthfirst">Flow Hierarchy (L➔R)</option>
               <option value="concentric">Concentric Rings</option>
               <option value="cose">Force-Directed</option>
               <option value="circle">Circular</option>
@@ -411,14 +411,43 @@
             </div>
           </div>
 
-          <div id="cy"></div>
+          <!-- VIEW 1: GRAPHICAL ATTACK FLOW STORYBOARD (RICH HTML/SVG PIPELINE) -->
+          <div id="graph-flow-view" class="graph-flow-view">
+            <!-- Stage Sequence Progress Header -->
+            <div class="flow-stage-nav" id="flow-stage-nav"></div>
 
-          <!-- Visual Legend -->
-          <div class="legend-box">
-            <div class="legend-item"><div class="leg-dot" style="border-color:#EF4444;background:rgba(239,68,68,0.25)"></div><span>Critical Attack (MITRE ATT&amp;CK)</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:#F59E0B;background:rgba(245,158,11,0.25)"></div><span>Suspicious / Inferred Gap Bridge</span></div>
-            <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.25)"></div><span>Normal Event / Honeypot Decoy</span></div>
-            <div class="legend-item"><div class="leg-line-solid" style="background:#0284C7;height:2.5px;width:24px"></div><span>Chronological Attack Flow (Left ➔ Right)</span></div>
+            <!-- Flow Pipeline Stage Cards Container (Horizontal Scrollable) -->
+            <div class="flow-pipeline-scroll" id="flow-pipeline-scroll">
+              <div class="flow-pipeline-track" id="flow-pipeline-track">
+                <!-- Dynamically populated with graphical cards and animated laser connectors -->
+              </div>
+            </div>
+          </div>
+
+          <!-- VIEW 2: 2D CYTOSCAPE CANVAS -->
+          <div id="cy" style="display:none;"></div>
+
+          <!-- Visual Legend & Step Controller Strip -->
+          <div class="graph-bottom-strip">
+            <div class="step-controller-box">
+              <button class="step-ctrl-btn" onclick="prevAttackStep()" title="Previous Attack Stage">◀ Prev</button>
+              <div class="step-status-pill" id="step-status-pill">
+                <span class="step-num-badge" id="step-num-badge">STAGE 1</span>
+                <span class="step-title-text" id="step-title-text">Awaiting Forensic Ingestion...</span>
+              </div>
+              <button class="step-ctrl-btn" onclick="nextAttackStep()" title="Next Attack Stage">Next ▶</button>
+              <button class="step-play-toggle" id="btn-play-flow" onclick="toggleAttackFlowPlay()">
+                <span id="flow-play-icon">▶</span> <span id="flow-play-label">Play Flow</span>
+              </button>
+            </div>
+
+            <!-- Visual Legend -->
+            <div class="legend-box">
+              <div class="legend-item"><div class="leg-dot" style="border-color:#EF4444;background:rgba(239,68,68,0.25)"></div><span>Critical Attack (MITRE ATT&amp;CK)</span></div>
+              <div class="legend-item"><div class="leg-dot" style="border-color:#F59E0B;background:rgba(245,158,11,0.25)"></div><span>Suspicious / Inferred Gap Bridge</span></div>
+              <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.25)"></div><span>Normal Event / Honeypot Decoy</span></div>
+              <div class="legend-item"><div class="leg-line-solid" style="background:#0284C7;height:2.5px;width:24px"></div><span>Chronological Attack Flow</span></div>
+            </div>
           </div>
         </div>
 
