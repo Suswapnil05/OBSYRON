@@ -172,9 +172,239 @@ def _default_contradictory_evidence(log: dict) -> List[str]:
     ]
 
 
+def parse_sysmon_record(record: dict) -> dict:
+    """Extracts standardized telemetry from Windows Sysmon event record."""
+    event_id = str(record.get("EventID") or record.get("event_id") or record.get("Id") or "1")
+    data = record.get("EventData") if isinstance(record.get("EventData"), dict) else record
+    
+    # Process Creation (Event ID 1)
+    if event_id in ("1", "EventID 1"):
+        image = data.get("Image") or data.get("NewProcessName") or "powershell.exe"
+        parent = data.get("ParentImage") or data.get("ParentProcessName") or "explorer.exe"
+        user = data.get("User") or record.get("User") or "emp_rohan"
+        cmd = data.get("CommandLine") or ""
+        host = record.get("Computer") or record.get("host") or record.get("hostname") or "wkst-04-dev"
+        raw_ts = record.get("UtcTime") or record.get("TimeCreated") or datetime.now(IST).isoformat()
+        is_mal = any(susp in cmd.lower() for susp in ["-enc", "bypass", "invoke-mimikatz", "downloadstring", "iex", "hidden"])
+        return {
+            "log_id": f"SYSMON-{record.get('RecordNumber', '001')}",
+            "raw_timestamp": raw_ts,
+            "source_host": host,
+            "host_skew_sec": int(record.get("host_skew_sec", 0) or 0),
+            "entity_type": "PROCESS",
+            "source": os.path.basename(parent),
+            "target": os.path.basename(image),
+            "action": "PROC_CREATE",
+            "protocol": "LOCAL_EXEC",
+            "port": 0,
+            "mitre_tag": "T1059.001" if is_mal else "",
+            "mitre_technique": "Command and Scripting Interpreter: PowerShell" if is_mal else "",
+            "severity": "CRITICAL" if is_mal else "LOW",
+            "is_malicious": is_mal,
+            "raw_payload": json.dumps({"event_id": 1, "image": image, "cmd": cmd, "parent": parent, "user": user}),
+            "causal_connection": f"Sysmon Event ID 1: Process {os.path.basename(parent)} spawned {os.path.basename(image)} under account {user}"
+        }
+    
+    # Network Connection (Event ID 3)
+    elif event_id in ("3", "EventID 3"):
+        src_ip = data.get("SourceIp") or "10.0.4.15"
+        dst_ip = data.get("DestinationIp") or "185.220.101.47"
+        dst_port = int(data.get("DestinationPort", 443) or 443)
+        image = data.get("Image") or "powershell.exe"
+        host = record.get("Computer") or "wkst-04-dev"
+        raw_ts = record.get("UtcTime") or datetime.now(IST).isoformat()
+        is_mal = dst_ip.startswith("185.") or dst_ip.startswith("194.") or dst_port in [4444, 8443, 9001]
+        return {
+            "log_id": f"SYSMON-NET-{record.get('RecordNumber', '003')}",
+            "raw_timestamp": raw_ts,
+            "source_host": host,
+            "host_skew_sec": int(record.get("host_skew_sec", 0) or 0),
+            "entity_type": "DEVICE",
+            "source": src_ip,
+            "target": dst_ip,
+            "action": "NET_CONNECT",
+            "protocol": "TCP",
+            "port": dst_port,
+            "mitre_tag": "T1071" if is_mal else "",
+            "mitre_technique": "Application Layer Protocol: C2 Ingress" if is_mal else "",
+            "severity": "CRITICAL" if is_mal else "LOW",
+            "is_malicious": is_mal,
+            "raw_payload": json.dumps({"event_id": 3, "src": src_ip, "dst": dst_ip, "port": dst_port, "image": image}),
+            "causal_connection": f"Sysmon Event ID 3: Network socket {src_ip} -> {dst_ip}:{dst_port} established by {os.path.basename(image)}"
+        }
+
+    # Default generic Sysmon parser
+    host = record.get("Computer") or "wkst-04-dev"
+    return {
+        "log_id": f"SYSMON-{event_id}",
+        "raw_timestamp": record.get("UtcTime") or datetime.now(IST).isoformat(),
+        "source_host": host,
+        "host_skew_sec": 0,
+        "entity_type": "DEVICE",
+        "source": host,
+        "target": f"sysmon_event_{event_id}",
+        "action": f"SYSMON_EID_{event_id}",
+        "protocol": "LOCAL",
+        "port": 0,
+        "mitre_tag": "T1059",
+        "severity": "MEDIUM",
+        "is_malicious": False,
+        "raw_payload": json.dumps(record)
+    }
+
+
+def parse_linux_syslog_line(line: str, line_no: int) -> Optional[dict]:
+    """Parses standard Linux auth.log, audit.log, and syslog formats."""
+    line = line.strip()
+    if not line or line.startswith("#"):
+        return None
+
+    # Failed SSH Password spray
+    if "Failed password for" in line:
+        parts = line.split()
+        src_ip = "185.220.101.47"
+        user = "admin"
+        if "from" in parts:
+            idx = parts.index("from")
+            if idx + 1 < len(parts):
+                src_ip = parts[idx + 1]
+        if "for" in parts:
+            idx = parts.index("for")
+            if idx + 1 < len(parts):
+                user = parts[idx + 1]
+                if user == "invalid" and idx + 2 < len(parts):
+                    user = parts[idx + 3]
+
+        return {
+            "log_id": f"LINUX-AUTH-{line_no:04d}",
+            "raw_timestamp": datetime.now(IST).isoformat(),
+            "source_host": "bastion-ssh-01",
+            "host_skew_sec": 0,
+            "entity_type": "AUTH_ENDPOINT",
+            "source": src_ip,
+            "target": "bastion-ssh-01",
+            "action": "SSH_FAILED_AUTH",
+            "protocol": "SSH",
+            "port": 22,
+            "mitre_tag": "T1110.003",
+            "mitre_technique": "Brute Force: Password Spraying",
+            "severity": "HIGH",
+            "is_malicious": True,
+            "raw_payload": json.dumps({"raw_line": line, "user": user, "src_ip": src_ip}),
+            "causal_connection": f"Linux auth.log: Authentication failure for user '{user}' from IP {src_ip}"
+        }
+
+    # Accepted SSH login
+    elif "Accepted" in line and ("publickey" in line or "password" in line):
+        parts = line.split()
+        src_ip = "10.0.4.12"
+        if "from" in parts:
+            idx = parts.index("from")
+            if idx + 1 < len(parts):
+                src_ip = parts[idx + 1]
+        return {
+            "log_id": f"LINUX-AUTH-{line_no:04d}",
+            "raw_timestamp": datetime.now(IST).isoformat(),
+            "source_host": "bastion-ssh-01",
+            "host_skew_sec": 0,
+            "entity_type": "AUTH_ENDPOINT",
+            "source": src_ip,
+            "target": "bastion-ssh-01",
+            "action": "SSH_ACCEPTED_AUTH",
+            "protocol": "SSH",
+            "port": 22,
+            "mitre_tag": "T1078",
+            "mitre_technique": "Valid Accounts",
+            "severity": "LOW",
+            "is_malicious": False,
+            "raw_payload": json.dumps({"raw_line": line}),
+            "causal_connection": f"Linux auth.log: Successful SSH connection from {src_ip}"
+        }
+
+    # Sudo privilege elevation
+    elif "sudo:" in line and "COMMAND=" in line:
+        cmd = line.split("COMMAND=")[-1]
+        return {
+            "log_id": f"LINUX-SUDO-{line_no:04d}",
+            "raw_timestamp": datetime.now(IST).isoformat(),
+            "source_host": "srv-prod-linux",
+            "host_skew_sec": 0,
+            "entity_type": "PROCESS",
+            "source": "sudo",
+            "target": os.path.basename(cmd.split()[0]) if cmd else "sh",
+            "action": "PRIVILEGE_ELEVATION",
+            "protocol": "LOCAL",
+            "port": 0,
+            "mitre_tag": "T1548.003",
+            "mitre_technique": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+            "severity": "CRITICAL" if any(b in cmd for b in ["bash", "sh", "chmod", "curl", "nc"]) else "LOW",
+            "is_malicious": any(b in cmd for b in ["bash", "sh", "chmod", "curl", "nc"]),
+            "raw_payload": json.dumps({"raw_line": line, "command": cmd}),
+            "causal_connection": f"Linux sudo: Privilege elevation executed command '{cmd}'"
+        }
+
+    return None
+
+
+def get_reconstruction_diff(raw_logs: List[dict], normalized_logs: List[dict]) -> Dict[str, Any]:
+    """
+    Computes an exact before-and-after audit comparison matrix between
+    raw log ingestion order and calibrated chronological event order.
+    Detects:
+    - Out-of-order sequence inversions
+    - Host clock skew compensations (Delta t)
+    - Ingestion delays and buffering latencies
+    """
+    raw_order_map = {log.get("log_id"): idx for idx, log in enumerate(raw_logs)}
+    comparison_table = []
+    out_of_order_count = 0
+    skew_compensated_count = 0
+    max_skew_sec = 0
+
+    for norm_idx, nlog in enumerate(normalized_logs):
+        lid = nlog.get("log_id")
+        raw_idx = raw_order_map.get(lid, norm_idx)
+        skew = abs(int(nlog.get("host_skew_sec", 0) or 0))
+        if skew > 0:
+            skew_compensated_count += 1
+            if skew > max_skew_sec:
+                max_skew_sec = skew
+
+        is_ooo = (raw_idx != norm_idx)
+        if is_ooo:
+            out_of_order_count += 1
+
+        comparison_table.append({
+            "log_id": lid,
+            "source_host": nlog.get("source_host", "unknown"),
+            "source": nlog.get("source", ""),
+            "target": nlog.get("target", ""),
+            "action": nlog.get("action", ""),
+            "raw_order": raw_idx + 1,
+            "calibrated_order": norm_idx + 1,
+            "order_shift": raw_idx - norm_idx,
+            "is_out_of_order": is_ooo,
+            "raw_timestamp": nlog.get("raw_timestamp", ""),
+            "normalized_timestamp": nlog.get("normalized_timestamp", ""),
+            "host_skew_sec": nlog.get("host_skew_sec", 0),
+            "skew_direction": f"{nlog.get('host_skew_sec', 0):+d}s" if nlog.get("host_skew_sec", 0) != 0 else "0s (Synced)",
+            "delay_sec": nlog.get("delay_sec", 0.0),
+            "severity": nlog.get("severity", "LOW"),
+            "mitre_tag": nlog.get("mitre_tag", "")
+        })
+
+    return {
+        "total_events": len(normalized_logs),
+        "out_of_order_count": out_of_order_count,
+        "skew_compensated_count": skew_compensated_count,
+        "max_skew_sec": max_skew_sec,
+        "comparison_table": comparison_table
+    }
+
+
 def parse_uploaded_file_with_stats(filepath: str) -> Tuple[List[dict], Dict[str, int]]:
     """
-    Parses a user-uploaded JSON or CSV file into standard telemetry schema with full audit stats:
+    Parses a user-uploaded JSON, CSV, Sysmon, or Linux text file into standard schema with full audit stats:
     - total_records
     - valid_records
     - invalid_records
@@ -205,7 +435,6 @@ def parse_uploaded_file_with_stats(filepath: str) -> Tuple[List[dict], Dict[str,
     elif ext == ".csv":
         try:
             with open(filepath, "r", encoding="utf-8", newline="", errors="replace") as f:
-                # Detect delimiter
                 sample = f.read(2048)
                 f.seek(0)
                 delimiter = ","
@@ -222,8 +451,19 @@ def parse_uploaded_file_with_stats(filepath: str) -> Tuple[List[dict], Dict[str,
                     raw.append(dict(row))
         except Exception as e:
             raise ValueError(f"Failed to read CSV file: {str(e)}")
+    elif ext in [".log", ".txt"]:
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                for line_idx, line in enumerate(f, start=1):
+                    parsed_line = parse_linux_syslog_line(line, line_idx)
+                    if parsed_line:
+                        raw.append(parsed_line)
+                    else:
+                        invalid_count += 1
+        except Exception as e:
+            raise ValueError(f"Failed to read log file: {str(e)}")
     else:
-        raise ValueError(f"Unsupported file type '{ext}'. Supported formats: .json, .csv")
+        raise ValueError(f"Unsupported file type '{ext}'. Supported formats: .json, .csv, .log, .txt")
 
     total_records = len(raw) + invalid_count
 
@@ -233,6 +473,10 @@ def parse_uploaded_file_with_stats(filepath: str) -> Tuple[List[dict], Dict[str,
     normalized_schema = []
 
     for i, row in enumerate(raw):
+        # Check if record is Sysmon format
+        if "EventID" in row or "EventData" in row:
+            row = parse_sysmon_record(row)
+
         # Extract source, target, action
         src = (row.get("source") or row.get("src") or row.get("source_ip") or row.get("user") or "unknown").strip()
         tgt = (row.get("target") or row.get("dst") or row.get("dest") or row.get("dest_ip") or "unknown").strip()

@@ -52,7 +52,9 @@
     <!-- Center Navigation -->
     <nav class="header-nav">
       <a href="#dashboard-section" class="nav-link" id="nav-dash-link">Dashboard</a>
+      <a href="#simulation-lab" class="nav-link" id="nav-sim-link">Simulation Lab</a>
       <a href="#cockpit" class="nav-link" id="nav-workbench-link">Attack Workbench</a>
+      <a href="javascript:void(0)" class="nav-link" onclick="openReconstructionModal()" id="nav-reconstruction-link">Reconstruction Matrix</a>
       <a href="#separate-signal-noise" class="nav-link">Signal vs Noise</a>
       <a href="#capabilities" class="nav-link">Capabilities</a>
       <a href="#mitre-alliances" class="nav-link">MITRE Alliances</a>
@@ -98,6 +100,13 @@
         </div>
       </div>
 
+      <!-- Judge Demonstration Mode Walkthrough Trigger -->
+      <button id="btn-judge-mode" class="header-action-btn" onclick="startJudgeDemonstrationMode()"
+        title="Step-by-step hackathon judge demonstration walkthrough"
+        style="background:linear-gradient(135deg, #0284C7, #06B6D4);color:#fff;border:none;font-weight:700;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;box-shadow:0 0 12px rgba(6,182,212,0.35);cursor:pointer">
+        <span>⚖️</span> <span>Judge Demo Mode</span>
+      </button>
+
       <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
       <button type="button" id="btn-header-live-sim" class="btn-live-sim-header" onclick="openAttackSimModal()" title="Start Live Attack Reconstruction Simulation for Demo">
         <span class="live-pulse-dot"></span>
@@ -124,6 +133,23 @@
       </button>
     </div>
   </header>
+
+  <!-- ── JUDGE DEMONSTRATION MODE GUIDED BANNER ───────────────────────────── -->
+  <div id="judge-demo-banner" class="judge-demo-banner" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:280px">
+      <span class="judge-step-badge" id="judge-step-indicator">STEP 1 / 14</span>
+      <div>
+        <div class="judge-step-title" id="judge-step-title">Operator Clearance & Login Verification</div>
+        <div class="judge-step-desc" id="judge-step-desc">Authenticate as Lead Forensic Director (Cmdr. Maya Thorne) with L4 Top Secret Clearance.</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="judge-btn-secondary" onclick="prevJudgeStep()" id="judge-btn-prev">⏮️ Prev</button>
+      <button class="judge-btn" onclick="executeCurrentJudgeStep()" id="judge-btn-exec">⚡ Auto-Perform Step</button>
+      <button class="judge-btn-secondary" onclick="nextJudgeStep()" id="judge-btn-next">Next ⏭️</button>
+      <button class="judge-btn-secondary" onclick="exitJudgeDemonstrationMode()" style="color:#F87171" title="Exit Judge Walkthrough">✕ Exit Tour</button>
+    </div>
+  </div>
 
   <!-- ── MOBILE NAVIGATION DRAWER & BACKDROP ─────────────────────────────── -->
   <div id="mobile-nav-overlay" class="mobile-nav-overlay" onclick="closeMobileMenu()"></div>
@@ -424,6 +450,62 @@
         <div class="kpi-value" id="kpi-conf" style="color:var(--accent-cyan)">—</div>
         <div class="kpi-sub" id="kpi-conf-sub">Multi-signal corroboration score</div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── SIMULATION LAB & ATTACK ENCLAVE ────────────────────────────────────── -->
+  <section class="section-wrapper" id="simulation-lab" style="padding-top:20px;padding-bottom:24px">
+    <div class="section-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="cockpit-tag" style="background:rgba(2,132,199,0.18);color:var(--accent-cyan);border-color:rgba(2,132,199,0.4)">SIMULATION LAB // MVP ENCLAVE</span>
+          <span class="cockpit-tag" style="background:rgba(16,185,129,0.15);color:#10B981;border-color:rgba(16,185,129,0.3)">ISOLATED SAFE HARNESS</span>
+        </div>
+        <h2 style="font-size:20px;font-weight:800;color:var(--text-primary);margin:0;letter-spacing:-0.02em">CONTROLLED ATTACK SIMULATION LAB</h2>
+        <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 0;max-width:780px">
+          Predefined non-destructive testing scenarios mapped to MITRE ATT&amp;CK. Generates Sysmon &amp; Linux auth.log telemetry, exports Atomic Red Team lab test harnesses, and tests out-of-order clock skew reconstruction.
+        </p>
+      </div>
+      <div class="sim-provenance-chips">
+        <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary)">PROVENANCE:</span>
+        <button class="provenance-chip active" id="chip-prov-simulation" onclick="setProvenanceMode('CONTROLLED_SIMULATION')"><span class="dot green"></span> Controlled Simulation</button>
+        <button class="provenance-chip" id="chip-prov-lab" onclick="setProvenanceMode('LAB_COLLECTED')"><span class="dot blue"></span> Lab Collected Telemetry</button>
+        <button class="provenance-chip" id="chip-prov-enclave" onclick="setProvenanceMode('PRE_SEEDED_ENCLAVE')"><span class="dot purple"></span> Pre-Seeded Enclave</button>
+      </div>
+    </div>
+
+    <!-- Telemetry Ingestion Stats Bar -->
+    <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:9.5px;font-family:var(--font-mono);color:var(--text-tertiary)">ACTIVE PROVENANCE</div>
+          <div id="sim-active-prov-badge" style="font-size:12px;font-weight:700;color:#10B981;font-family:var(--font-mono)">🟢 CONTROLLED_SIMULATION</div>
+        </div>
+        <div style="width:1px;height:24px;background:var(--border-subtle)"></div>
+        <div>
+          <div style="font-size:9.5px;font-family:var(--font-mono);color:var(--text-tertiary)">INGESTION STATS</div>
+          <div id="sim-ingestion-stats-label" style="font-size:12px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono)">357 Total | 357 Valid | 0 Invalid | 0 Dupes</div>
+        </div>
+        <div style="width:1px;height:24px;background:var(--border-subtle)"></div>
+        <div>
+          <div style="font-size:9.5px;font-family:var(--font-mono);color:var(--text-tertiary)">CLOCK DRIFT / OOO RECONSTRUCTION</div>
+          <div id="sim-recon-stats-label" style="font-size:12px;font-weight:700;color:var(--accent-cyan);font-family:var(--font-mono)">76 Skew Compensated (±12s) | 100% Calibrated</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="header-action-btn" onclick="openReconstructionModal()" style="border-color:var(--accent-cyan);color:var(--accent-cyan);padding:6px 12px;font-size:11px">
+          🔍 View Chronological Diff Matrix
+        </button>
+        <button class="header-action-btn" onclick="document.getElementById('sim-lab-file-input').click()" style="padding:6px 12px;font-size:11px">
+          📤 Upload Guest Lab Telemetry (.json/.csv/.log)
+        </button>
+        <input type="file" id="sim-lab-file-input" accept=".json,.csv,.log,.txt" style="display:none" onchange="handleSimulationFileUpload(this.files[0])">
+      </div>
+    </div>
+
+    <!-- Scenarios Grid -->
+    <div class="sim-grid" id="simulation-scenarios-grid">
+      <!-- Dynamically populated from /api/simulation/scenarios -->
     </div>
   </section>
 
@@ -1943,6 +2025,72 @@
           <pre id="ft-output-pre" style="margin:0;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:#a5d6ff;white-space:pre-wrap;word-break:break-all">// Executing tool...</pre>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHRONOLOGICAL RECONSTRUCTION MATRIX MODAL ────────────────────────── -->
+<div id="modal-reconstruction-engine" class="auth-modal-overlay" onclick="handleReconstructionModalClick(event)" style="display:none">
+  <div class="report-modal-card" style="max-width:1100px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:24px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="cockpit-tag" style="background:rgba(56,189,248,0.15);color:var(--accent-cyan);border-color:rgba(56,189,248,0.3)">CORE OBSYRON DIFFERENTIATOR</span>
+          <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">CHRONOLOGICAL EVENT RECONSTRUCTION MATRIX</h3>
+        </div>
+        <p style="margin:3px 0 0 0;font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)">
+          Resolves network arrival disorder, host clock skew drift (Δt), and identifies missing telemetry gaps without altering original evidence.
+        </p>
+      </div>
+      <button class="drawer-close-btn" onclick="closeReconstructionModal()">✕ Close</button>
+    </div>
+
+    <!-- Summary Tiles -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px;margin-bottom:16px">
+      <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">TOTAL TELEMETRY EVENTS</div>
+        <div id="recon-summary-total" style="font-size:18px;font-weight:800;color:var(--text-primary);font-family:var(--font-mono)">357</div>
+      </div>
+      <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">OUT-OF-ORDER INVERSIONS</div>
+        <div id="recon-summary-ooo" style="font-size:18px;font-weight:800;color:#EF4444;font-family:var(--font-mono)">142 Resolved</div>
+      </div>
+      <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">SKEW COMPENSATIONS (Δt)</div>
+        <div id="recon-summary-skew" style="font-size:18px;font-weight:800;color:var(--accent-cyan);font-family:var(--font-mono)">76 Synchronized</div>
+      </div>
+      <div style="background:var(--bg-surface-elevated);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">MAX CLOCK SKEW OFFSET</div>
+        <div id="recon-summary-max-skew" style="font-size:18px;font-weight:800;color:#F59E0B;font-family:var(--font-mono)">±12.0s Drift</div>
+      </div>
+    </div>
+
+    <!-- Search Filter -->
+    <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <input type="text" id="recon-filter-input" placeholder="🔍 Filter by Host, Source, Target, Action, or Event ID..." class="dash-input" style="max-width:400px" oninput="filterReconstructionTable(this.value)">
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary)" id="recon-filtered-count">Showing 357 / 357 records</div>
+    </div>
+
+    <!-- Table -->
+    <div class="reconstruction-table-wrap">
+      <table class="reconstruction-table">
+        <thead>
+          <tr>
+            <th>Raw Order</th>
+            <th>Calibrated Order</th>
+            <th>Shift (Δ)</th>
+            <th>Sequence Status</th>
+            <th>Source Host</th>
+            <th>Raw Host Timestamp</th>
+            <th>Calibrated Timestamp</th>
+            <th>Host Clock Skew (Δt)</th>
+            <th>Telemetry Flow (Source ➔ Target)</th>
+          </tr>
+        </thead>
+        <tbody id="reconstruction-table-body">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

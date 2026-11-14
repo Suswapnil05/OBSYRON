@@ -249,6 +249,23 @@ class SQLiteStorage:
             )
             """)
 
+            # 11. Simulation Sessions Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS simulation_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                scenario_id TEXT NOT NULL,
+                scenario_name TEXT NOT NULL,
+                status TEXT DEFAULT 'COMPLETED',
+                mitre_technique TEXT,
+                events_generated INTEGER DEFAULT 0,
+                telemetry_type TEXT DEFAULT 'SYSMON_WINDOWS',
+                provenance TEXT DEFAULT 'CONTROLLED_SIMULATION',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES profiles(id) ON DELETE CASCADE
+            )
+            """)
+
             # Legacy Audit Logs Table (backward compatibility)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS audit_logs (
@@ -1271,6 +1288,37 @@ class SQLiteStorage:
                 params.append(user_id)
             query += " ORDER BY trigger_timestamp DESC"
             cursor.execute(query, tuple(params))
+            return [dict(r) for r in cursor.fetchall()]
+
+    def save_simulation_session(self, user_id: str, scenario_id: str, scenario_name: str,
+                                mitre_technique: str = "", events_count: int = 0,
+                                telemetry_type: str = "SYSMON_WINDOWS",
+                                provenance: str = "CONTROLLED_SIMULATION") -> str:
+        """Records a completed lab simulation run."""
+        session_id = f"SIM-SES-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(2)}"
+        now = datetime.now(timezone.utc).isoformat()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            INSERT INTO simulation_sessions (
+                id, user_id, scenario_id, scenario_name, status,
+                mitre_technique, events_generated, telemetry_type, provenance, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (session_id, user_id, scenario_id, scenario_name, "COMPLETED",
+                  mitre_technique, events_count, telemetry_type, provenance, now))
+            conn.commit()
+        return session_id
+
+    def list_simulation_sessions(self, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Retrieves simulation history for this operator."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            SELECT * FROM simulation_sessions
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """, (user_id, limit))
             return [dict(r) for r in cursor.fetchall()]
 
     # ── 6. LIVE DASHBOARD STATISTICS (CALCULATED FROM DB) ─────────────────────
