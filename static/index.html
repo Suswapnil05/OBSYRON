@@ -1,712 +1,787 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OBSYRON — Autonomous Threat Management &amp; Forensic Attack Graph Reconstruction</title>
-<link rel="icon" type="image/png" href="/static/icon.png">
-<link rel="shortcut icon" href="/static/icon.png">
-<link rel="apple-touch-icon" href="/static/icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OBSYRON — Autonomous Threat Management &amp; Forensic Attack Graph Reconstruction</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="shortcut icon" href="/static/icon.png">
+  <link rel="apple-touch-icon" href="/static/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 </head>
+
 <body class="dark-theme">
 
-<!-- Loading Overlay -->
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <div style="font-size:11px;font-family:var(--font-mono);letter-spacing:1px;color:var(--accent-cyan);font-weight:600">
-    CORRELATING FORENSIC GRAPH TELEMETRY...
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div
+      style="font-size:11px;font-family:var(--font-mono);letter-spacing:1px;color:var(--accent-cyan);font-weight:600">
+      CORRELATING FORENSIC GRAPH TELEMETRY...
+    </div>
   </div>
-</div>
 
-<!-- Node Tooltip -->
-<div id="node-tooltip">
-  <div class="tt-name" id="tt-title"></div>
-  <div class="tt-detail" id="tt-type"></div>
-  <div class="tt-detail" id="tt-centrality"></div>
-  <div class="tt-detail" id="tt-logs"></div>
-</div>
-
-<!-- ── FILIGRAN-STYLE SITE HEADER ────────────────────────────────────────── -->
-<header id="header">
-  <a href="#" class="brand-section">
-    <div class="brand-shield-icon">
-      <img src="/static/icon.png" alt="OBSYRON Logo" style="width:20px;height:20px;object-fit:contain">
-    </div>
-    <div class="brand-titles">
-      <div class="brand-row">
-        <span class="brand-name">OBSYRON</span>
-      </div>
-    </div>
-  </a>
-
-  <!-- Center Navigation -->
-  <nav class="header-nav">
-    <a href="#dashboard-section" class="nav-link" id="nav-dash-link">Dashboard</a>
-    <a href="#cockpit" class="nav-link" id="nav-workbench-link">Attack Workbench</a>
-    <a href="#separate-signal-noise" class="nav-link">Signal vs Noise</a>
-    <a href="#capabilities" class="nav-link">Capabilities</a>
-    <a href="#mitre-alliances" class="nav-link">MITRE Alliances</a>
-  </nav>
-
-  <div class="header-actions">
-    <div class="user-menu-wrapper" style="position:relative">
-      <button id="nav-link-auth" class="nav-link-auth-btn" onclick="handleAuthMenuClick(event)" title="Operator Profile &amp; Settings">
-        <span id="header-auth-icon">🔒</span>
-        <span id="header-auth-label">Log In / Sign Up</span>
-        <span id="header-auth-badge" class="header-clearance-pill" style="display:none">GUEST</span>
-        <span id="header-auth-arrow" style="display:none;font-size:9px;margin-left:2px">▼</span>
-      </button>
-
-      <!-- Operator Dropdown Menu -->
-      <div id="operator-dropdown" class="operator-dropdown-menu" style="display:none">
-        <div class="op-dropdown-header">
-          <div id="dropdown-op-name" style="font-weight:700;font-size:12.5px;color:var(--text-primary)">Cmdr. Maya Thorne</div>
-          <div id="dropdown-op-email" style="font-size:11px;color:var(--text-tertiary)">maya@obsyron.corp</div>
-          <div id="dropdown-op-clearance" style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-top:2px">LEVEL 4 // SCI</div>
-        </div>
-        <div class="op-dropdown-divider"></div>
-        <button type="button" class="op-dropdown-item" onclick="openProfileModal()">
-          <span>👤</span> User Profile &amp; Settings
-        </button>
-        <button type="button" class="op-dropdown-item" onclick="scrollToSection('dashboard-section')">
-          <span>📊</span> Incident Dashboard
-        </button>
-        <button type="button" class="op-dropdown-item" onclick="openNewInvestigationModal()">
-          <span>➕</span> New Investigation
-        </button>
-        <button type="button" class="op-dropdown-item" onclick="document.getElementById('dash-file-input').click()">
-          <span>📤</span> Upload Telemetry
-        </button>
-        <div class="op-dropdown-divider"></div>
-        <button type="button" class="op-dropdown-item" onclick="handleLogout()" style="color:#EF4444">
-          <span>🚪</span> Sign Out
-        </button>
-      </div>
-    </div>
-
-    <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
-    <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode" aria-label="Toggle theme">
-      <span id="theme-icon">🌙</span>
-    </button>
-
-    <a href="#cockpit" class="btn-filigran-gradient" onclick="runAnalysis()">
-      <span>Launch Investigation</span>
-      <span style="font-size:13px">⚡</span>
-    </a>
-
-    <!-- Mobile Hamburger Menu Button -->
-    <button id="btn-hamburger" class="header-hamburger-btn" onclick="toggleMobileMenu()" aria-label="Toggle Navigation Menu" aria-expanded="false">
-      <span class="hamburger-bar bar-1"></span>
-      <span class="hamburger-bar bar-2"></span>
-      <span class="hamburger-bar bar-3"></span>
-    </button>
+  <!-- Node Tooltip -->
+  <div id="node-tooltip">
+    <div class="tt-name" id="tt-title"></div>
+    <div class="tt-detail" id="tt-type"></div>
+    <div class="tt-detail" id="tt-centrality"></div>
+    <div class="tt-detail" id="tt-logs"></div>
   </div>
-</header>
 
-<!-- ── MOBILE NAVIGATION DRAWER & BACKDROP ─────────────────────────────── -->
-<div id="mobile-nav-overlay" class="mobile-nav-overlay" onclick="closeMobileMenu()"></div>
-<aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation">
-  <div class="mobile-drawer-header">
-    <div class="brand-section">
-      <div class="brand-shield-icon" style="width:30px;height:30px">
-        <img src="/static/icon.png" alt="OBSYRON Logo" style="width:16px;height:16px;object-fit:contain">
+  <!-- ── FILIGRAN-STYLE SITE HEADER ────────────────────────────────────────── -->
+  <header id="header">
+    <a href="#" class="brand-section">
+      <div class="brand-shield-icon">
+        <img src="/static/icon.png" alt="OBSYRON Logo" style="width:20px;height:20px;object-fit:contain">
       </div>
       <div class="brand-titles">
-        <span class="brand-name" style="font-size:15px">OBSYRON</span>
-        <span class="brand-subtitle" style="font-size:8px">XTM 2.0 // TRACK C</span>
+        <div class="brand-row">
+          <span class="brand-name">OBSYRON</span>
+        </div>
       </div>
-    </div>
-    <button class="mobile-drawer-close" onclick="closeMobileMenu()" aria-label="Close menu">&times;</button>
-  </div>
+    </a>
 
-  <nav class="mobile-drawer-nav">
-    <a href="#cockpit" class="mobile-nav-link" onclick="closeMobileMenu()">
-      <span class="mobile-nav-icon">⚡</span>
-      <div class="mobile-nav-text">
-        <span class="mobile-nav-title">Incident Cockpit</span>
-        <span class="mobile-nav-sub">Dynamic Graph Reconstruction &amp; Ingestion Controls</span>
-      </div>
-    </a>
-    <a href="#separate-signal-noise" class="mobile-nav-link" onclick="closeMobileMenu()">
-      <span class="mobile-nav-icon">📊</span>
-      <div class="mobile-nav-text">
-        <span class="mobile-nav-title">Signal vs Noise</span>
-        <span class="mobile-nav-sub">Blast Radius Scope &amp; Exposure Telemetry KPIs</span>
-      </div>
-    </a>
-    <a href="#capabilities" class="mobile-nav-link" onclick="closeMobileMenu()">
-      <span class="mobile-nav-icon">🛠️</span>
-      <div class="mobile-nav-text">
-        <span class="mobile-nav-title">Platform Capabilities</span>
-        <span class="mobile-nav-sub">MultiDiGraph, Gap-Bridging &amp; Audit Ledger</span>
-      </div>
-    </a>
-    <a href="#numbers" class="mobile-nav-link" onclick="closeMobileMenu()">
-      <span class="mobile-nav-icon">📈</span>
-      <div class="mobile-nav-text">
-        <span class="mobile-nav-title">Platform Benchmarks</span>
-        <span class="mobile-nav-sub">Sub-12ms Latency &amp; Zero-Cloud Privacy</span>
-      </div>
-    </a>
-    <a href="#mitre-alliances" class="mobile-nav-link" onclick="closeMobileMenu()">
-      <span class="mobile-nav-icon">🛡️</span>
-      <div class="mobile-nav-text">
-        <span class="mobile-nav-title">MITRE &amp; Standards</span>
-        <span class="mobile-nav-sub">ATT&amp;CK v14, STIX 2.1 &amp; Sigma Rules</span>
-      </div>
-    </a>
-  </nav>
+    <!-- Center Navigation -->
+    <nav class="header-nav">
+      <a href="#dashboard-section" class="nav-link" id="nav-dash-link">Dashboard</a>
+      <a href="#cockpit" class="nav-link" id="nav-workbench-link">Attack Workbench</a>
+      <a href="#separate-signal-noise" class="nav-link">Signal vs Noise</a>
+      <a href="#capabilities" class="nav-link">Capabilities</a>
+      <a href="#mitre-alliances" class="nav-link">MITRE Alliances</a>
+    </nav>
 
-  <div class="mobile-drawer-footer">
-    <div class="mobile-auth-card">
-      <div id="mobile-auth-status" class="mobile-auth-status">OPERATOR STATUS: GUEST</div>
-      <a href="/login" class="mobile-auth-btn" id="mobile-nav-auth" onclick="closeMobileMenu()">
-        <span id="mobile-auth-icon">🔒</span>
-        <span id="mobile-auth-label">Log In / Sign Up</span>
-      </a>
-    </div>
+    <div class="header-actions">
+      <div class="user-menu-wrapper" style="position:relative">
+        <button id="nav-link-auth" class="nav-link-auth-btn" onclick="handleAuthMenuClick(event)"
+          title="Operator Profile &amp; Settings">
+          <span id="header-auth-icon">🔒</span>
+          <span id="header-auth-label">Log In / Sign Up</span>
+          <span id="header-auth-badge" class="header-clearance-pill" style="display:none">GUEST</span>
+          <span id="header-auth-arrow" style="display:none;font-size:9px;margin-left:2px">▼</span>
+        </button>
 
-    <div class="mobile-quick-actions">
-      <button class="mobile-quick-btn" onclick="toggleTheme(); updateThemeUI();">
-        <span id="mobile-theme-icon">🌙</span>
-        <span>Toggle Theme</span>
+        <!-- Operator Dropdown Menu -->
+        <div id="operator-dropdown" class="operator-dropdown-menu" style="display:none">
+          <div class="op-dropdown-header">
+            <div id="dropdown-op-name" style="font-weight:700;font-size:12.5px;color:var(--text-primary)">Cmdr. Maya
+              Thorne</div>
+            <div id="dropdown-op-email" style="font-size:11px;color:var(--text-tertiary)">maya@obsyron.corp</div>
+            <div id="dropdown-op-clearance"
+              style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-top:2px">LEVEL 4 // SCI
+            </div>
+          </div>
+          <div class="op-dropdown-divider"></div>
+          <button type="button" class="op-dropdown-item" onclick="openProfileModal()">
+            <span>👤</span> User Profile &amp; Settings
+          </button>
+          <button type="button" class="op-dropdown-item" onclick="scrollToSection('dashboard-section')">
+            <span>📊</span> Incident Dashboard
+          </button>
+          <button type="button" class="op-dropdown-item" onclick="openNewInvestigationModal()">
+            <span>➕</span> New Investigation
+          </button>
+          <button type="button" class="op-dropdown-item" onclick="document.getElementById('dash-file-input').click()">
+            <span>📤</span> Upload Telemetry
+          </button>
+          <div class="op-dropdown-divider"></div>
+          <button type="button" class="op-dropdown-item" onclick="handleLogout()" style="color:#EF4444">
+            <span>🚪</span> Sign Out
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
+      <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode"
+        aria-label="Toggle theme">
+        <span id="theme-icon">🌙</span>
       </button>
-      <a href="#cockpit" class="mobile-quick-btn mobile-launch-btn" onclick="closeMobileMenu(); runAnalysis();">
+
+      <a href="#cockpit" class="btn-filigran-gradient" onclick="runAnalysis()">
+        <span>Launch Investigation</span>
+        <span style="font-size:13px">⚡</span>
+      </a>
+
+      <!-- Mobile Hamburger Menu Button -->
+      <button id="btn-hamburger" class="header-hamburger-btn" onclick="toggleMobileMenu()"
+        aria-label="Toggle Navigation Menu" aria-expanded="false">
+        <span class="hamburger-bar bar-1"></span>
+        <span class="hamburger-bar bar-2"></span>
+        <span class="hamburger-bar bar-3"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── MOBILE NAVIGATION DRAWER & BACKDROP ─────────────────────────────── -->
+  <div id="mobile-nav-overlay" class="mobile-nav-overlay" onclick="closeMobileMenu()"></div>
+  <aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation">
+    <div class="mobile-drawer-header">
+      <div class="brand-section">
+        <div class="brand-shield-icon" style="width:30px;height:30px">
+          <img src="/static/icon.png" alt="OBSYRON Logo" style="width:16px;height:16px;object-fit:contain">
+        </div>
+        <div class="brand-titles">
+          <span class="brand-name" style="font-size:15px">OBSYRON</span>
+          <span class="brand-subtitle" style="font-size:8px">XTM 2.0 // TRACK C</span>
+        </div>
+      </div>
+      <button class="mobile-drawer-close" onclick="closeMobileMenu()" aria-label="Close menu">&times;</button>
+    </div>
+
+    <nav class="mobile-drawer-nav">
+      <a href="#cockpit" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span class="mobile-nav-icon">⚡</span>
+        <div class="mobile-nav-text">
+          <span class="mobile-nav-title">Incident Cockpit</span>
+          <span class="mobile-nav-sub">Dynamic Graph Reconstruction &amp; Ingestion Controls</span>
+        </div>
+      </a>
+      <a href="#separate-signal-noise" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span class="mobile-nav-icon">📊</span>
+        <div class="mobile-nav-text">
+          <span class="mobile-nav-title">Signal vs Noise</span>
+          <span class="mobile-nav-sub">Blast Radius Scope &amp; Exposure Telemetry KPIs</span>
+        </div>
+      </a>
+      <a href="#capabilities" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span class="mobile-nav-icon">🛠️</span>
+        <div class="mobile-nav-text">
+          <span class="mobile-nav-title">Platform Capabilities</span>
+          <span class="mobile-nav-sub">MultiDiGraph, Gap-Bridging &amp; Audit Ledger</span>
+        </div>
+      </a>
+      <a href="#numbers" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span class="mobile-nav-icon">📈</span>
+        <div class="mobile-nav-text">
+          <span class="mobile-nav-title">Platform Benchmarks</span>
+          <span class="mobile-nav-sub">Sub-12ms Latency &amp; Zero-Cloud Privacy</span>
+        </div>
+      </a>
+      <a href="#mitre-alliances" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span class="mobile-nav-icon">🛡️</span>
+        <div class="mobile-nav-text">
+          <span class="mobile-nav-title">MITRE &amp; Standards</span>
+          <span class="mobile-nav-sub">ATT&amp;CK v14, STIX 2.1 &amp; Sigma Rules</span>
+        </div>
+      </a>
+    </nav>
+
+    <div class="mobile-drawer-footer">
+      <div class="mobile-auth-card">
+        <div id="mobile-auth-status" class="mobile-auth-status">OPERATOR STATUS: GUEST</div>
+        <a href="/login" class="mobile-auth-btn" id="mobile-nav-auth" onclick="closeMobileMenu()">
+          <span id="mobile-auth-icon">🔒</span>
+          <span id="mobile-auth-label">Log In / Sign Up</span>
+        </a>
+      </div>
+
+      <div class="mobile-quick-actions">
+        <button class="mobile-quick-btn" onclick="toggleTheme(); updateThemeUI();">
+          <span id="mobile-theme-icon">🌙</span>
+          <span>Toggle Theme</span>
+        </button>
+        <a href="#cockpit" class="mobile-quick-btn mobile-launch-btn" onclick="closeMobileMenu(); runAnalysis();">
+          <span>⚡</span>
+          <span>Investigate</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── FILIGRAN-STYLE HERO SECTION ───────────────────────────────────────── -->
+  <section class="hero-section">
+    <h1 class="hero-title">
+      Every Attack Leaves a Trace.<br>
+      <em class="hero-italic-gradient">We Connect Them.</em>
+    </h1>
+
+    <p class="hero-subtitle">
+      <strong>Unify</strong> threat intelligence, dynamic multi-entity attack graph reconstruction, and automated
+      zero-hallucination containment with the industry-first open-source cyber forensic investigation platform.<br>
+      <strong>Break siloes — isolate patient zero and exposed assets in seconds.</strong>
+    </p>
+
+    <div class="hero-actions">
+      <a href="#cockpit" class="btn-filigran-gradient hero-btn-primary" onclick="runAnalysis()">
+        <span>Reconstruct Attack Graph</span>
         <span>⚡</span>
-        <span>Investigate</span>
+      </a>
+      <a href="#cockpit" class="hero-btn-secondary" onclick="triggerChaosBenchmark()">
+        <span>Simulate Ingestion Chaos</span>
+        <span>🎲</span>
       </a>
     </div>
-  </div>
-</aside>
 
-<!-- ── FILIGRAN-STYLE HERO SECTION ───────────────────────────────────────── -->
-<section class="hero-section">
-  <h1 class="hero-title">
-    Every Attack Leaves a Trace.<br>
-    <em class="hero-italic-gradient">We Connect Them.</em>
-  </h1>
-
-  <p class="hero-subtitle">
-    Connect your threat intelligence. Reconstruct the full attack. Contain it with confidence.<br>
-    Find patient zero and every exposed asset in seconds, all in one open-source forensic platform.
-  </p>
-
-  <div class="hero-actions">
-    <a href="#cockpit" class="btn-filigran-gradient hero-btn-primary" onclick="runAnalysis()">
-      <span>Reconstruct Attack Graph</span>
-      <span>⚡</span>
-    </a>
-    <a href="#cockpit" class="hero-btn-secondary" onclick="triggerChaosBenchmark()">
-      <span>Simulate Ingestion Chaos</span>
-      <span>🎲</span>
-    </a>
-  </div>
-
-  <div class="hero-proof-bar">
-    <div class="proof-item"><div class="proof-dot"></div><span>MITRE ATT&amp;CK v14 Taxonomy</span></div>
-    <div class="proof-item"><div class="proof-dot"></div><span>STIX 2.1 Threat Standards</span></div>
-    <div class="proof-item"><div class="proof-dot"></div><span>100% Localhost Zero-Cloud Privacy</span></div>
-    <div class="proof-item"><div class="proof-dot"></div><span>Sub-12ms NetworkX MultiDiGraph</span></div>
-  </div>
-</section>
-
-<!-- ── FORENSIC INCIDENT INVESTIGATIONS DASHBOARD ──────────────────────── -->
-<section class="section-wrapper" id="dashboard-section" style="padding-top:28px;padding-bottom:28px">
-  <div class="section-header" style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <span class="section-badge">// SECURE INVESTIGATION ENCLAVE</span>
-        <h2 class="section-title">Forensic Incident Dashboard</h2>
-        <p class="section-desc">
-          Live investigation cases, telemetry ingestion, and attack progression for <strong id="dash-operator-name" style="color:var(--text-primary)">Cmdr. Maya Thorne</strong>.
-        </p>
+    <div class="hero-proof-bar">
+      <div class="proof-item">
+        <div class="proof-dot"></div><span>MITRE ATT&amp;CK v14 Taxonomy</span>
       </div>
-
-      <!-- Quick Action Buttons -->
-      <div class="dashboard-actions-row">
-        <button type="button" class="btn-filigran-gradient" onclick="openNewInvestigationModal()" style="padding:9px 18px;font-size:12px;font-weight:600">
-          <span>+ New Investigation</span>
-        </button>
-        <button type="button" class="header-action-btn" onclick="document.getElementById('dash-file-input').click()" style="padding:9px 16px;font-size:12px;font-weight:600">
-          <span>📤 Upload Telemetry</span>
-        </button>
-        <input type="file" id="dash-file-input" accept=".json,.csv" style="display:none" onchange="handleFileUpload(this.files[0])">
-        <button type="button" class="header-action-btn" onclick="scrollToSection('cockpit')" style="padding:9px 16px;font-size:12px">
-          <span>⚡ Attack Workbench</span>
-        </button>
-        <button type="button" class="header-action-btn" onclick="loadDashboardData()" title="Refresh database stats" style="padding:9px 14px;font-size:12px">
-          <span>🔄 Refresh</span>
-        </button>
+      <div class="proof-item">
+        <div class="proof-dot"></div><span>STIX 2.1 Threat Standards</span>
+      </div>
+      <div class="proof-item">
+        <div class="proof-dot"></div><span>100% Localhost Zero-Cloud Privacy</span>
+      </div>
+      <div class="proof-item">
+        <div class="proof-dot"></div><span>Sub-12ms NetworkX MultiDiGraph</span>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Live Database KPI Strip Grid (All Calculated from DB Records) -->
-  <div id="dash-kpi-strip" class="dash-kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Total Investigations</span>
-        <span class="kpi-chip chip-cyan">DATABASE RECORDS</span>
-      </div>
-      <div class="kpi-value" id="dash-total-inv" style="color:var(--accent-cyan)">0</div>
-      <div class="kpi-sub">Total isolated cases in user enclave</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Telemetry Ingested</span>
-        <span class="kpi-chip chip-slate">NORMALIZED EVENTS</span>
-      </div>
-      <div class="kpi-value" id="dash-total-events" style="color:var(--text-primary)">0</div>
-      <div class="kpi-sub">Events processed &amp; correlated</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Active Incidents</span>
-        <span class="kpi-chip chip-amber">UNDER TRIAGE</span>
-      </div>
-      <div class="kpi-value" id="dash-active-incidents" style="color:var(--color-warning)">0</div>
-      <div class="kpi-sub">Open forensic investigation containers</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Critical Findings</span>
-        <span class="kpi-chip chip-red">THREAT SIGNALS</span>
-      </div>
-      <div class="kpi-value" id="dash-critical-findings" style="color:var(--color-critical)">0</div>
-      <div class="kpi-sub">Confirmed malicious attack chains</div>
-    </div>
-  </div>
-
-  <!-- Investigations Management Table & Activity Feed Split -->
-  <div class="dash-workbench-grid">
-    <!-- Left Column: Investigations Table -->
-    <div class="dash-card-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:14px">📁</span>
-          <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">ACTIVE INVESTIGATION CASES</h3>
+  <!-- ── FORENSIC INCIDENT INVESTIGATIONS DASHBOARD ──────────────────────── -->
+  <section class="section-wrapper" id="dashboard-section" style="padding-top:28px;padding-bottom:28px">
+    <div class="section-header" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <span class="section-badge">// SECURE INVESTIGATION ENCLAVE</span>
+          <h2 class="section-title">Forensic Incident Dashboard</h2>
+          <p class="section-desc">
+            Live investigation cases, telemetry ingestion, and attack progression for <strong id="dash-operator-name"
+              style="color:var(--text-primary)">Cmdr. Maya Thorne</strong>.
+          </p>
         </div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="dash-inv-search" placeholder="Search cases..." oninput="filterInvestigationsTable(this.value)" class="dash-search-input">
-        </div>
-      </div>
 
-      <div class="table-responsive">
-        <table class="dash-table" id="table-investigations">
-          <thead>
-            <tr>
-              <th>Case Name &amp; ID</th>
-              <th>Severity</th>
-              <th>Status</th>
-              <th>Telemetry Logs</th>
-              <th>Initial Access / Patient Zero</th>
-              <th>Confidence</th>
-              <th>Created</th>
-              <th style="text-align:right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="dash-investigations-tbody">
-            <!-- Dynamically populated from /api/investigations -->
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Right Column: Recent Activity Feed -->
-    <div class="dash-card-box">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <span style="font-size:14px">⚡</span>
-        <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">RECENT ACTIVITY &amp; AUDIT</h3>
-      </div>
-      <div id="dash-activity-feed" class="activity-feed-container">
-        <!-- Dynamically populated from dashboard stats -->
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── "SEPARATE SIGNAL FROM NOISE" BENTO SECTION ────────────────────────── -->
-<section class="section-wrapper" id="separate-signal-noise">
-  <div class="section-header">
-    <span class="section-badge">// THREAT INFORMED DEFENSE</span>
-    <h2 class="section-title">Separate Signal from Noise</h2>
-    <p class="section-desc">
-      Most enterprise events never get exploited. The ones that do are the only ones that matter. Continuous exposure validation and autonomous attack graph reconstruction cut through the noise.
-    </p>
-  </div>
-
-  <div id="kpi-strip">
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Signal-to-Noise Ratio</span>
-        <span class="kpi-chip chip-slate">98.3% NOISE FILTERED</span>
-      </div>
-      <div class="kpi-value" id="kpi-snr">—</div>
-      <div class="kpi-sub" id="kpi-snr-sub">Correlating raw telemetry stream...</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Initial Access Vector</span>
-        <span class="kpi-chip chip-amber">PATIENT ZERO</span>
-      </div>
-      <div class="kpi-value" id="kpi-pz" style="color:var(--color-warning)">—</div>
-      <div class="kpi-sub" id="kpi-pz-sub">Off-hours authentication anomaly</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Blast Radius Scope</span>
-        <span class="kpi-chip chip-red">EXPOSED ASSETS</span>
-      </div>
-      <div class="kpi-value" id="kpi-br" style="color:var(--color-critical)">—</div>
-      <div class="kpi-sub" id="kpi-br-sub">Forward reachability analysis</div>
-    </div>
-
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Graph Corroboration</span>
-        <span class="kpi-chip chip-cyan" id="kpi-conf-chip">CORROBORATED</span>
-      </div>
-      <div class="kpi-value" id="kpi-conf" style="color:var(--accent-cyan)">—</div>
-      <div class="kpi-sub" id="kpi-conf-sub">Multi-signal corroboration score</div>
-    </div>
-  </div>
-</section>
-
-<!-- ── INTERACTIVE LIVE SOC COCKPIT (THE WORKBENCH) ──────────────────────── -->
-<section class="section-wrapper" id="cockpit" style="padding-top:10px">
-  <div class="cockpit-container">
-    
-    <!-- Cockpit Top Bar -->
-    <div class="cockpit-topbar">
-      <div class="cockpit-title-wrap">
-        <div class="cockpit-dot"></div>
-        <span class="cockpit-title">DYNAMIC ATTACK GRAPH // INCIDENT WORKBENCH</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="cockpit-tags">
-          <span class="cockpit-tag">NETWORKX MULTIDIGRAPH</span>
-          <span class="cockpit-tag">CYTOSCAPE.JS DARK CANVAS</span>
-          <span class="cockpit-tag">ZERO HALLUCINATION XAI</span>
-        </div>
-        <button id="btn-supabase-status" class="header-action-btn database-status-btn" onclick="openDatabaseModal()" title="Manage Supabase PostgreSQL Connection (ugkekxiwvgsitzqduzxq)" style="padding:6px 10px;font-size:10.5px;display:flex;align-items:center;gap:6px">
-          <span class="db-dot" id="db-status-dot" style="width:7px;height:7px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
-          <span id="db-status-label">Supabase (ugkekxiwvgsitzqduzxq)</span>
-        </button>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="header-action-btn" onclick="openReportModal()" title="View Printable Executive Forensic Briefing" style="padding:6px 10px;font-size:10.5px;border-color:var(--accent-cyan);color:var(--accent-cyan)">
-            📄 Executive Brief
+        <!-- Quick Action Buttons -->
+        <div class="dashboard-actions-row">
+          <button type="button" class="btn-filigran-gradient" onclick="openNewInvestigationModal()"
+            style="padding:9px 18px;font-size:12px;font-weight:600">
+            <span>+ New Investigation</span>
           </button>
-          <button class="header-action-btn" onclick="triggerChaosBenchmark()" title="Open Ingestion Chaos Raw Stream vs Graph Benchmark" style="padding:6px 10px;font-size:10.5px">
-            🎲 Chaos Benchmark
+          <button type="button" class="header-action-btn" onclick="document.getElementById('dash-file-input').click()"
+            style="padding:9px 16px;font-size:12px;font-weight:600">
+            <span>📤 Upload Telemetry</span>
           </button>
-          <button class="header-action-btn" onclick="exportInvestigation('json')" title="Export NIST SP 800-61 JSON Incident Report" style="padding:6px 10px;font-size:10.5px">
-            📥 JSON Report
+          <input type="file" id="dash-file-input" accept=".json,.csv" style="display:none"
+            onchange="handleFileUpload(this.files[0])">
+          <button type="button" class="header-action-btn" onclick="scrollToSection('cockpit')"
+            style="padding:9px 16px;font-size:12px">
+            <span>⚡ Attack Workbench</span>
           </button>
-          <button class="header-action-btn" onclick="exportInvestigation('csv')" title="Export Immutable Evidence CSV Ledger" style="padding:6px 10px;font-size:10.5px">
-            📊 Evidence CSV
-          </button>
-          <button class="header-action-btn" onclick="exportInvestigation('markdown')" title="Export Executive Incident Markdown Briefing" style="padding:6px 10px;font-size:10.5px">
-            📄 Markdown Brief
+          <button type="button" class="header-action-btn" onclick="loadDashboardData()" title="Refresh database stats"
+            style="padding:9px 14px;font-size:12px">
+            <span>🔄 Refresh</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 3-Column Cockpit Body -->
-    <main id="main-body">
+    <!-- Live Database KPI Strip Grid (All Calculated from DB Records) -->
+    <div id="dash-kpi-strip" class="dash-kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Total Investigations</span>
+          <span class="kpi-chip chip-cyan">DATABASE RECORDS</span>
+        </div>
+        <div class="kpi-value" id="dash-total-inv" style="color:var(--accent-cyan)">0</div>
+        <div class="kpi-sub">Total isolated cases in user enclave</div>
+      </div>
 
-      <!-- LEFT CONTROL RAIL: DEMO & CHAOS SIMULATOR -->
-      <aside id="left-rail">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Telemetry Ingested</span>
+          <span class="kpi-chip chip-slate">NORMALIZED EVENTS</span>
+        </div>
+        <div class="kpi-value" id="dash-total-events" style="color:var(--text-primary)">0</div>
+        <div class="kpi-sub">Events processed &amp; correlated</div>
+      </div>
 
-        <div class="rail-group">
-          <div class="rail-title">Telemetry Dataset &amp; Scenarios</div>
-          <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
-            <span class="btn-dot" style="background:var(--accent-cyan)"></span>
-            <span>Built-in APT Kill Chain</span>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Active Incidents</span>
+          <span class="kpi-chip chip-amber">UNDER TRIAGE</span>
+        </div>
+        <div class="kpi-value" id="dash-active-incidents" style="color:var(--color-warning)">0</div>
+        <div class="kpi-sub">Open forensic investigation containers</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Critical Findings</span>
+          <span class="kpi-chip chip-red">THREAT SIGNALS</span>
+        </div>
+        <div class="kpi-value" id="dash-critical-findings" style="color:var(--color-critical)">0</div>
+        <div class="kpi-sub">Confirmed malicious attack chains</div>
+      </div>
+    </div>
+
+    <!-- Investigations Management Table & Activity Feed Split -->
+    <div class="dash-workbench-grid">
+      <!-- Left Column: Investigations Table -->
+      <div class="dash-card-box">
+        <div
+          style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px">📁</span>
+            <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">ACTIVE
+              INVESTIGATION CASES</h3>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="dash-inv-search" placeholder="Search cases..."
+              oninput="filterInvestigationsTable(this.value)" class="dash-search-input">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="dash-table" id="table-investigations">
+            <thead>
+              <tr>
+                <th>Case Name &amp; ID</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Telemetry Logs</th>
+                <th>Initial Access / Patient Zero</th>
+                <th>Confidence</th>
+                <th>Created</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dash-investigations-tbody">
+              <!-- Dynamically populated from /api/investigations -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right Column: Recent Activity Feed -->
+      <div class="dash-card-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span style="font-size:14px">⚡</span>
+          <h3 style="font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">RECENT ACTIVITY
+            &amp; AUDIT</h3>
+        </div>
+        <div id="dash-activity-feed" class="activity-feed-container">
+          <!-- Dynamically populated from dashboard stats -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── "SEPARATE SIGNAL FROM NOISE" BENTO SECTION ────────────────────────── -->
+  <section class="section-wrapper" id="separate-signal-noise">
+    <div class="section-header">
+      <span class="section-badge">// THREAT INFORMED DEFENSE</span>
+      <h2 class="section-title">Separate Signal from Noise</h2>
+      <p class="section-desc">
+        Most enterprise events never get exploited. The ones that do are the only ones that matter. Continuous exposure
+        validation and autonomous attack graph reconstruction cut through the noise.
+      </p>
+    </div>
+
+    <div id="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Signal-to-Noise Ratio</span>
+          <span class="kpi-chip chip-slate">98.3% NOISE FILTERED</span>
+        </div>
+        <div class="kpi-value" id="kpi-snr">—</div>
+        <div class="kpi-sub" id="kpi-snr-sub">Correlating raw telemetry stream...</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Initial Access Vector</span>
+          <span class="kpi-chip chip-amber">PATIENT ZERO</span>
+        </div>
+        <div class="kpi-value" id="kpi-pz" style="color:var(--color-warning)">—</div>
+        <div class="kpi-sub" id="kpi-pz-sub">Off-hours authentication anomaly</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Blast Radius Scope</span>
+          <span class="kpi-chip chip-red">EXPOSED ASSETS</span>
+        </div>
+        <div class="kpi-value" id="kpi-br" style="color:var(--color-critical)">—</div>
+        <div class="kpi-sub" id="kpi-br-sub">Forward reachability analysis</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Graph Corroboration</span>
+          <span class="kpi-chip chip-cyan" id="kpi-conf-chip">CORROBORATED</span>
+        </div>
+        <div class="kpi-value" id="kpi-conf" style="color:var(--accent-cyan)">—</div>
+        <div class="kpi-sub" id="kpi-conf-sub">Multi-signal corroboration score</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── INTERACTIVE LIVE SOC COCKPIT (THE WORKBENCH) ──────────────────────── -->
+  <section class="section-wrapper" id="cockpit" style="padding-top:10px">
+    <div class="cockpit-container">
+
+      <!-- Cockpit Top Bar -->
+      <div class="cockpit-topbar">
+        <div class="cockpit-title-wrap">
+          <div class="cockpit-dot"></div>
+          <span class="cockpit-title">DYNAMIC ATTACK GRAPH // INCIDENT WORKBENCH</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="cockpit-tags">
+            <span class="cockpit-tag">NETWORKX MULTIDIGRAPH</span>
+            <span class="cockpit-tag">CYTOSCAPE.JS DARK CANVAS</span>
+            <span class="cockpit-tag">ZERO HALLUCINATION XAI</span>
+          </div>
+          <button id="btn-supabase-status" class="header-action-btn database-status-btn" onclick="openDatabaseModal()"
+            title="Manage Supabase PostgreSQL Connection (ugkekxiwvgsitzqduzxq)"
+            style="padding:6px 10px;font-size:10.5px;display:flex;align-items:center;gap:6px">
+            <span class="db-dot" id="db-status-dot"
+              style="width:7px;height:7px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+            <span id="db-status-label">Supabase (ugkekxiwvgsitzqduzxq)</span>
           </button>
-
-          <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:4px">
-            <button class="rail-btn scenario-btn" id="btn-scenario-chaos" onclick="triggerChaosBenchmark()" title="Deterministic 8-dimension chaos simulation">
-              <span class="btn-dot" style="background:var(--color-critical)"></span>
-              <span>🎲 Ingestion Chaos Benchmark</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="header-action-btn" onclick="openReportModal()"
+              title="View Printable Executive Forensic Briefing"
+              style="padding:6px 10px;font-size:10.5px;border-color:var(--accent-cyan);color:var(--accent-cyan)">
+              📄 Executive Brief
             </button>
-            <button class="rail-btn scenario-btn" id="btn-scenario-deception" onclick="loadDeceptionTelemetry()" title="Correlate Cowrie SSH & OpenCanary decoys">
-              <span class="btn-dot" style="background:var(--color-success)"></span>
-              <span>🍯 Deception Intel Traps</span>
+            <button class="header-action-btn" onclick="triggerChaosBenchmark()"
+              title="Open Ingestion Chaos Raw Stream vs Graph Benchmark" style="padding:6px 10px;font-size:10.5px">
+              🎲 Chaos Benchmark
             </button>
-            <button class="rail-btn scenario-btn" id="btn-scenario-normal_enterprise_traffic" onclick="loadScenario('normal_enterprise_traffic')" title="200 benign background events">
-              <span class="btn-dot" style="background:var(--accent-slate)"></span>
-              <span>Baseline Normal Traffic</span>
+            <button class="header-action-btn" onclick="exportInvestigation('json')"
+              title="Export NIST SP 800-61 JSON Incident Report" style="padding:6px 10px;font-size:10.5px">
+              📥 JSON Report
             </button>
-            <button class="rail-btn scenario-btn" id="btn-scenario-credential_access_t1078" onclick="loadScenario('credential_access_t1078')" title="T1078 Valid Accounts anomaly">
-              <span class="btn-dot" style="background:var(--color-warning)"></span>
-              <span>T1078 Credential Access</span>
+            <button class="header-action-btn" onclick="exportInvestigation('csv')"
+              title="Export Immutable Evidence CSV Ledger" style="padding:6px 10px;font-size:10.5px">
+              📊 Evidence CSV
             </button>
-            <button class="rail-btn scenario-btn" id="btn-scenario-dropped_telemetry_gap" onclick="loadScenario('dropped_telemetry_gap')" title="Telemetry gap triggering heuristic bridge">
-              <span class="btn-dot" style="background:var(--color-critical)"></span>
-              <span>Dropped Telemetry Gap</span>
+            <button class="header-action-btn" onclick="exportInvestigation('markdown')"
+              title="Export Executive Incident Markdown Briefing" style="padding:6px 10px;font-size:10.5px">
+              📄 Markdown Brief
             </button>
           </div>
-
-          <div id="upload-dropzone" onclick="document.getElementById('file-input').click()" style="margin-top:6px">
-            <div style="font-size:11px;font-weight:600;color:var(--text-primary)">Upload Custom Telemetry</div>
-            <div style="font-size:9.5px;color:var(--text-tertiary);margin-top:2px;font-family:var(--font-mono)">Drag &amp; drop .json / .csv</div>
-          </div>
-          <input type="file" id="file-input" accept=".json,.csv" onchange="handleFileUpload(this.files[0])">
         </div>
+      </div>
 
-        <div class="rail-group">
-          <div class="rail-title">Ingestion Chaos Controls</div>
-          
-          <label class="switch-row" title="Sort logs chronologically despite out-of-order network arrival">
-            <span class="switch-label">Resolve Out-of-Order Logs</span>
-            <span class="switch">
-              <input type="checkbox" id="tog-shuffle" checked onchange="onToggleChange()">
-              <span class="slider"></span>
-            </span>
-          </label>
+      <!-- 3-Column Cockpit Body -->
+      <main id="main-body">
 
-          <label class="switch-row" title="Normalize clock drift across workstations and servers">
-            <span class="switch-label">Compensate Clock Skew (±20s)</span>
-            <span class="switch">
-              <input type="checkbox" id="tog-skew" checked onchange="onToggleChange()">
-              <span class="slider"></span>
-            </span>
-          </label>
+        <!-- LEFT CONTROL RAIL: DEMO & CHAOS SIMULATOR -->
+        <aside id="left-rail">
 
-          <label class="switch-row" title="Simulate missing telemetry and infer lateral movement bridges">
-            <span class="switch-label">Drop Telemetry (Gap Bridge)</span>
-            <span class="switch">
-              <input type="checkbox" id="tog-drop" onchange="onToggleChange()">
-              <span class="slider"></span>
-            </span>
-          </label>
-        </div>
+          <div class="rail-group">
+            <div class="rail-title">Telemetry Dataset &amp; Scenarios</div>
+            <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
+              <span class="btn-dot" style="background:var(--accent-cyan)"></span>
+              <span>Built-in APT Kill Chain</span>
+            </button>
 
-        <div class="rail-group">
-          <div class="rail-title">Investigation Time-Travel &amp; Replay</div>
-          <div class="time-travel-box">
-            <div class="timeline-controls" style="gap:4px">
-              <button class="ctrl-btn" onclick="stepReplay(-1)" title="Step Back (Previous Event)">⏮</button>
-              <button class="ctrl-btn" id="btn-play-pause" onclick="toggleTimelinePlay()" title="Play / Pause incident replay">▶</button>
-              <button class="ctrl-btn" onclick="stepReplay(1)" title="Step Forward (Next Event)">⏭</button>
-              <select id="sel-playback-speed" class="tool-select" style="padding:2px 4px;font-size:9px" onchange="changeReplaySpeed(this.value)">
-                <option value="1">1x SPEED</option>
-                <option value="0.5">0.5x</option>
-                <option value="2">2x</option>
-                <option value="5">5x FAST</option>
-              </select>
-            </div>
-            <input type="range" id="timeline-slider" min="0" max="100" value="100" oninput="onSliderInput(this.value)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
-              <div id="timeline-display" style="font-size:9.5px;font-family:var(--font-mono);color:var(--accent-cyan)">Master Timeline Sync</div>
-              <div id="replay-step-indicator" style="font-size:9px;font-family:var(--font-mono);color:var(--text-tertiary)">Step: 7 / 7</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rail-group" style="flex:1">
-          <div class="rail-title">Fast Containment Actions</div>
-          <div id="quick-actions" style="font-size:10.5px;color:var(--text-tertiary);display:flex;flex-direction:column;gap:5px">
-            Awaiting analysis...
-          </div>
-        </div>
-
-      </aside>
-
-      <!-- CENTER + RIGHT PANELS WRAPPER -->
-      <div id="center-right">
-
-        <!-- CENTER GRAPH CANVAS -->
-        <div id="graph-panel">
-          <div class="graph-watermark">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--color-critical);display:inline-block"></span>
-            <span>CHRONOLOGICAL ATTACK FLOW // INCIDENT WORKBENCH</span>
-          </div>
-
-          <!-- Floating Canvas Toolbar -->
-          <div class="graph-toolbar">
-            <div style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:5px;padding:2px;gap:2px">
-              <button class="tool-btn active" id="btn-view-flow" onclick="setGraphViewMode('attack_flow')" title="Chronological Left-to-Right Attack Flow Storyboard">⚡ Attack Flow Storyboard</button>
-              <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')" title="Full Infrastructure Asset Topology Graph">🌐 Asset Topology Graph</button>
-            </div>
-            <div class="graph-search-wrap">
-              <input type="text" id="graph-search" class="graph-search-input" placeholder="🔍 Search event or entity..." oninput="onGraphSearch(this.value)">
-              <button class="clear-search-btn" onclick="clearGraphSearch()" title="Clear search">✕</button>
-            </div>
-            <select class="tool-select" id="sel-graph-layout" onchange="changeGraphLayout(this.value)" title="Change Graph Layout">
-              <option value="breadthfirst">Flow Hierarchy (L➔R)</option>
-              <option value="concentric">Concentric Rings</option>
-              <option value="cose">Force-Directed</option>
-              <option value="circle">Circular</option>
-            </select>
-            <div style="display:flex;align-items:center;gap:2px">
-              <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
-              <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">−</button>
-              <button class="tool-btn" onclick="fitGraph()" title="Fit View">⛶ FIT</button>
-              <button class="tool-btn" onclick="resetGraphPosition()" title="Reset Graph Position">↺ RESET</button>
-            </div>
-          </div>
-
-          <!-- VIEW 1: GRAPHICAL ATTACK FLOW STORYBOARD (RICH HTML/SVG PIPELINE) -->
-          <div id="graph-flow-view" class="graph-flow-view">
-            <!-- Stage Sequence Progress Header -->
-            <div class="flow-stage-nav" id="flow-stage-nav"></div>
-
-            <!-- Flow Pipeline Stage Cards Container (Horizontal Scrollable) -->
-            <div class="flow-pipeline-scroll" id="flow-pipeline-scroll">
-              <div class="flow-pipeline-track" id="flow-pipeline-track">
-                <!-- Dynamically populated with graphical cards and animated laser connectors -->
-              </div>
-            </div>
-          </div>
-
-          <!-- VIEW 2: 2D CYTOSCAPE CANVAS -->
-          <div id="cy" style="display:none;"></div>
-
-          <!-- Visual Legend & Step Controller Strip -->
-          <div class="graph-bottom-strip">
-            <div class="step-controller-box">
-              <button class="step-ctrl-btn" onclick="prevAttackStep()" title="Previous Attack Stage">◀ Prev</button>
-              <div class="step-status-pill" id="step-status-pill">
-                <span class="step-num-badge" id="step-num-badge">STAGE 1</span>
-                <span class="step-title-text" id="step-title-text">Awaiting Forensic Ingestion...</span>
-              </div>
-              <button class="step-ctrl-btn" onclick="nextAttackStep()" title="Next Attack Stage">Next ▶</button>
-              <button class="step-play-toggle" id="btn-play-flow" onclick="toggleAttackFlowPlay()">
-                <span id="flow-play-icon">▶</span> <span id="flow-play-label">Play Flow</span>
+            <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:4px">
+              <button class="rail-btn scenario-btn" id="btn-scenario-chaos" onclick="triggerChaosBenchmark()"
+                title="Deterministic 8-dimension chaos simulation">
+                <span class="btn-dot" style="background:var(--color-critical)"></span>
+                <span>🎲 Ingestion Chaos Benchmark</span>
+              </button>
+              <button class="rail-btn scenario-btn" id="btn-scenario-deception" onclick="loadDeceptionTelemetry()"
+                title="Correlate Cowrie SSH & OpenCanary decoys">
+                <span class="btn-dot" style="background:var(--color-success)"></span>
+                <span>🍯 Deception Intel Traps</span>
+              </button>
+              <button class="rail-btn scenario-btn" id="btn-scenario-normal_enterprise_traffic"
+                onclick="loadScenario('normal_enterprise_traffic')" title="200 benign background events">
+                <span class="btn-dot" style="background:var(--accent-slate)"></span>
+                <span>Baseline Normal Traffic</span>
+              </button>
+              <button class="rail-btn scenario-btn" id="btn-scenario-credential_access_t1078"
+                onclick="loadScenario('credential_access_t1078')" title="T1078 Valid Accounts anomaly">
+                <span class="btn-dot" style="background:var(--color-warning)"></span>
+                <span>T1078 Credential Access</span>
+              </button>
+              <button class="rail-btn scenario-btn" id="btn-scenario-dropped_telemetry_gap"
+                onclick="loadScenario('dropped_telemetry_gap')" title="Telemetry gap triggering heuristic bridge">
+                <span class="btn-dot" style="background:var(--color-critical)"></span>
+                <span>Dropped Telemetry Gap</span>
               </button>
             </div>
 
-            <!-- Visual Legend -->
-            <div class="legend-box">
-              <div class="legend-item"><div class="leg-dot" style="border-color:#EF4444;background:rgba(239,68,68,0.25)"></div><span>Critical Attack (MITRE ATT&amp;CK)</span></div>
-              <div class="legend-item"><div class="leg-dot" style="border-color:#F59E0B;background:rgba(245,158,11,0.25)"></div><span>Suspicious / Inferred Gap Bridge</span></div>
-              <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.25)"></div><span>Normal Event / Honeypot Decoy</span></div>
-              <div class="legend-item"><div class="leg-line-solid" style="background:#0284C7;height:2.5px;width:24px"></div><span>Chronological Attack Flow</span></div>
+            <div id="upload-dropzone" onclick="document.getElementById('file-input').click()" style="margin-top:6px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-primary)">Upload Custom Telemetry</div>
+              <div style="font-size:9.5px;color:var(--text-tertiary);margin-top:2px;font-family:var(--font-mono)">Drag
+                &amp; drop .json / .csv</div>
+            </div>
+            <input type="file" id="file-input" accept=".json,.csv" onchange="handleFileUpload(this.files[0])">
+          </div>
+
+          <div class="rail-group">
+            <div class="rail-title">Ingestion Chaos Controls</div>
+
+            <label class="switch-row" title="Sort logs chronologically despite out-of-order network arrival">
+              <span class="switch-label">Resolve Out-of-Order Logs</span>
+              <span class="switch">
+                <input type="checkbox" id="tog-shuffle" checked onchange="onToggleChange()">
+                <span class="slider"></span>
+              </span>
+            </label>
+
+            <label class="switch-row" title="Normalize clock drift across workstations and servers">
+              <span class="switch-label">Compensate Clock Skew (±20s)</span>
+              <span class="switch">
+                <input type="checkbox" id="tog-skew" checked onchange="onToggleChange()">
+                <span class="slider"></span>
+              </span>
+            </label>
+
+            <label class="switch-row" title="Simulate missing telemetry and infer lateral movement bridges">
+              <span class="switch-label">Drop Telemetry (Gap Bridge)</span>
+              <span class="switch">
+                <input type="checkbox" id="tog-drop" onchange="onToggleChange()">
+                <span class="slider"></span>
+              </span>
+            </label>
+          </div>
+
+          <div class="rail-group">
+            <div class="rail-title">Investigation Time-Travel &amp; Replay</div>
+            <div class="time-travel-box">
+              <div class="timeline-controls" style="gap:4px">
+                <button class="ctrl-btn" onclick="stepReplay(-1)" title="Step Back (Previous Event)">⏮</button>
+                <button class="ctrl-btn" id="btn-play-pause" onclick="toggleTimelinePlay()"
+                  title="Play / Pause incident replay">▶</button>
+                <button class="ctrl-btn" onclick="stepReplay(1)" title="Step Forward (Next Event)">⏭</button>
+                <select id="sel-playback-speed" class="tool-select" style="padding:2px 4px;font-size:9px"
+                  onchange="changeReplaySpeed(this.value)">
+                  <option value="1">1x SPEED</option>
+                  <option value="0.5">0.5x</option>
+                  <option value="2">2x</option>
+                  <option value="5">5x FAST</option>
+                </select>
+              </div>
+              <input type="range" id="timeline-slider" min="0" max="100" value="100"
+                oninput="onSliderInput(this.value)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+                <div id="timeline-display"
+                  style="font-size:9.5px;font-family:var(--font-mono);color:var(--accent-cyan)">Master Timeline Sync
+                </div>
+                <div id="replay-step-indicator"
+                  style="font-size:9px;font-family:var(--font-mono);color:var(--text-tertiary)">Step: 7 / 7</div>
+              </div>
             </div>
           </div>
+
+          <div class="rail-group" style="flex:1">
+            <div class="rail-title">Fast Containment Actions</div>
+            <div id="quick-actions"
+              style="font-size:10.5px;color:var(--text-tertiary);display:flex;flex-direction:column;gap:5px">
+              Awaiting analysis...
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- CENTER + RIGHT PANELS WRAPPER -->
+        <div id="center-right">
+
+          <!-- CENTER GRAPH CANVAS -->
+          <div id="graph-panel">
+            <div class="graph-watermark">
+              <span
+                style="width:6px;height:6px;border-radius:50%;background:var(--color-critical);display:inline-block"></span>
+              <span>CHRONOLOGICAL ATTACK FLOW // INCIDENT WORKBENCH</span>
+            </div>
+
+            <!-- Floating Canvas Toolbar -->
+            <div class="graph-toolbar">
+              <div
+                style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:5px;padding:2px;gap:2px">
+                <button class="tool-btn active" id="btn-view-flow" onclick="setGraphViewMode('attack_flow')"
+                  title="Chronological Left-to-Right Attack Flow Storyboard">⚡ Attack Flow Storyboard</button>
+                <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')"
+                  title="Full Infrastructure Asset Topology Graph">🌐 Asset Topology Graph</button>
+              </div>
+              <div class="graph-search-wrap">
+                <input type="text" id="graph-search" class="graph-search-input"
+                  placeholder="🔍 Search event or entity..." oninput="onGraphSearch(this.value)">
+                <button class="clear-search-btn" onclick="clearGraphSearch()" title="Clear search">✕</button>
+              </div>
+              <select class="tool-select" id="sel-graph-layout" onchange="changeGraphLayout(this.value)"
+                title="Change Graph Layout">
+                <option value="breadthfirst">Flow Hierarchy (L➔R)</option>
+                <option value="concentric">Concentric Rings</option>
+                <option value="cose">Force-Directed</option>
+                <option value="circle">Circular</option>
+              </select>
+              <div style="display:flex;align-items:center;gap:2px">
+                <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
+                <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+                <button class="tool-btn" onclick="fitGraph()" title="Fit View">⛶ FIT</button>
+                <button class="tool-btn" onclick="resetGraphPosition()" title="Reset Graph Position">↺ RESET</button>
+              </div>
+            </div>
+
+            <!-- VIEW 1: GRAPHICAL ATTACK FLOW STORYBOARD (RICH HTML/SVG PIPELINE) -->
+            <div id="graph-flow-view" class="graph-flow-view">
+              <!-- Stage Sequence Progress Header -->
+              <div class="flow-stage-nav" id="flow-stage-nav"></div>
+
+              <!-- Flow Pipeline Stage Cards Container (Horizontal Scrollable) -->
+              <div class="flow-pipeline-scroll" id="flow-pipeline-scroll">
+                <div class="flow-pipeline-track" id="flow-pipeline-track">
+                  <!-- Dynamically populated with graphical cards and animated laser connectors -->
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 2: 2D CYTOSCAPE CANVAS -->
+            <div id="cy" style="display:none;"></div>
+
+            <!-- Visual Legend & Step Controller Strip -->
+            <div class="graph-bottom-strip">
+              <div class="step-controller-box">
+                <button class="step-ctrl-btn" onclick="prevAttackStep()" title="Previous Attack Stage">◀ Prev</button>
+                <div class="step-status-pill" id="step-status-pill">
+                  <span class="step-num-badge" id="step-num-badge">STAGE 1</span>
+                  <span class="step-title-text" id="step-title-text">Awaiting Forensic Ingestion...</span>
+                </div>
+                <button class="step-ctrl-btn" onclick="nextAttackStep()" title="Next Attack Stage">Next ▶</button>
+                <button class="step-play-toggle" id="btn-play-flow" onclick="toggleAttackFlowPlay()">
+                  <span id="flow-play-icon">▶</span> <span id="flow-play-label">Play Flow</span>
+                </button>
+              </div>
+
+              <!-- Visual Legend -->
+              <div class="legend-box">
+                <div class="legend-item">
+                  <div class="leg-dot" style="border-color:#EF4444;background:rgba(239,68,68,0.25)"></div><span>Critical
+                    Attack (MITRE ATT&amp;CK)</span>
+                </div>
+                <div class="legend-item">
+                  <div class="leg-dot" style="border-color:#F59E0B;background:rgba(245,158,11,0.25)"></div>
+                  <span>Suspicious / Inferred Gap Bridge</span>
+                </div>
+                <div class="legend-item">
+                  <div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.25)"></div><span>Normal
+                    Event / Honeypot Decoy</span>
+                </div>
+                <div class="legend-item">
+                  <div class="leg-line-solid" style="background:#0284C7;height:2.5px;width:24px"></div>
+                  <span>Chronological Attack Flow</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT PANEL: EXPLAINABLE AI & PLAYBOOK -->
+          <div id="right-panel">
+            <!-- Active Event Investigation Panel (Selected Node Forensics) -->
+            <div id="investigation-panel" class="investigation-card">
+              <div class="investigation-card-header">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="investigation-dot" id="insp-dot"></span>
+                  <span class="investigation-title" id="insp-title">1. Initial Access</span>
+                  <span class="investigation-badge sev-critical" id="insp-sev-badge">CRITICAL</span>
+                </div>
+                <span class="investigation-mitre" id="insp-mitre-badge">T1078</span>
+              </div>
+
+              <div class="investigation-grid">
+                <div class="insp-field">
+                  <span class="insp-label">TIMESTAMP</span>
+                  <span class="insp-val" id="insp-timestamp">2026-03-31 01:15:00 UTC</span>
+                </div>
+                <div class="insp-field">
+                  <span class="insp-label">CONFIDENCE</span>
+                  <span class="insp-val" id="insp-confidence">96.0% (Corroborated)</span>
+                </div>
+                <div class="insp-field">
+                  <span class="insp-label">SRC / DEST IP</span>
+                  <span class="insp-val" id="insp-ips">185.220.101.47 ➔ 10.0.4.15</span>
+                </div>
+                <div class="insp-field">
+                  <span class="insp-label">HOSTNAME</span>
+                  <span class="insp-val" id="insp-hostname">wkst-04-dev</span>
+                </div>
+              </div>
+
+              <div class="insp-suspicion-box">
+                <div class="insp-label">WHY THIS EVENT IS SUSPICIOUS</div>
+                <div class="insp-suspicion-desc" id="insp-suspicion-desc">
+                  Off-hours authentication anomaly from external TOR exit node utilizing compromised employee
+                  credentials.
+                </div>
+              </div>
+
+              <div class="insp-evidence-box">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <span class="insp-label">ORIGINAL LOG EVIDENCE</span>
+                  <button class="insp-evidence-btn" id="insp-dna-btn" onclick="openNodeEvidenceDNA()">View in Evidence
+                    DNA 🧬</button>
+                </div>
+                <pre class="insp-log-pre"
+                  id="insp-log-payload">{"log_id": "LOG-APT-001", "source": "185.220.101.47", ...}</pre>
+              </div>
+            </div>
+
+            <div class="panel-tabs">
+              <button class="tab-btn active" onclick="switchTab('xai')">Root Cause AI</button>
+              <button class="tab-btn" onclick="switchTab('playbook')">Containment</button>
+              <button class="tab-btn" onclick="switchTab('matrix')">Pivots &amp; MITRE</button>
+              <button class="tab-btn" onclick="switchTab('deception')">Deception Traps</button>
+              <button class="tab-btn" onclick="switchTab('warnings')">Telemetry Gaps</button>
+            </div>
+
+            <!-- Tab 1: Root Cause AI Narrative -->
+            <div id="tab-xai" class="tab-pane active">
+              <div id="xai-content"></div>
+            </div>
+
+            <!-- Tab 2: Incident Containment Playbook -->
+            <div id="tab-playbook" class="tab-pane">
+              <div id="playbook-content"></div>
+            </div>
+
+            <!-- Tab 3: Matrix & Pivot Centrality -->
+            <div id="tab-matrix" class="tab-pane">
+              <div id="matrix-content"></div>
+            </div>
+
+            <!-- Tab 4: Deception Intelligence (Cowrie & OpenCanary) -->
+            <div id="tab-deception" class="tab-pane">
+              <div id="deception-content"></div>
+            </div>
+
+            <!-- Tab 5: Missing Evidence & Timeline Warnings -->
+            <div id="tab-warnings" class="tab-pane">
+              <div id="warnings-content"></div>
+            </div>
+          </div>
+
+        </div><!-- end center-right -->
+
+      </main><!-- end main-body -->
+
+    </div><!-- end cockpit-container -->
+  </section>
+
+  <!-- ── BOTTOM DRAWER: EVIDENCE DNA INSPECTOR ─────────────────────────────── -->
+  <div id="evidence-drawer">
+    <div id="evidence-content">
+      <div class="drawer-top">
+        <div class="drawer-title">
+          <span>FORENSIC EVIDENCE LEDGER — IMMUTABLE AUDIT PROVENANCE</span>
         </div>
-
-        <!-- RIGHT PANEL: EXPLAINABLE AI & PLAYBOOK -->
-        <div id="right-panel">
-          <!-- Active Event Investigation Panel (Selected Node Forensics) -->
-          <div id="investigation-panel" class="investigation-card">
-            <div class="investigation-card-header">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="investigation-dot" id="insp-dot"></span>
-                <span class="investigation-title" id="insp-title">1. Initial Access</span>
-                <span class="investigation-badge sev-critical" id="insp-sev-badge">CRITICAL</span>
-              </div>
-              <span class="investigation-mitre" id="insp-mitre-badge">T1078</span>
-            </div>
-
-            <div class="investigation-grid">
-              <div class="insp-field">
-                <span class="insp-label">TIMESTAMP</span>
-                <span class="insp-val" id="insp-timestamp">2026-03-31 01:15:00 UTC</span>
-              </div>
-              <div class="insp-field">
-                <span class="insp-label">CONFIDENCE</span>
-                <span class="insp-val" id="insp-confidence">96.0% (Corroborated)</span>
-              </div>
-              <div class="insp-field">
-                <span class="insp-label">SRC / DEST IP</span>
-                <span class="insp-val" id="insp-ips">185.220.101.47 ➔ 10.0.4.15</span>
-              </div>
-              <div class="insp-field">
-                <span class="insp-label">HOSTNAME</span>
-                <span class="insp-val" id="insp-hostname">wkst-04-dev</span>
-              </div>
-            </div>
-
-            <div class="insp-suspicion-box">
-              <div class="insp-label">WHY THIS EVENT IS SUSPICIOUS</div>
-              <div class="insp-suspicion-desc" id="insp-suspicion-desc">
-                Off-hours authentication anomaly from external TOR exit node utilizing compromised employee credentials.
-              </div>
-            </div>
-
-            <div class="insp-evidence-box">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <span class="insp-label">ORIGINAL LOG EVIDENCE</span>
-                <button class="insp-evidence-btn" id="insp-dna-btn" onclick="openNodeEvidenceDNA()">View in Evidence DNA 🧬</button>
-              </div>
-              <pre class="insp-log-pre" id="insp-log-payload">{"log_id": "LOG-APT-001", "source": "185.220.101.47", ...}</pre>
-            </div>
-          </div>
-
-          <div class="panel-tabs">
-            <button class="tab-btn active" onclick="switchTab('xai')">Root Cause AI</button>
-            <button class="tab-btn" onclick="switchTab('playbook')">Containment</button>
-            <button class="tab-btn" onclick="switchTab('matrix')">Pivots &amp; MITRE</button>
-            <button class="tab-btn" onclick="switchTab('deception')">Deception Traps</button>
-            <button class="tab-btn" onclick="switchTab('warnings')">Telemetry Gaps</button>
-          </div>
-
-          <!-- Tab 1: Root Cause AI Narrative -->
-          <div id="tab-xai" class="tab-pane active">
-            <div id="xai-content"></div>
-          </div>
-
-          <!-- Tab 2: Incident Containment Playbook -->
-          <div id="tab-playbook" class="tab-pane">
-            <div id="playbook-content"></div>
-          </div>
-
-          <!-- Tab 3: Matrix & Pivot Centrality -->
-          <div id="tab-matrix" class="tab-pane">
-            <div id="matrix-content"></div>
-          </div>
-
-          <!-- Tab 4: Deception Intelligence (Cowrie & OpenCanary) -->
-          <div id="tab-deception" class="tab-pane">
-            <div id="deception-content"></div>
-          </div>
-
-          <!-- Tab 5: Missing Evidence & Timeline Warnings -->
-          <div id="tab-warnings" class="tab-pane">
-            <div id="warnings-content"></div>
-          </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="drawer-close-btn" onclick="copyCurrentEvidence()">Copy JSON</button>
+          <button class="drawer-close-btn" onclick="exportInvestigation('csv')">Export Full CSV</button>
+          <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
         </div>
-
-      </div><!-- end center-right -->
-
-    </main><!-- end main-body -->
-
-  </div><!-- end cockpit-container -->
-</section>
-
-<!-- ── BOTTOM DRAWER: EVIDENCE DNA INSPECTOR ─────────────────────────────── -->
-<div id="evidence-drawer">
-  <div id="evidence-content">
-    <div class="drawer-top">
-      <div class="drawer-title">
-        <span>FORENSIC EVIDENCE LEDGER — IMMUTABLE AUDIT PROVENANCE</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button class="drawer-close-btn" onclick="copyCurrentEvidence()">Copy JSON</button>
-        <button class="drawer-close-btn" onclick="exportInvestigation('csv')">Export Full CSV</button>
-        <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
-      </div>
-    </div>
-    <div id="evidence-body">
-      <div style="color:var(--text-tertiary);font-size:11px;margin-top:20px;text-align:center;font-family:var(--font-mono)">
-        Select any node, edge, or clickable [LOG: LOG-XXXX] citation tag to inspect verified raw audit telemetry.
+      <div id="evidence-body">
+        <div
+          style="color:var(--text-tertiary);font-size:11px;margin-top:20px;text-align:center;font-family:var(--font-mono)">
+          Select any node, edge, or clickable [LOG: LOG-XXXX] citation tag to inspect verified raw audit telemetry.
+        </div>
       </div>
     </div>
   </div>
-</div>
 
 <!-- ── "A TOOLBOX OF CAPABILITIES" (FILIGRAN-STYLE FEATURE GRID) ─────────── -->
 <section class="section-wrapper" id="capabilities">
@@ -914,741 +989,894 @@
         </button>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ── "FILIGRAN BY NUMBERS" STATS SECTION ────────────────────────────────── -->
-<section class="section-wrapper" id="numbers">
-  <div class="section-header">
-    <span class="section-badge">// PLATFORM BENCHMARKS</span>
-    <h2 class="section-title">OBSYRON by Numbers</h2>
-  </div>
+  <!-- ── "FILIGRAN BY NUMBERS" STATS SECTION ────────────────────────────────── -->
+  <section class="section-wrapper" id="numbers">
+    <div class="section-header">
+      <span class="section-badge">// PLATFORM BENCHMARKS</span>
+      <h2 class="section-title">OBSYRON by Numbers</h2>
+    </div>
 
-  <div class="numbers-strip">
-    <div class="stat-box">
-      <div class="stat-num">350+</div>
-      <div class="stat-label">Enterprise Telemetry Events Correlated</div>
+    <div class="numbers-strip">
+      <div class="stat-box">
+        <div class="stat-num">350+</div>
+        <div class="stat-label">Enterprise Telemetry Events Correlated</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">&lt; 12ms</div>
+        <div class="stat-label">Root Cause Graph Traversal Latency</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">100%</div>
+        <div class="stat-label">Localhost Standalone Privacy (Zero Cloud)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">5</div>
+        <div class="stat-label">MITRE ATT&amp;CK Tactics Reconstructed</div>
+      </div>
     </div>
-    <div class="stat-box">
-      <div class="stat-num">&lt; 12ms</div>
-      <div class="stat-label">Root Cause Graph Traversal Latency</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num">100%</div>
-      <div class="stat-label">Localhost Standalone Privacy (Zero Cloud)</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num">5</div>
-      <div class="stat-label">MITRE ATT&amp;CK Tactics Reconstructed</div>
-    </div>
-  </div>
-</section>
+  </section>
 
-<!-- ── TECH ALLIANCES & STANDARDS ─────────────────────────────────────────── -->
-<section class="section-wrapper" id="mitre-alliances">
-  <div class="section-header">
-    <span class="section-badge">// INTEROPERABILITY</span>
-    <h2 class="section-title">Integrations &amp; Standards</h2>
-    <p class="section-desc">
-      Engineered for seamless interoperability with open cyber threat standards, industry-grade SIEM/XDR telemetry, and standard graph engines.
-    </p>
-  </div>
+  <!-- ── TECH ALLIANCES & STANDARDS ─────────────────────────────────────────── -->
+  <section class="section-wrapper" id="mitre-alliances">
+    <div class="section-header">
+      <span class="section-badge">// INTEROPERABILITY</span>
+      <h2 class="section-title">Integrations &amp; Standards</h2>
+      <p class="section-desc">
+        Engineered for seamless interoperability with open cyber threat standards, industry-grade SIEM/XDR telemetry,
+        and standard graph engines.
+      </p>
+    </div>
 
-  <div class="alliances-strip">
-    <div class="alliance-badge">
-      <span style="color:var(--accent-cyan)">⬡</span>
-      <span>MITRE ATT&amp;CK&reg; v14</span>
+    <div class="alliances-strip">
+      <div class="alliance-badge">
+        <span style="color:var(--accent-cyan)">⬡</span>
+        <span>MITRE ATT&amp;CK&reg; v14</span>
+      </div>
+      <div class="alliance-badge">
+        <span style="color:var(--primary)">⬡</span>
+        <span>OASIS STIX 2.1 Threat Intel</span>
+      </div>
+      <div class="alliance-badge">
+        <span style="color:var(--accent-purple)">⬡</span>
+        <span>Sigma Detection Rules</span>
+      </div>
+      <div class="alliance-badge">
+        <span style="color:#10B981">⬡</span>
+        <span>NetworkX Graph Architecture</span>
+      </div>
+      <div class="alliance-badge">
+        <span style="color:var(--accent-cyan)">⬡</span>
+        <span>Cytoscape.js Dark Canvas</span>
+      </div>
+      <div class="alliance-badge">
+        <span style="color:#F59E0B">⬡</span>
+        <span>FastAPI Asynchronous Backend</span>
+      </div>
     </div>
-    <div class="alliance-badge">
-      <span style="color:var(--primary)">⬡</span>
-      <span>OASIS STIX 2.1 Threat Intel</span>
-    </div>
-    <div class="alliance-badge">
-      <span style="color:var(--accent-purple)">⬡</span>
-      <span>Sigma Detection Rules</span>
-    </div>
-    <div class="alliance-badge">
-      <span style="color:#10B981">⬡</span>
-      <span>NetworkX Graph Architecture</span>
-    </div>
-    <div class="alliance-badge">
-      <span style="color:var(--accent-cyan)">⬡</span>
-      <span>Cytoscape.js Dark Canvas</span>
-    </div>
-    <div class="alliance-badge">
-      <span style="color:#F59E0B">⬡</span>
-      <span>FastAPI Asynchronous Backend</span>
-    </div>
-  </div>
-</section>
+  </section>
 
-<!-- ── FILIGRAN-STYLE SITE FOOTER ─────────────────────────────────────────── -->
-<footer id="footer">
-  <div class="footer-inner">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <div class="footer-logo">
-          <div class="brand-shield-icon" style="width:26px;height:26px">
-            <svg viewBox="0 0 24 24" style="width:14px;height:14px">
-              <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
-            </svg>
+  <!-- ── FILIGRAN-STYLE SITE FOOTER ─────────────────────────────────────────── -->
+  <footer id="footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <div class="brand-shield-icon" style="width:26px;height:26px">
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px">
+                <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
+              </svg>
+            </div>
+            <span class="brand-name" style="font-size:15px">OBSYRON</span>
+            <span class="brand-tag">XTM 2.0</span>
           </div>
-          <span class="brand-name" style="font-size:15px">OBSYRON</span>
-          <span class="brand-tag">XTM 2.0</span>
-        </div>
-        <p class="footer-desc">
-          Autonomous cyber forensic investigation, dynamic attack graph reconstruction, and zero-hallucination incident response for modern enterprise SOC teams.
-        </p>
-      </div>
-
-      <div class="footer-links">
-        <div class="footer-col">
-          <div class="footer-col-title">Platform</div>
-          <a href="#cockpit" class="footer-link">Incident Cockpit</a>
-          <a href="#cockpit" class="footer-link">Attack Graph Engine</a>
-          <a href="#separate-signal-noise" class="footer-link">Signal vs Noise</a>
-          <a href="#capabilities" class="footer-link">Capabilities</a>
-        </div>
-
-        <div class="footer-col">
-          <div class="footer-col-title">Investigation</div>
-          <a href="#cockpit" class="footer-link" onclick="selectDataset('builtin')">Built-in APT Chain</a>
-          <a href="#cockpit" class="footer-link" onclick="document.getElementById('file-input').click()">Custom Telemetry</a>
-          <a href="#cockpit" class="footer-link" onclick="simulateChaosDemo()">Chaos Simulation</a>
-          <a href="#cockpit" class="footer-link" onclick="switchTab('playbook')">Response Playbook</a>
-        </div>
-
-        <div class="footer-col">
-          <div class="footer-col-title">Standards</div>
-          <a href="#mitre-alliances" class="footer-link">MITRE ATT&amp;CK</a>
-          <a href="#mitre-alliances" class="footer-link">STIX 2.1</a>
-          <a href="#mitre-alliances" class="footer-link">NetworkX MultiDiGraph</a>
-          <a href="#mitre-alliances" class="footer-link">FastAPI Engine</a>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer-bottom">
-      <div class="footer-info-block">
-        <div>&copy; 2026 OBSYRON Cyber Forensics · Built for <strong>HackInnovision 2026 (NIT Rourkela)</strong> · Track C: Cyber Investigation</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <span class="status-dot-pulse" style="width:6px;height:6px"></span>
-          <span>100% Standalone Localhost · Zero External Cloud Dependencies</span>
-        </div>
-      </div>
-
-      <!-- ── BOTTOM THEME MODE SWITCHER FORM ── -->
-      <form class="bottom-theme-form" onsubmit="event.preventDefault()">
-        <span class="bottom-theme-label">INTERFACE MODE:</span>
-        <div class="theme-segmented-group">
-          <button type="button" class="theme-seg-btn active" id="seg-dark" onclick="setTheme('dark')" title="Switch to Obsidian Midnight Theme">
-            <span>🌙</span>
-            <span>Dark</span>
-          </button>
-          <button type="button" class="theme-seg-btn" id="seg-light" onclick="setTheme('light')" title="Switch to Crisp Enterprise Light Theme">
-            <span>☀️</span>
-            <span>Light</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</footer>
-
-<!-- ── OPERATOR AUTHORIZATION MODAL ────────────────────────────────────── -->
-<div id="auth-modal" class="auth-modal-overlay" onclick="handleAuthModalClick(event)">
-  <div class="auth-modal-card">
-    <button class="auth-modal-close" onclick="closeAuthModal()" title="Close">&times;</button>
-    
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <div class="brand-shield-icon" style="width:40px;height:40px">
-        <img src="/static/icon.png" alt="Emblem" style="width:24px;height:24px;object-fit:contain">
-      </div>
-      <div>
-        <div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.3px">
-          Operator Access Control
-        </div>
-        <div style="font-size:11px;font-family:var(--font-mono);color:var(--accent-cyan)">
-          LOG IN &amp; SIGN UP GATEWAY // NIST 800-61
-        </div>
-      </div>
-    </div>
-
-    <!-- Active Operator Status Banner -->
-    <div id="modal-active-operator" style="display:none;background:rgba(51,120,255,0.08);border:1px solid rgba(51,120,255,0.25);border-radius:8px;padding:12px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span id="modal-op-avatar" style="font-size:22px">🛡️</span>
-          <div>
-            <div id="modal-op-name" style="font-weight:700;font-size:13px;color:var(--text-primary)">Cmdr. Maya Thorne</div>
-            <div id="modal-op-role" style="font-size:11px;color:var(--text-secondary)">Lead Forensic Director</div>
-          </div>
-        </div>
-        <button class="header-action-btn" style="background:rgba(239,68,68,0.15);border-color:#EF4444;color:#EF4444;padding:4px 10px;font-size:10px" onclick="logoutOperator()">
-          Lock &amp; Logout
-        </button>
-      </div>
-    </div>
-
-    <!-- Modal Cyber Tab Switcher -->
-    <div class="auth-tabs-nav" style="margin-bottom:16px">
-      <button type="button" class="auth-tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">
-        <span>Sign In</span>
-      </button>
-      <button type="button" class="auth-tab-btn" id="modal-tab-signup" onclick="switchModalAuthTab('signup')">
-        <span>Sign Up</span>
-      </button>
-    </div>
-
-    <!-- Feedback Area -->
-    <div id="modal-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:12px;font-family:var(--font-mono)"></div>
-
-    <!-- Panel 1: Modal Log In -->
-    <div id="modal-panel-login">
-      <!-- 1-Click Role Selection -->
-      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-tertiary);font-weight:600;margin-bottom:6px">
-        DEMO PRESETS (CLICK TO PREFILL)
-      </div>
-      
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('analyst_lead', 'obsyron2026', 'L4')">
-          <span style="font-size:12px;font-weight:700">Lead (L4)</span>
-          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Full Access</span>
-        </button>
-        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('soc_tier2', 'obsyron2026', 'L3')">
-          <span style="font-size:12px;font-weight:700">Responder (L3)</span>
-          <span style="font-size:9.5px;color:var(--color-warning);font-family:var(--font-mono)">Incident Ops</span>
-        </button>
-        <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('sec_auditor', 'obsyron2026', 'L2')">
-          <span style="font-size:12px;font-weight:700">Auditor (L2)</span>
-          <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono)">Read-Only</span>
-        </button>
-      </div>
-
-      <!-- Quick Form -->
-      <form id="modal-login-form" onsubmit="handleModalLogin(event)">
-        <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign</label>
-          <input type="text" id="modal-input-username" class="cyber-input" style="padding-left:12px;font-size:12px" value="analyst_lead" required autocomplete="username">
-          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>analyst_lead</code></span>
-        </div>
-
-        <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode</label>
-          <input type="password" id="modal-input-password" class="cyber-input" style="padding-left:12px;font-size:12px" value="obsyron2026" required autocomplete="current-password">
-          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>obsyron2026</code></span>
-        </div>
-
-        <button type="submit" id="btn-modal-auth" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Sign In</span>
-        </button>
-      </form>
-    </div>
-
-    <!-- Panel 2: Modal Sign Up -->
-    <div id="modal-panel-signup" style="display:none">
-      <form id="modal-signup-form" onsubmit="handleModalSignup(event)">
-        <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Full Name</label>
-          <input type="text" id="modal-signup-name" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. Maya Thorne" required>
-        </div>
-
-        <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Callsign</label>
-          <input type="text" id="modal-signup-username" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. m_thorne" required autocomplete="username">
-        </div>
-
-        <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode (Min. 4 chars)</label>
-          <input type="password" id="modal-signup-password" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="Create passcode" required autocomplete="new-password">
-        </div>
-
-        <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Clearance Level</label>
-          <select id="modal-signup-clearance" class="cyber-input" style="padding-left:10px;font-size:12px">
-            <option value="L4">Level 4 — Lead Director (Full Control)</option>
-            <option value="L3" selected>Level 3 — Incident Responder</option>
-            <option value="L2">Level 2 — Threat Auditor</option>
-          </select>
-        </div>
-
-        <button type="submit" id="btn-modal-signup" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Create Account</span>
-        </button>
-      </form>
-    </div>
-
-    <div style="margin-top:14px;text-align:center">
-      <a href="/login" style="font-size:11px;color:var(--accent-cyan);text-decoration:none">
-        Open Fullscreen Log In / Sign Up Gateway &rarr;
-      </a>
-    </div>
-
-  </div>
-</div>
-
-<!-- ── INGESTION CHAOS STREAM VS GRAPH BENCHMARK MODAL ────────────────── -->
-<div id="chaos-modal" class="auth-modal-overlay" onclick="handleChaosModalClick(event)">
-  <div class="chaos-modal-card" style="max-width:960px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:22px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">🎲</span>
-        <div>
-          <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px">INGESTION CHAOS BENCHMARK // STREAM VS RECONSTRUCTION</h3>
-          <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Deterministic 8-Dimension Telemetry Chaos: Out-of-Order Packets, Clock Drifts, Duplicates, and Dropped Logs</p>
-        </div>
-      </div>
-      <button class="drawer-close-btn" onclick="closeChaosModal()">✕ Close</button>
-    </div>
-
-    <!-- Chaos KPI Summary Bar -->
-    <div id="chaos-kpis-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:16px">
-      <!-- Injected dynamically by app.js -->
-    </div>
-
-    <!-- Side-by-Side Comparison -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
-      <!-- Column 1: Incoming Raw Stream -->
-      <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;color:var(--color-critical);font-family:var(--font-mono)">🔴 RAW INCOMING STREAM (CHAOS)</span>
-          <span class="chip-red" style="font-size:9.5px;padding:1px 6px">UNORDERED / DRIFTED</span>
-        </div>
-        <div id="chaos-raw-stream-table" style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10px">
-          <!-- Injected dynamically -->
-        </div>
-      </div>
-
-      <!-- Column 2: Reconstructed Master State -->
-      <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;color:var(--color-success);font-family:var(--font-mono)">🟢 RECONSTRUCTED INVESTIGATION</span>
-          <span class="chip-green" style="font-size:9.5px;padding:1px 6px">DEDUPLICATED / SYNCED</span>
-        </div>
-        <div id="chaos-reconstructed-summary" style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10.5px">
-          <!-- Injected dynamically -->
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:14px">
-      <span style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono)">Verified via SHA-256 Merkle Chain of Custody</span>
-      <div style="display:flex;gap:8px">
-        <button class="drawer-close-btn" onclick="applyChaosToCockpit()">⚡ Apply to Graph Canvas</button>
-        <button class="btn-filigran-gradient" style="padding:6px 14px;font-size:11px" onclick="closeChaosModal()">Done</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ── EXECUTIVE INCIDENT REPORT VIEWER MODAL ───────────────────────────── -->
-<div id="report-modal" class="auth-modal-overlay" onclick="handleReportModalClick(event)">
-  <div class="report-modal-card" style="max-width:880px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:24px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
-      <div>
-        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">FORENSIC INCIDENT BRIEFING</h3>
-        <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)">NIST SP 800-61 Rev 2 Compliant Executive Cyber Briefing</p>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="drawer-close-btn" onclick="printReportModal()">🖨️ Print / PDF</button>
-        <button class="drawer-close-btn" onclick="copyReportMarkdown()">📋 Copy Markdown</button>
-        <button class="drawer-close-btn" onclick="closeReportModal()">✕ Close</button>
-      </div>
-    </div>
-
-    <div id="report-modal-body" style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-family:var(--font-sans)">
-      <!-- Rendered dynamically -->
-    </div>
-  </div>
-</div>
-
-<!-- ── SUPABASE DATABASE INTEGRATION MODAL ─────────────────────────────── -->
-<div id="database-modal" class="auth-modal-overlay" onclick="handleDatabaseModalClick(event)" style="display:none">
-  <div class="auth-modal-card" style="max-width:540px">
-    <button class="auth-modal-close" onclick="closeDatabaseModal()" title="Close">&times;</button>
-    
-    <div class="auth-modal-header" style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:34px;height:34px;border-radius:8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:18px">
-          ⚡
-        </div>
-        <div>
-          <h2 style="font-size:16px;font-weight:700;margin:0;color:var(--text-primary)">Supabase Database Integration</h2>
-          <p style="font-size:11px;color:var(--text-secondary);margin:2px 0 0">PostgreSQL Cloud Persistence &amp; Forensic Sync</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Status Banner -->
-    <div id="db-modal-status-banner" style="background:rgba(15,23,42,0.6);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span id="db-modal-dot" style="width:9px;height:9px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
-          <span id="db-modal-status-text" style="font-weight:700;font-size:12px;color:var(--text-primary)">Probing Supabase Endpoint...</span>
-        </div>
-        <span class="cockpit-tag" style="font-size:10px">POSTGREST V1</span>
-      </div>
-      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);word-break:break-all" id="db-modal-url-display">
-        https://ugkekxiwvgsitzqduzxq.supabase.co
-      </div>
-    </div>
-
-    <!-- API Key Input Section -->
-    <div style="margin-bottom:16px">
-      <label style="display:block;font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">
-        Supabase API Key (anon / public or service_role):
-      </label>
-      <div style="display:flex;gap:8px">
-        <input type="password" id="input-supabase-key" class="cyber-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-size:11px;font-family:var(--font-mono);flex:1">
-        <button type="button" class="btn-filigran-gradient" onclick="saveDatabaseKey()" style="padding:8px 14px;font-size:11.5px;white-space:nowrap">
-          Save &amp; Connect
-        </button>
-      </div>
-      <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">
-        Found in Supabase Dashboard &rarr; Project Settings &rarr; API &rarr; Project API keys.
-      </div>
-    </div>
-
-    <!-- Feedback Message Box -->
-    <div id="db-modal-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px;font-family:var(--font-mono)"></div>
-
-    <!-- Table Sync Summary -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: investigations</div>
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Forensic Attack Graphs</div>
-      </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: audit_logs</div>
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Normalized Telemetry</div>
-      </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: operators</div>
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Security Clearances</div>
-      </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: containment_actions</div>
-        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Mitigation Audit Log</div>
-      </div>
-    </div>
-
-    <!-- Modal Actions -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button type="button" class="header-action-btn" onclick="syncActiveInvestigationToSupabase()" id="btn-sync-supabase" style="flex:1;padding:10px;font-size:11.5px;justify-content:center">
-        ⚡ Sync Active Investigation Now
-      </button>
-      <a href="https://supabase.com/dashboard/project/ugkekxiwvgsitzqduzxq" target="_blank" rel="noopener noreferrer" class="header-action-btn" style="padding:10px 14px;font-size:11.5px;text-decoration:none;display:flex;align-items:center;gap:6px">
-        <span>Open Supabase Console</span>
-        <span style="font-size:10px">&nearr;</span>
-      </a>
-    </div>
-
-    <!-- Schema hint -->
-    <div style="margin-top:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10.5px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between">
-      <span>Need to create tables in Supabase? Run schema:</span>
-      <a href="/supabase_schema.sql" download="supabase_schema.sql" style="color:var(--accent-cyan);text-decoration:underline;font-family:var(--font-mono)">supabase_schema.sql</a>
-    </div>
-  </div>
-</div>
-
-<!-- ── CREATE / EDIT INVESTIGATION MODAL ─────────────────────────────── -->
-<div id="modal-investigation" class="auth-modal-overlay" onclick="handleModalInvOverlayClick(event)" style="display:none">
-  <div class="auth-modal-card" style="max-width:520px;padding:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:18px">📁</span>
-        <h3 id="modal-inv-title" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Create New Forensic Investigation</h3>
-      </div>
-      <button type="button" class="auth-modal-close" onclick="closeInvestigationModal()">&times;</button>
-    </div>
-
-    <form id="form-investigation" onsubmit="handleInvestigationFormSubmit(event)">
-      <input type="hidden" id="inv-form-id" value="">
-
-      <div style="margin-bottom:14px">
-        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Investigation Name *</label>
-        <input type="text" id="inv-form-name" class="dash-input" placeholder="e.g. Operation Red Relic (APT29)" required>
-      </div>
-
-      <div style="margin-bottom:14px">
-        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Description &amp; Threat Objective</label>
-        <textarea id="inv-form-desc" class="dash-textarea" rows="3" placeholder="Brief summary of observed intrusion vectors, affected workstations, or incident triggers..."></textarea>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        <div>
-          <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Severity Level</label>
-          <select id="inv-form-severity" class="dash-select">
-            <option value="CRITICAL" selected>CRITICAL (P0 Emergency)</option>
-            <option value="HIGH">HIGH (P1 Escalation)</option>
-            <option value="MEDIUM">MEDIUM (P2 Investigation)</option>
-            <option value="LOW">LOW (P3 Triage)</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Status</label>
-          <select id="inv-form-status" class="dash-select">
-            <option value="ACTIVE" selected>ACTIVE (In Progress)</option>
-            <option value="IN_REVIEW">IN_REVIEW</option>
-            <option value="CONCLUDED">CONCLUDED</option>
-            <option value="RESOLVED">RESOLVED</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="margin-bottom:18px">
-        <label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Telemetry Source Dataset</label>
-        <select id="inv-form-dataset" class="dash-select">
-          <option value="Custom Telemetry Ingestion" selected>Custom Telemetry Ingestion (.json / .csv)</option>
-          <option value="Enterprise Telemetry APT29">Enterprise Telemetry APT29 (Built-in)</option>
-          <option value="Active Directory Kerberoasting">Active Directory Kerberoasting</option>
-          <option value="Baseline Normal Enterprise Traffic">Baseline Normal Enterprise Traffic</option>
-        </select>
-      </div>
-
-      <div id="inv-form-feedback" style="display:none;padding:8px 10px;border-radius:6px;font-size:11px;margin-bottom:12px"></div>
-
-      <div style="display:flex;justify-content:flex-end;gap:10px">
-        <button type="button" class="header-action-btn" onclick="closeInvestigationModal()">Cancel</button>
-        <button type="submit" id="btn-save-investigation" class="btn-filigran-gradient" style="padding:9px 18px;font-size:12px">
-          <span id="btn-save-inv-text">Save Investigation</span>
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ── TELEMETRY UPLOAD SUMMARY MODAL ─────────────────────────────────── -->
-<div id="modal-upload-summary" class="auth-modal-overlay" onclick="handleModalUploadOverlayClick(event)" style="display:none">
-  <div class="auth-modal-card" style="max-width:560px;padding:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:18px">📤</span>
-        <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Telemetry Ingestion Summary</h3>
-      </div>
-      <button type="button" class="auth-modal-close" onclick="closeUploadSummaryModal()">&times;</button>
-    </div>
-
-    <div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;font-weight:600;color:var(--text-primary)" id="upload-summary-filename">dataset.csv</span>
-        <span class="chip-green" style="font-size:10px;padding:2px 8px">NORMALIZED &amp; PARSED</span>
-      </div>
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px" id="upload-summary-msg">
-        Telemetry records normalized and ingested into forensic multigraph.
-      </div>
-    </div>
-
-    <!-- 4-Box Ingestion Metric Tiles -->
-    <div class="upload-summary-grid">
-      <div class="upload-metric-tile">
-        <div class="upload-metric-label">Total Records</div>
-        <div class="upload-metric-val" id="sum-total-records" style="color:var(--text-primary)">0</div>
-      </div>
-      <div class="upload-metric-tile">
-        <div class="upload-metric-label">Valid Parsed</div>
-        <div class="upload-metric-val" id="sum-valid-records" style="color:var(--color-success)">0</div>
-      </div>
-      <div class="upload-metric-tile">
-        <div class="upload-metric-label">Duplicates</div>
-        <div class="upload-metric-val" id="sum-duplicate-records" style="color:var(--color-warning)">0</div>
-      </div>
-      <div class="upload-metric-tile">
-        <div class="upload-metric-label">Invalid Skipped</div>
-        <div class="upload-metric-val" id="sum-invalid-records" style="color:var(--text-tertiary)">0</div>
-      </div>
-    </div>
-
-    <!-- SHA-256 Merkle Proof -->
-    <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;margin-bottom:18px">
-      <div style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-bottom:4px">
-        FORENSIC MERKLE ROOT CHAIN OF CUSTODY (SHA-256):
-      </div>
-      <div id="upload-summary-merkle" style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-secondary);word-break:break-all">
-        —
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button type="button" class="header-action-btn" onclick="closeUploadSummaryModal()">Close</button>
-      <button type="button" class="btn-filigran-gradient" onclick="viewReconstructedAttackGraph()" style="padding:9px 18px;font-size:12px">
-        <span>⚡ Reconstruct Attack Graph</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ── USER PROFILE & CLEARANCE SETTINGS MODAL ───────────────────────── -->
-<div id="modal-profile" class="auth-modal-overlay" onclick="handleModalProfileOverlayClick(event)" style="display:none">
-  <div class="auth-modal-card" style="max-width:540px;padding:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px" id="prof-modal-avatar">🛡️</span>
-        <div>
-          <h3 id="prof-modal-name" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Operator Profile &amp; Settings</h3>
-          <p id="prof-modal-role-sub" style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Incident Response CIRT</p>
-        </div>
-      </div>
-      <button type="button" class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
-    </div>
-
-    <div id="prof-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px"></div>
-
-    <!-- Tab selection inside Profile Modal: Profile info vs Change Password -->
-    <div style="display:flex;gap:8px;border-bottom:1px solid var(--border-subtle);margin-bottom:16px">
-      <button type="button" class="auth-tab-btn active" id="tab-prof-info" onclick="switchProfileModalTab('info')">Operator Information</button>
-      <button type="button" class="auth-tab-btn" id="tab-prof-pwd" onclick="switchProfileModalTab('pwd')">Change Passcode</button>
-    </div>
-
-    <!-- Panel 1: Profile Details -->
-    <div id="panel-prof-info">
-      <form id="form-update-profile" onsubmit="handleProfileUpdateSubmit(event)">
-        <div style="margin-bottom:12px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Full Name</label>
-          <input type="text" id="prof-input-name" class="dash-input" required>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div>
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Corporate Email (Read-only)</label>
-            <input type="text" id="prof-input-email" class="dash-input" style="opacity:0.7;cursor:not-allowed" readonly>
-          </div>
-          <div>
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Callsign (Read-only)</label>
-            <input type="text" id="prof-input-username" class="dash-input" style="opacity:0.7;cursor:not-allowed" readonly>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-          <div>
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Job Title / Role</label>
-            <input type="text" id="prof-input-role" class="dash-input">
-          </div>
-          <div>
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Department</label>
-            <input type="text" id="prof-input-dept" class="dash-input">
-          </div>
-        </div>
-        <div style="margin-bottom:18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">SECURITY CLEARANCE</div>
-            <div id="prof-display-clearance" style="font-size:12px;font-weight:700;color:var(--accent-cyan);margin-top:2px">Level 4 (Top Secret / SCI)</div>
-          </div>
-          <span class="chip-red" id="prof-clearance-pill">L4</span>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px">
-          <button type="button" class="header-action-btn" onclick="closeProfileModal()">Close</button>
-          <button type="submit" id="btn-save-profile" class="btn-filigran-gradient" style="padding:8px 16px;font-size:11.5px">Save Changes</button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Panel 2: Change Password -->
-    <div id="panel-prof-pwd" style="display:none">
-      <form id="form-change-password" onsubmit="handleChangePasswordSubmit(event)">
-        <div style="margin-bottom:12px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Current Passcode</label>
-          <input type="password" id="pwd-current" class="dash-input" required autocomplete="current-password">
-        </div>
-        <div style="margin-bottom:12px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">New Passcode (Min 6 chars)</label>
-          <input type="password" id="pwd-new" class="dash-input" required autocomplete="new-password">
-        </div>
-        <div style="margin-bottom:18px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Confirm New Passcode</label>
-          <input type="password" id="pwd-confirm" class="dash-input" required autocomplete="new-password">
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px">
-          <button type="button" class="header-action-btn" onclick="closeProfileModal()">Cancel</button>
-          <button type="submit" id="btn-change-pwd" class="btn-filigran-gradient" style="padding:8px 16px;font-size:11.5px">Update Passcode</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- ── FORENSIC TOOL RUNNER MODAL ──────────────────────────────────────── -->
-<div id="modal-forensic-tool" class="auth-modal-overlay" onclick="handleForensicModalOverlayClick(event)" style="display:none">
-  <div class="auth-modal-card forensic-modal-card" style="max-width:960px;width:95vw;padding:26px;max-height:92vh;display:flex;flex-direction:column">
-    <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:14px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div id="ft-modal-icon-badge" class="cap-icon-box" style="margin-bottom:0;width:38px;height:38px">
-          <span id="ft-modal-icon" style="font-size:18px">⚡</span>
-        </div>
-        <div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <h3 id="ft-modal-title" style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Forensic Tool Execution Suite</h3>
-            <span id="ft-modal-endpoint-pill" class="chip-blue" style="font-size:10px;font-family:var(--font-mono)">POST /api/tools/clock-skew-correlator</span>
-          </div>
-          <p id="ft-modal-desc" style="margin:3px 0 0 0;font-size:11.5px;color:var(--text-secondary)">
-            Execute deep mathematical algorithms directly on current telemetry.
+          <p class="footer-desc">
+            Autonomous cyber forensic investigation, dynamic attack graph reconstruction, and zero-hallucination
+            incident response for modern enterprise SOC teams.
           </p>
         </div>
+
+        <div class="footer-links">
+          <div class="footer-col">
+            <div class="footer-col-title">Platform</div>
+            <a href="#cockpit" class="footer-link">Incident Cockpit</a>
+            <a href="#cockpit" class="footer-link">Attack Graph Engine</a>
+            <a href="#separate-signal-noise" class="footer-link">Signal vs Noise</a>
+            <a href="#capabilities" class="footer-link">Capabilities</a>
+          </div>
+
+          <div class="footer-col">
+            <div class="footer-col-title">Investigation</div>
+            <a href="#cockpit" class="footer-link" onclick="selectDataset('builtin')">Built-in APT Chain</a>
+            <a href="#cockpit" class="footer-link" onclick="document.getElementById('file-input').click()">Custom
+              Telemetry</a>
+            <a href="#cockpit" class="footer-link" onclick="simulateChaosDemo()">Chaos Simulation</a>
+            <a href="#cockpit" class="footer-link" onclick="switchTab('playbook')">Response Playbook</a>
+          </div>
+
+          <div class="footer-col">
+            <div class="footer-col-title">Standards</div>
+            <a href="#mitre-alliances" class="footer-link">MITRE ATT&amp;CK</a>
+            <a href="#mitre-alliances" class="footer-link">STIX 2.1</a>
+            <a href="#mitre-alliances" class="footer-link">NetworkX MultiDiGraph</a>
+            <a href="#mitre-alliances" class="footer-link">FastAPI Engine</a>
+          </div>
+        </div>
       </div>
-      <button type="button" class="auth-modal-close" onclick="closeForensicToolModal()">&times;</button>
-    </div>
 
-    <!-- Tool Selector Nav Tabs -->
-    <div class="ft-tabs-scroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;border-bottom:1px solid var(--border-subtle)">
-      <button type="button" class="ft-tab-btn active" id="ft-tab-clock-skew" onclick="switchForensicTool('clock-skew')">⏱️ Clock Skew</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-multidigraph" onclick="switchForensicTool('multidigraph')">🌐 MultiDiGraph</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-gap-bridge" onclick="switchForensicTool('gap-bridge')">⚡ Gap-Bridge</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-merkle-proof" onclick="switchForensicTool('merkle-proof')">📜 Merkle Proof</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-sigma-gen" onclick="switchForensicTool('sigma-gen')">🛡️ Sigma Rules</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-stix-bundle" onclick="switchForensicTool('stix-bundle')">📦 STIX 2.1</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-containment-sim" onclick="switchForensicTool('containment-sim')">🎯 Containment</button>
-      <button type="button" class="ft-tab-btn" id="ft-tab-deception-traps" onclick="switchForensicTool('deception-traps')">🍯 Deception</button>
-    </div>
+      <div class="footer-bottom">
+        <div class="footer-info-block">
+          <div>&copy; 2026 OBSYRON Cyber Forensics · Built for <strong>HackInnovision 2026 (NIT Rourkela)</strong> ·
+            Track C: Cyber Investigation</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span class="status-dot-pulse" style="width:6px;height:6px"></span>
+            <span>100% Standalone Localhost · Zero External Cloud Dependencies</span>
+          </div>
+        </div>
 
-    <!-- Parameter Config Bar -->
-    <div id="ft-param-container" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:12px 16px;margin-bottom:14px">
-      <!-- Injected by switchForensicTool() in app.js -->
+        <!-- ── BOTTOM THEME MODE SWITCHER FORM ── -->
+        <form class="bottom-theme-form" onsubmit="event.preventDefault()">
+          <span class="bottom-theme-label">INTERFACE MODE:</span>
+          <div class="theme-segmented-group">
+            <button type="button" class="theme-seg-btn active" id="seg-dark" onclick="setTheme('dark')"
+              title="Switch to Obsidian Midnight Theme">
+              <span>🌙</span>
+              <span>Dark</span>
+            </button>
+            <button type="button" class="theme-seg-btn" id="seg-light" onclick="setTheme('light')"
+              title="Switch to Crisp Enterprise Light Theme">
+              <span>☀️</span>
+              <span>Light</span>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+  </footer>
 
-    <!-- Actions & Status Bar -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+  <!-- ── OPERATOR AUTHORIZATION MODAL ────────────────────────────────────── -->
+  <div id="auth-modal" class="auth-modal-overlay" onclick="handleAuthModalClick(event)">
+    <div class="auth-modal-card">
+      <button class="auth-modal-close" onclick="closeAuthModal()" title="Close">&times;</button>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div class="brand-shield-icon" style="width:40px;height:40px">
+          <img src="/static/icon.png" alt="Emblem" style="width:24px;height:24px;object-fit:contain">
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.3px">
+            Operator Access Control
+          </div>
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--accent-cyan)">
+            LOG IN &amp; SIGN UP GATEWAY // NIST 800-61
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Operator Status Banner -->
+      <div id="modal-active-operator"
+        style="display:none;background:rgba(51,120,255,0.08);border:1px solid rgba(51,120,255,0.25);border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span id="modal-op-avatar" style="font-size:22px">🛡️</span>
+            <div>
+              <div id="modal-op-name" style="font-weight:700;font-size:13px;color:var(--text-primary)">Cmdr. Maya Thorne
+              </div>
+              <div id="modal-op-role" style="font-size:11px;color:var(--text-secondary)">Lead Forensic Director</div>
+            </div>
+          </div>
+          <button class="header-action-btn"
+            style="background:rgba(239,68,68,0.15);border-color:#EF4444;color:#EF4444;padding:4px 10px;font-size:10px"
+            onclick="logoutOperator()">
+            Lock &amp; Logout
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Cyber Tab Switcher -->
+      <div class="auth-tabs-nav" style="margin-bottom:16px">
+        <button type="button" class="auth-tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">
+          <span>Sign In</span>
+        </button>
+        <button type="button" class="auth-tab-btn" id="modal-tab-signup" onclick="switchModalAuthTab('signup')">
+          <span>Sign Up</span>
+        </button>
+      </div>
+
+      <!-- Feedback Area -->
+      <div id="modal-feedback"
+        style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:12px;font-family:var(--font-mono)">
+      </div>
+
+      <!-- Panel 1: Modal Log In -->
+      <div id="modal-panel-login">
+        <!-- 1-Click Role Selection -->
+        <div
+          style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-tertiary);font-weight:600;margin-bottom:6px">
+          DEMO PRESETS (CLICK TO PREFILL)
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+          <button type="button" class="quick-role-btn modal-role-btn"
+            onclick="quickSwitchRole('analyst_lead', 'obsyron2026', 'L4')">
+            <span style="font-size:12px;font-weight:700">Lead (L4)</span>
+            <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Full Access</span>
+          </button>
+          <button type="button" class="quick-role-btn modal-role-btn"
+            onclick="quickSwitchRole('soc_tier2', 'obsyron2026', 'L3')">
+            <span style="font-size:12px;font-weight:700">Responder (L3)</span>
+            <span style="font-size:9.5px;color:var(--color-warning);font-family:var(--font-mono)">Incident Ops</span>
+          </button>
+          <button type="button" class="quick-role-btn modal-role-btn"
+            onclick="quickSwitchRole('sec_auditor', 'obsyron2026', 'L2')">
+            <span style="font-size:12px;font-weight:700">Auditor (L2)</span>
+            <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono)">Read-Only</span>
+          </button>
+        </div>
+
+        <!-- Quick Form -->
+        <form id="modal-login-form" onsubmit="handleModalLogin(event)">
+          <div style="margin-bottom:10px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator
+              Callsign</label>
+            <input type="text" id="modal-input-username" class="cyber-input" style="padding-left:12px;font-size:12px"
+              value="analyst_lead" required autocomplete="username">
+            <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>analyst_lead</code></span>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode</label>
+            <input type="password" id="modal-input-password" class="cyber-input"
+              style="padding-left:12px;font-size:12px" value="obsyron2026" required autocomplete="current-password">
+            <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>obsyron2026</code></span>
+          </div>
+
+          <button type="submit" id="btn-modal-auth" class="btn-filigran-gradient"
+            style="width:100%;padding:10px;font-size:12px">
+            <span>Sign In</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Panel 2: Modal Sign Up -->
+      <div id="modal-panel-signup" style="display:none">
+        <form id="modal-signup-form" onsubmit="handleModalSignup(event)">
+          <div style="margin-bottom:10px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Full
+              Name</label>
+            <input type="text" id="modal-signup-name" class="cyber-input" style="padding-left:12px;font-size:12px"
+              placeholder="e.g. Maya Thorne" required>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Callsign</label>
+            <input type="text" id="modal-signup-username" class="cyber-input" style="padding-left:12px;font-size:12px"
+              placeholder="e.g. m_thorne" required autocomplete="username">
+          </div>
+
+          <div style="margin-bottom:10px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode
+              (Min. 4 chars)</label>
+            <input type="password" id="modal-signup-password" class="cyber-input"
+              style="padding-left:12px;font-size:12px" placeholder="Create passcode" required
+              autocomplete="new-password">
+          </div>
+
+          <div style="margin-bottom:14px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Clearance
+              Level</label>
+            <select id="modal-signup-clearance" class="cyber-input" style="padding-left:10px;font-size:12px">
+              <option value="L4">Level 4 — Lead Director (Full Control)</option>
+              <option value="L3" selected>Level 3 — Incident Responder</option>
+              <option value="L2">Level 2 — Threat Auditor</option>
+            </select>
+          </div>
+
+          <button type="submit" id="btn-modal-signup" class="btn-filigran-gradient"
+            style="width:100%;padding:10px;font-size:12px">
+            <span>Create Account</span>
+          </button>
+        </form>
+      </div>
+
+      <div style="margin-top:14px;text-align:center">
+        <a href="/login" style="font-size:11px;color:var(--accent-cyan);text-decoration:none">
+          Open Fullscreen Log In / Sign Up Gateway &rarr;
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── INGESTION CHAOS STREAM VS GRAPH BENCHMARK MODAL ────────────────── -->
+  <div id="chaos-modal" class="auth-modal-overlay" onclick="handleChaosModalClick(event)">
+    <div class="chaos-modal-card"
+      style="max-width:960px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:22px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">🎲</span>
+          <div>
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px">INGESTION
+              CHAOS BENCHMARK // STREAM VS RECONSTRUCTION</h3>
+            <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Deterministic 8-Dimension Telemetry
+              Chaos: Out-of-Order Packets, Clock Drifts, Duplicates, and Dropped Logs</p>
+          </div>
+        </div>
+        <button class="drawer-close-btn" onclick="closeChaosModal()">✕ Close</button>
+      </div>
+
+      <!-- Chaos KPI Summary Bar -->
+      <div id="chaos-kpis-grid"
+        style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:16px">
+        <!-- Injected dynamically by app.js -->
+      </div>
+
+      <!-- Side-by-Side Comparison -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <!-- Column 1: Incoming Raw Stream -->
+        <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;font-weight:700;color:var(--color-critical);font-family:var(--font-mono)">🔴 RAW
+              INCOMING STREAM (CHAOS)</span>
+            <span class="chip-red" style="font-size:9.5px;padding:1px 6px">UNORDERED / DRIFTED</span>
+          </div>
+          <div id="chaos-raw-stream-table"
+            style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10px">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Column 2: Reconstructed Master State -->
+        <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;font-weight:700;color:var(--color-success);font-family:var(--font-mono)">🟢
+              RECONSTRUCTED INVESTIGATION</span>
+            <span class="chip-green" style="font-size:9.5px;padding:1px 6px">DEDUPLICATED / SYNCED</span>
+          </div>
+          <div id="chaos-reconstructed-summary"
+            style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10.5px">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:14px">
+        <span style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono)">Verified via SHA-256
+          Merkle Chain of Custody</span>
+        <div style="display:flex;gap:8px">
+          <button class="drawer-close-btn" onclick="applyChaosToCockpit()">⚡ Apply to Graph Canvas</button>
+          <button class="btn-filigran-gradient" style="padding:6px 14px;font-size:11px"
+            onclick="closeChaosModal()">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EXECUTIVE INCIDENT REPORT VIEWER MODAL ───────────────────────────── -->
+  <div id="report-modal" class="auth-modal-overlay" onclick="handleReportModalClick(event)">
+    <div class="report-modal-card"
+      style="max-width:880px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:24px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">FORENSIC INCIDENT BRIEFING</h3>
+          <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)">NIST SP
+            800-61 Rev 2 Compliant Executive Cyber Briefing</p>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="drawer-close-btn" onclick="printReportModal()">🖨️ Print / PDF</button>
+          <button class="drawer-close-btn" onclick="copyReportMarkdown()">📋 Copy Markdown</button>
+          <button class="drawer-close-btn" onclick="closeReportModal()">✕ Close</button>
+        </div>
+      </div>
+
+      <div id="report-modal-body"
+        style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-family:var(--font-sans)">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUPABASE DATABASE INTEGRATION MODAL ─────────────────────────────── -->
+  <div id="database-modal" class="auth-modal-overlay" onclick="handleDatabaseModalClick(event)" style="display:none">
+    <div class="auth-modal-card" style="max-width:540px">
+      <button class="auth-modal-close" onclick="closeDatabaseModal()" title="Close">&times;</button>
+
+      <div class="auth-modal-header" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div
+            style="width:34px;height:34px;border-radius:8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:18px">
+            ⚡
+          </div>
+          <div>
+            <h2 style="font-size:16px;font-weight:700;margin:0;color:var(--text-primary)">Supabase Database Integration
+            </h2>
+            <p style="font-size:11px;color:var(--text-secondary);margin:2px 0 0">PostgreSQL Cloud Persistence &amp;
+              Forensic Sync</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Status Banner -->
+      <div id="db-modal-status-banner"
+        style="background:rgba(15,23,42,0.6);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="db-modal-dot"
+              style="width:9px;height:9px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+            <span id="db-modal-status-text" style="font-weight:700;font-size:12px;color:var(--text-primary)">Probing
+              Supabase Endpoint...</span>
+          </div>
+          <span class="cockpit-tag" style="font-size:10px">POSTGREST V1</span>
+        </div>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);word-break:break-all"
+          id="db-modal-url-display">
+          https://ugkekxiwvgsitzqduzxq.supabase.co
+        </div>
+      </div>
+
+      <!-- API Key Input Section -->
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">
+          Supabase API Key (anon / public or service_role):
+        </label>
+        <div style="display:flex;gap:8px">
+          <input type="password" id="input-supabase-key" class="cyber-input"
+            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            style="font-size:11px;font-family:var(--font-mono);flex:1">
+          <button type="button" class="btn-filigran-gradient" onclick="saveDatabaseKey()"
+            style="padding:8px 14px;font-size:11.5px;white-space:nowrap">
+            Save &amp; Connect
+          </button>
+        </div>
+        <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">
+          Found in Supabase Dashboard &rarr; Project Settings &rarr; API &rarr; Project API keys.
+        </div>
+      </div>
+
+      <!-- Feedback Message Box -->
+      <div id="db-modal-feedback"
+        style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px;font-family:var(--font-mono)">
+      </div>
+
+      <!-- Table Sync Summary -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--text-tertiary)">TABLE: investigations</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Forensic Attack Graphs</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--text-tertiary)">TABLE: audit_logs</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Normalized Telemetry</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--text-tertiary)">TABLE: operators</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Security Clearances</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--text-tertiary)">TABLE: containment_actions</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Mitigation Audit Log</div>
+        </div>
+      </div>
+
+      <!-- Modal Actions -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="header-action-btn" onclick="syncActiveInvestigationToSupabase()"
+          id="btn-sync-supabase" style="flex:1;padding:10px;font-size:11.5px;justify-content:center">
+          ⚡ Sync Active Investigation Now
+        </button>
+        <a href="https://supabase.com/dashboard/project/ugkekxiwvgsitzqduzxq" target="_blank" rel="noopener noreferrer"
+          class="header-action-btn"
+          style="padding:10px 14px;font-size:11.5px;text-decoration:none;display:flex;align-items:center;gap:6px">
+          <span>Open Supabase Console</span>
+          <span style="font-size:10px">&nearr;</span>
+        </a>
+      </div>
+
+      <!-- Schema hint -->
+      <div
+        style="margin-top:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10.5px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between">
+        <span>Need to create tables in Supabase? Run schema:</span>
+        <a href="/supabase_schema.sql" download="supabase_schema.sql"
+          style="color:var(--accent-cyan);text-decoration:underline;font-family:var(--font-mono)">supabase_schema.sql</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CREATE / EDIT INVESTIGATION MODAL ─────────────────────────────── -->
+  <div id="modal-investigation" class="auth-modal-overlay" onclick="handleModalInvOverlayClick(event)"
+    style="display:none">
+    <div class="auth-modal-card" style="max-width:520px;padding:24px">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">📁</span>
+          <h3 id="modal-inv-title" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Create New
+            Forensic Investigation</h3>
+        </div>
+        <button type="button" class="auth-modal-close" onclick="closeInvestigationModal()">&times;</button>
+      </div>
+
+      <form id="form-investigation" onsubmit="handleInvestigationFormSubmit(event)">
+        <input type="hidden" id="inv-form-id" value="">
+
+        <div style="margin-bottom:14px">
+          <label
+            style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Investigation
+            Name *</label>
+          <input type="text" id="inv-form-name" class="dash-input" placeholder="e.g. Operation Red Relic (APT29)"
+            required>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label
+            style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Description
+            &amp; Threat Objective</label>
+          <textarea id="inv-form-desc" class="dash-textarea" rows="3"
+            placeholder="Brief summary of observed intrusion vectors, affected workstations, or incident triggers..."></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label
+              style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Severity
+              Level</label>
+            <select id="inv-form-severity" class="dash-select">
+              <option value="CRITICAL" selected>CRITICAL (P0 Emergency)</option>
+              <option value="HIGH">HIGH (P1 Escalation)</option>
+              <option value="MEDIUM">MEDIUM (P2 Investigation)</option>
+              <option value="LOW">LOW (P3 Triage)</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Status</label>
+            <select id="inv-form-status" class="dash-select">
+              <option value="ACTIVE" selected>ACTIVE (In Progress)</option>
+              <option value="IN_REVIEW">IN_REVIEW</option>
+              <option value="CONCLUDED">CONCLUDED</option>
+              <option value="RESOLVED">RESOLVED</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label
+            style="display:block;font-size:11.5px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Telemetry
+            Source Dataset</label>
+          <select id="inv-form-dataset" class="dash-select">
+            <option value="Custom Telemetry Ingestion" selected>Custom Telemetry Ingestion (.json / .csv)</option>
+            <option value="Enterprise Telemetry APT29">Enterprise Telemetry APT29 (Built-in)</option>
+            <option value="Active Directory Kerberoasting">Active Directory Kerberoasting</option>
+            <option value="Baseline Normal Enterprise Traffic">Baseline Normal Enterprise Traffic</option>
+          </select>
+        </div>
+
+        <div id="inv-form-feedback"
+          style="display:none;padding:8px 10px;border-radius:6px;font-size:11px;margin-bottom:12px"></div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          <button type="button" class="header-action-btn" onclick="closeInvestigationModal()">Cancel</button>
+          <button type="submit" id="btn-save-investigation" class="btn-filigran-gradient"
+            style="padding:9px 18px;font-size:12px">
+            <span id="btn-save-inv-text">Save Investigation</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── TELEMETRY UPLOAD SUMMARY MODAL ─────────────────────────────────── -->
+  <div id="modal-upload-summary" class="auth-modal-overlay" onclick="handleModalUploadOverlayClick(event)"
+    style="display:none">
+    <div class="auth-modal-card" style="max-width:560px;padding:24px">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">📤</span>
+          <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Telemetry Ingestion Summary</h3>
+        </div>
+        <button type="button" class="auth-modal-close" onclick="closeUploadSummaryModal()">&times;</button>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;font-weight:600;color:var(--text-primary)"
+            id="upload-summary-filename">dataset.csv</span>
+          <span class="chip-green" style="font-size:10px;padding:2px 8px">NORMALIZED &amp; PARSED</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px" id="upload-summary-msg">
+          Telemetry records normalized and ingested into forensic multigraph.
+        </div>
+      </div>
+
+      <!-- 4-Box Ingestion Metric Tiles -->
+      <div class="upload-summary-grid">
+        <div class="upload-metric-tile">
+          <div class="upload-metric-label">Total Records</div>
+          <div class="upload-metric-val" id="sum-total-records" style="color:var(--text-primary)">0</div>
+        </div>
+        <div class="upload-metric-tile">
+          <div class="upload-metric-label">Valid Parsed</div>
+          <div class="upload-metric-val" id="sum-valid-records" style="color:var(--color-success)">0</div>
+        </div>
+        <div class="upload-metric-tile">
+          <div class="upload-metric-label">Duplicates</div>
+          <div class="upload-metric-val" id="sum-duplicate-records" style="color:var(--color-warning)">0</div>
+        </div>
+        <div class="upload-metric-tile">
+          <div class="upload-metric-label">Invalid Skipped</div>
+          <div class="upload-metric-val" id="sum-invalid-records" style="color:var(--text-tertiary)">0</div>
+        </div>
+      </div>
+
+      <!-- SHA-256 Merkle Proof -->
+      <div
+        style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;margin-bottom:18px">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan);margin-bottom:4px">
+          FORENSIC MERKLE ROOT CHAIN OF CUSTODY (SHA-256):
+        </div>
+        <div id="upload-summary-merkle"
+          style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-secondary);word-break:break-all">
+          —
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="header-action-btn" onclick="closeUploadSummaryModal()">Close</button>
+        <button type="button" class="btn-filigran-gradient" onclick="viewReconstructedAttackGraph()"
+          style="padding:9px 18px;font-size:12px">
+          <span>⚡ Reconstruct Attack Graph</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── USER PROFILE & CLEARANCE SETTINGS MODAL ───────────────────────── -->
+  <div id="modal-profile" class="auth-modal-overlay" onclick="handleModalProfileOverlayClick(event)"
+    style="display:none">
+    <div class="auth-modal-card" style="max-width:540px;padding:24px">
+      <div
+        style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px" id="prof-modal-avatar">🛡️</span>
+          <div>
+            <h3 id="prof-modal-name" style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Operator
+              Profile &amp; Settings</h3>
+            <p id="prof-modal-role-sub" style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Incident
+              Response CIRT</p>
+          </div>
+        </div>
+        <button type="button" class="auth-modal-close" onclick="closeProfileModal()">&times;</button>
+      </div>
+
+      <div id="prof-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px">
+      </div>
+
+      <!-- Tab selection inside Profile Modal: Profile info vs Change Password -->
+      <div style="display:flex;gap:8px;border-bottom:1px solid var(--border-subtle);margin-bottom:16px">
+        <button type="button" class="auth-tab-btn active" id="tab-prof-info"
+          onclick="switchProfileModalTab('info')">Operator Information</button>
+        <button type="button" class="auth-tab-btn" id="tab-prof-pwd" onclick="switchProfileModalTab('pwd')">Change
+          Passcode</button>
+      </div>
+
+      <!-- Panel 1: Profile Details -->
+      <div id="panel-prof-info">
+        <form id="form-update-profile" onsubmit="handleProfileUpdateSubmit(event)">
+          <div style="margin-bottom:12px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Full
+              Name</label>
+            <input type="text" id="prof-input-name" class="dash-input" required>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label
+                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Corporate
+                Email (Read-only)</label>
+              <input type="text" id="prof-input-email" class="dash-input" style="opacity:0.7;cursor:not-allowed"
+                readonly>
+            </div>
+            <div>
+              <label
+                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Callsign
+                (Read-only)</label>
+              <input type="text" id="prof-input-username" class="dash-input" style="opacity:0.7;cursor:not-allowed"
+                readonly>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label
+                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Job
+                Title / Role</label>
+              <input type="text" id="prof-input-role" class="dash-input">
+            </div>
+            <div>
+              <label
+                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Department</label>
+              <input type="text" id="prof-input-dept" class="dash-input">
+            </div>
+          </div>
+          <div
+            style="margin-bottom:18px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary)">SECURITY CLEARANCE
+              </div>
+              <div id="prof-display-clearance"
+                style="font-size:12px;font-weight:700;color:var(--accent-cyan);margin-top:2px">Level 4 (Top Secret /
+                SCI)</div>
+            </div>
+            <span class="chip-red" id="prof-clearance-pill">L4</span>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="header-action-btn" onclick="closeProfileModal()">Close</button>
+            <button type="submit" id="btn-save-profile" class="btn-filigran-gradient"
+              style="padding:8px 16px;font-size:11.5px">Save Changes</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Panel 2: Change Password -->
+      <div id="panel-prof-pwd" style="display:none">
+        <form id="form-change-password" onsubmit="handleChangePasswordSubmit(event)">
+          <div style="margin-bottom:12px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Current
+              Passcode</label>
+            <input type="password" id="pwd-current" class="dash-input" required autocomplete="current-password">
+          </div>
+          <div style="margin-bottom:12px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">New
+              Passcode (Min 6 chars)</label>
+            <input type="password" id="pwd-new" class="dash-input" required autocomplete="new-password">
+          </div>
+          <div style="margin-bottom:18px">
+            <label
+              style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px">Confirm
+              New Passcode</label>
+            <input type="password" id="pwd-confirm" class="dash-input" required autocomplete="new-password">
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="header-action-btn" onclick="closeProfileModal()">Cancel</button>
+            <button type="submit" id="btn-change-pwd" class="btn-filigran-gradient"
+              style="padding:8px 16px;font-size:11.5px">Update Passcode</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FORENSIC TOOL WORKING WINDOW ─────────────────────────────────────────── -->
+<div id="modal-forensic-tool" class="auth-modal-overlay" onclick="handleForensicModalOverlayClick(event)">
+  <div class="forensic-modal-card">
+    <!-- Window Title Bar -->
+    <div class="ft-window-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <button type="button" id="btn-run-forensic-tool" class="btn-filigran-gradient" onclick="executeActiveForensicTool()" style="padding:9px 20px;font-size:12px;display:flex;align-items:center;gap:8px">
-          <span id="ft-run-spinner">⚡</span>
-          <span id="ft-run-label">Execute Tool</span>
-        </button>
-        <span id="ft-status-tag" style="display:none;font-size:11px;font-family:var(--font-mono);padding:4px 10px;border-radius:4px"></span>
-        <span id="ft-latency-tag" style="font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)"></span>
+        <div class="ft-window-dots">
+          <span class="ft-dot ft-dot-red" onclick="closeForensicToolModal()" title="Close Window" style="cursor:pointer"></span>
+          <span class="ft-dot ft-dot-yellow" title="Minimize Window"></span>
+          <span class="ft-dot ft-dot-green" title="Active Process"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="ft-modal-icon" style="font-size:16px">⏱️</span>
+          <span id="ft-modal-title" style="font-size:13.5px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px">Chaos Ingestor &amp; Clock Skew Correlator</span>
+          <span id="ft-modal-endpoint-pill" class="chip-blue" style="font-size:9.5px;font-family:var(--font-mono)">POST /api/tools/clock-skew-correlator</span>
+        </div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button type="button" class="header-action-btn" onclick="copyForensicToolOutput()" title="Copy Formatted Output">
-          📋 Copy Output
-        </button>
-        <button type="button" class="header-action-btn" onclick="downloadForensicToolOutput()" title="Download Output File">
-          ⬇️ Download
-        </button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
+        <button type="button" class="drawer-close-btn" onclick="closeForensicToolModal()" style="padding:4px 10px;font-size:11px">✕ Close</button>
       </div>
     </div>
 
-    <!-- Metrics Cards Strip -->
-    <div id="ft-metrics-strip" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;margin-bottom:14px">
-      <!-- Dynamic metric cards injected here -->
-    </div>
-
-    <!-- Result Output Console -->
-    <div style="flex:1;min-height:220px;background:#050811;border:1px solid var(--border-default);border-radius:8px;position:relative;display:flex;flex-direction:column;overflow:hidden">
-      <div style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);padding:6px 14px;display:flex;justify-content:space-between;align-items:center">
-        <span id="ft-console-label" style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);letter-spacing:0.05em">LIVE FORENSIC RESULT BUFFER</span>
-        <span id="ft-console-type" style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan)">JSON</span>
+    <!-- Window Body Container -->
+    <div class="ft-window-body">
+      <!-- Tool Selector Nav Tabs -->
+      <div class="ft-tabs-scroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;border-bottom:1px solid var(--border-subtle)">
+        <button type="button" class="ft-tab-btn active" id="ft-tab-clock-skew" onclick="switchForensicTool('clock-skew')">⏱️ Clock Skew</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-multidigraph" onclick="switchForensicTool('multidigraph')">🌐 MultiDiGraph</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-gap-bridge" onclick="switchForensicTool('gap-bridge')">⚡ Gap-Bridge</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-merkle-proof" onclick="switchForensicTool('merkle-proof')">📜 Merkle Proof</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-sigma-gen" onclick="switchForensicTool('sigma-gen')">🛡️ Sigma Rules</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-stix-bundle" onclick="switchForensicTool('stix-bundle')">📦 STIX 2.1</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-containment-sim" onclick="switchForensicTool('containment-sim')">🎯 Containment</button>
+        <button type="button" class="ft-tab-btn" id="ft-tab-deception-traps" onclick="switchForensicTool('deception-traps')">🍯 Deception</button>
       </div>
-      <div style="flex:1;overflow:auto;padding:12px 16px">
-        <pre id="ft-output-pre" style="margin:0;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:#a5d6ff;white-space:pre-wrap;word-break:break-all">// Click 'Execute Tool' to stream live telemetry output from the backend...</pre>
+
+      <!-- Description Banner -->
+      <div style="background:rgba(51,120,255,0.06);border:1px solid rgba(51,120,255,0.2);border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <p id="ft-modal-desc" style="margin:0;font-size:11.5px;color:var(--text-secondary)">
+          Reconciles out-of-order syslog/firewall packets and neutralizes host clock drifts into a master chronological timeline.
+        </p>
+        <span id="ft-modal-tag" class="cap-tag" style="margin:0">MASTER TIMELINE SYNC</span>
+      </div>
+
+      <!-- Parameter Config Bar -->
+      <div id="ft-param-container" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 14px">
+        <!-- Injected dynamically by switchForensicTool() -->
+      </div>
+
+      <!-- Actions & Mode Toolbar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border-subtle);padding-bottom:10px">
+        <!-- Left execution controls -->
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" id="btn-run-forensic-tool" class="btn-filigran-gradient" onclick="executeActiveForensicTool()" style="padding:7px 18px;font-size:12px;display:flex;align-items:center;gap:6px">
+            <span id="ft-run-spinner">⚡</span>
+            <span id="ft-run-label">Execute Tool</span>
+          </button>
+          <span id="ft-status-tag" style="display:none;font-size:11px;font-family:var(--font-mono);padding:4px 8px;border-radius:4px"></span>
+          <span id="ft-latency-tag" style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono)"></span>
+        </div>
+
+        <!-- Center View Mode Toggle -->
+        <div style="display:flex;gap:6px">
+          <button type="button" class="ft-view-toggle-btn active" id="ft-view-btn-visual" onclick="toggleForensicViewMode('visual')">
+            📊 Visual Analysis
+          </button>
+          <button type="button" class="ft-view-toggle-btn" id="ft-view-btn-raw" onclick="toggleForensicViewMode('raw')">
+            💻 Raw Code / Data
+          </button>
+        </div>
+
+        <!-- Right actions -->
+        <div style="display:flex;gap:6px">
+          <button type="button" class="header-action-btn" id="btn-apply-tool-graph" onclick="applyForensicToolToGraph()" title="Apply result directly into Attack Graph Cockpit" style="color:var(--accent-cyan);border-color:rgba(56,189,248,0.4)">
+            ⚡ Apply to Graph
+          </button>
+          <button type="button" class="header-action-btn" onclick="copyForensicToolOutput()" title="Copy Formatted Output">
+            📋 Copy
+          </button>
+          <button type="button" class="header-action-btn" onclick="downloadForensicToolOutput()" title="Download Output Payload">
+            ⬇️ Download
+          </button>
+        </div>
+      </div>
+
+      <!-- Metrics Cards Strip -->
+      <div id="ft-metrics-strip" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+        <!-- Dynamic metric cards injected here -->
+      </div>
+
+      <!-- Panel A: Visual Analysis (Default) -->
+      <div id="ft-visual-view" style="flex:1;min-height:240px;background:var(--bg-canvas);border:1px solid var(--border-default);border-radius:8px;padding:14px;overflow-y:auto">
+        <!-- Dynamic visual report injected here -->
+      </div>
+
+      <!-- Panel B: Raw Terminal Console (Toggled) -->
+      <div id="ft-raw-view" style="display:none;flex:1;min-height:240px;background:#050811;border:1px solid var(--border-default);border-radius:8px;position:relative;flex-direction:column;overflow:hidden">
+        <div style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);padding:6px 14px;display:flex;justify-content:space-between;align-items:center">
+          <span id="ft-console-label" style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);letter-spacing:0.05em">LIVE FORENSIC RESULT BUFFER</span>
+          <span id="ft-console-type" style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan)">JSON</span>
+        </div>
+        <div style="flex:1;overflow:auto;padding:12px 16px">
+          <pre id="ft-output-pre" style="margin:0;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:#a5d6ff;white-space:pre-wrap;word-break:break-all">// Executing tool...</pre>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script src="/static/app.js"></script>
-<script>
-  // Backward compatibility alias for hero button
-  function simulateChaosDemo() {
-    triggerChaosBenchmark();
-  }
-</script>
+  <script>
+    // Backward compatibility alias for hero button
+    function simulateChaosDemo() {
+      triggerChaosBenchmark();
+    }
+  </script>
 </body>
+
 </html>

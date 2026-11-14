@@ -2600,6 +2600,109 @@ input:checked + .slider::before {
   font-family: var(--font-mono);
 }
 
+/* ── FORENSIC TOOL WORKING WINDOW ─────────────────────────────────────────── */
+.forensic-modal-card {
+  position: relative;
+  width: 96vw;
+  max-width: 1040px;
+  max-height: 90vh;
+  background: #080D1A;
+  border: 1px solid rgba(51, 120, 255, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 32px 80px -10px rgba(0, 0, 0, 0.95), 0 0 40px rgba(51, 120, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ft-window-header {
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.ft-window-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ft-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.ft-dot-red { background: #ef4444; }
+.ft-dot-yellow { background: #f59e0b; }
+.ft-dot-green { background: #10b981; }
+
+.ft-window-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ft-view-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ft-view-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.ft-view-toggle-btn.active {
+  background: rgba(51, 120, 255, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.ft-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.ft-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.ft-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+}
+
+.ft-table tr:hover td {
+  background: rgba(51, 120, 255, 0.05);
+  color: var(--text-primary);
+}
+
 /* ── 11. "FILIGRAN BY NUMBERS" STATS SECTION ──────────────────────────────── */
 .numbers-strip {
   display: grid;
@@ -2849,7 +2952,8 @@ body:not(.dark-theme) #footer {
 }
 .auth-modal-overlay.show .auth-modal-card,
 .auth-modal-overlay.show .chaos-modal-card,
-.auth-modal-overlay.show .report-modal-card {
+.auth-modal-overlay.show .report-modal-card,
+.auth-modal-overlay.show .forensic-modal-card {
   transform: scale(1);
 }
 
