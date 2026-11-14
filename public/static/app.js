@@ -6062,24 +6062,80 @@ state.attackSimTheater = {
   }
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   100% DYNAMIC ATTACK SIMULATION THEATER ENGINE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let _simTypewriterTimer = null;
+let _simLogStreamTimer = null;
+let _simStageStepTimer = null;
+let _simProgressTimer = null;
+let _simPrevMetrics = { snrRaw: 0, snrSignals: 0, br: 0, conf: 0 };
+
+// Scenario Node Label Definitions for Dynamic Graph Renaming
+const SCENARIO_NODE_LABELS = {
+  apt29: {
+    1: { name: "Tor Exit 185.220", sub: "[Adversary Origin]" },
+    2: { name: "wkst-04-dev", sub: "[PATIENT ZERO: m_thorne]" },
+    3: { name: "powershell.exe", sub: "SeDebugPrivilege" },
+    4: { name: "srv-file-02", sub: "[INFERRED BRIDGE]" },
+    5: { name: "DC-01 (Target)", sub: "Active Directory" },
+    6: { name: "ssh-honeypot", sub: "[DECEPTION TRAP]" },
+    7: { name: "C2 185.220.101.5", sub: "[Cobalt Strike C2]" }
+  },
+  ransomware: {
+    1: { name: "Citrix VPN GW", sub: "[Compromised Creds]" },
+    2: { name: "wkst-fin-01", sub: "[PATIENT ZERO: Finance]" },
+    3: { name: "vssadmin.exe", sub: "Delete Shadows" },
+    4: { name: "srv-san-01", sub: "[VLAN Storage Bridge]" },
+    5: { name: "ESXi Hypervisor", sub: "Target Virtual Disks" },
+    6: { name: "Canary SMB Share", sub: "[DECEPTION DECOY]" },
+    7: { name: "ALPHV Onion C2", sub: "[Extortion Exfil]" }
+  },
+  insider: {
+    1: { name: "Badge In (23:45)", sub: "[Off-Hours Physical]" },
+    2: { name: "devops-jump-01", sub: "[PATIENT ZERO: deployer]" },
+    3: { name: "AWS IAM CLI", sub: "Export Vault Keys" },
+    4: { name: "srv-git-01", sub: "[Inferred CI/CD Bridge]" },
+    5: { name: "Prod S3 Bucket", sub: "Target 120k Records" },
+    6: { name: "Tripwire Canary", sub: "[DECEPTION BREADCRUMB]" },
+    7: { name: "Mega.nz Tunnel", sub: "[Encrypted Shadow Exfil]" }
+  }
+};
+
 function openAttackSimModal() {
   const modal = document.getElementById('attack-sim-modal');
   if (!modal) return;
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  renderSimTimelineNav();
-  updateAttackSimStage(state.liveSim.currentStage || 1);
-
-  if (!state.liveSim.isRunning) {
-    startLiveDemoSimulation();
+  // Ensure theater state exists
+  if (!state.attackSimTheater) {
+    state.attackSimTheater = {
+      currentScenario: 'apt29',
+      isPaused: false,
+      speedMultiplier: 1,
+      scenarios: state.attackSimTheater ? state.attackSimTheater.scenarios : {}
+    };
+  } else {
+    state.attackSimTheater.isPaused = false;
   }
+
+  updateModalPauseBtnUI();
+  updateModalSpeedBtnUI();
+  applyScenarioNodeLabels(state.attackSimTheater.currentScenario || 'apt29');
+  renderSimTimelineNav();
+  
+  // Start dynamic play at stage 1
+  _simPrevMetrics = { snrRaw: 0, snrSignals: 0, br: 0, conf: 0 };
+  updateAttackSimStage(1);
 }
 
 function closeAttackSimModal() {
   const modal = document.getElementById('attack-sim-modal');
   if (modal) modal.style.display = 'none';
   document.body.style.overflow = '';
+  stopAllSimTimers();
 }
 
 function handleAttackSimOverlayClick(e) {
@@ -6088,66 +6144,290 @@ function handleAttackSimOverlayClick(e) {
   }
 }
 
-function changeSimScenario(scenarioKey) {
-  state.attackSimTheater.currentScenario = scenarioKey;
-  renderSimTimelineNav();
+function stopAllSimTimers() {
+  clearInterval(_simTypewriterTimer);
+  clearInterval(_simLogStreamTimer);
+  clearTimeout(_simStageStepTimer);
+  clearInterval(_simProgressTimer);
+}
+
+function updateModalPauseBtnUI() {
+  const icon = document.getElementById('modal-sim-icon');
+  const lbl = document.getElementById('modal-sim-label');
+  const isPaused = state.attackSimTheater && state.attackSimTheater.isPaused;
+  if (icon) icon.textContent = isPaused ? '▶' : '⏸';
+  if (lbl) lbl.textContent = isPaused ? 'Resume Simulation' : 'Pause Simulation';
+}
+
+function updateModalSpeedBtnUI() {
+  const speedVal = document.getElementById('modal-sim-speed-val');
+  const spd = (state.attackSimTheater && state.attackSimTheater.speedMultiplier) || 1;
+  if (speedVal) speedVal.textContent = `${spd}x`;
+}
+
+function toggleSimPause() {
+  if (!state.attackSimTheater) return;
+  state.attackSimTheater.isPaused = !state.attackSimTheater.isPaused;
+  updateModalPauseBtnUI();
+
+  if (!state.attackSimTheater.isPaused) {
+    // Resume current stage progression
+    const curStage = state.liveSim.currentStage || 1;
+    updateAttackSimStage(curStage);
+  } else {
+    stopAllSimTimers();
+  }
+}
+
+function cycleSimSpeed() {
+  if (!state.attackSimTheater) return;
+  const current = state.attackSimTheater.speedMultiplier || 1;
+  const next = current === 1 ? 2 : (current === 2 ? 4 : 1);
+  state.attackSimTheater.speedMultiplier = next;
+  updateModalSpeedBtnUI();
+  
+  // Re-run current stage with updated speed
+  const curStage = state.liveSim.currentStage || 1;
+  updateAttackSimStage(curStage);
+}
+
+function restartLiveDemoSimulation() {
+  stopAllSimTimers();
+  if (state.attackSimTheater) state.attackSimTheater.isPaused = false;
+  updateModalPauseBtnUI();
+  _simPrevMetrics = { snrRaw: 0, snrSignals: 0, br: 0, conf: 0 };
+  
+  for (let s = 1; s <= 6; s++) {
+    const fill = document.getElementById(`sim-step-fill-${s}`);
+    if (fill) fill.style.width = '0%';
+    const btn = document.getElementById(`sim-btn-stage-${s}`);
+    if (btn) btn.classList.remove('active', 'completed');
+  }
   updateAttackSimStage(1);
-  restartLiveDemoSimulation();
+}
+
+function changeSimScenario(scenarioKey) {
+  stopAllSimTimers();
+  if (!state.attackSimTheater) state.attackSimTheater = {};
+  state.attackSimTheater.currentScenario = scenarioKey;
+  state.attackSimTheater.isPaused = false;
+  updateModalPauseBtnUI();
+  applyScenarioNodeLabels(scenarioKey);
+  renderSimTimelineNav();
+  _simPrevMetrics = { snrRaw: 0, snrSignals: 0, br: 0, conf: 0 };
+  updateAttackSimStage(1);
+}
+
+function applyScenarioNodeLabels(scenarioKey) {
+  const mapping = SCENARIO_NODE_LABELS[scenarioKey] || SCENARIO_NODE_LABELS.apt29;
+  for (let i = 1; i <= 7; i++) {
+    const info = mapping[i];
+    if (!info) continue;
+    const nameEl = document.getElementById(`sim-node-${i}-name`);
+    const subEl = document.getElementById(`sim-node-${i}-sub`);
+    if (nameEl) nameEl.textContent = info.name;
+    if (subEl) subEl.textContent = info.sub;
+  }
 }
 
 function renderSimTimelineNav() {
   const container = document.getElementById('sim-modal-timeline');
   if (!container) return;
 
-  const scenario = state.attackSimTheater.scenarios[state.attackSimTheater.currentScenario] || state.attackSimTheater.scenarios.apt29;
-  container.innerHTML = scenario.stages.map((st, idx) => {
-    const isCur = st.stage === state.liveSim.currentStage;
+  const scenarioKey = state.attackSimTheater && state.attackSimTheater.currentScenario || 'apt29';
+  const scenario = state.attackSimTheater.scenarios[scenarioKey] || state.attackSimTheater.scenarios.apt29;
+  
+  container.innerHTML = scenario.stages.map((st) => {
+    const curStage = state.liveSim.currentStage || 1;
+    const isCur = st.stage === curStage;
+    const isPast = st.stage < curStage;
     return `
-      <button type="button" class="sim-stage-step-btn ${isCur ? 'active' : ''}" id="sim-btn-stage-${st.stage}" onclick="updateAttackSimStage(${st.stage})">
-        <span class="sim-step-num">STAGE ${st.stage}</span>
+      <button type="button" class="sim-stage-step-btn ${isCur ? 'active' : ''} ${isPast ? 'completed' : ''}" id="sim-btn-stage-${st.stage}" onclick="onUserSelectSimStage(${st.stage})">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="sim-step-num" id="sim-step-num-${st.stage}">STAGE ${st.stage}</span>
+          <span class="sim-step-check" id="sim-step-check-${st.stage}" style="font-size:10px;color:#10B981">${isPast ? '✓' : ''}</span>
+        </div>
         <span class="sim-step-title">${escapeHtml(st.name)}</span>
+        <div class="sim-step-progress-bar">
+          <div class="sim-step-progress-fill" id="sim-step-fill-${st.stage}" style="width:${isPast ? '100%' : '0%'}"></div>
+        </div>
       </button>
     `;
   }).join('');
 }
 
+function onUserSelectSimStage(stageNum) {
+  stopAllSimTimers();
+  if (state.attackSimTheater) state.attackSimTheater.isPaused = false;
+  updateModalPauseBtnUI();
+  updateAttackSimStage(stageNum);
+}
+
+// Dynamic Counter Animation with Cubic Easing
+function animateKpiCounter(elId, start, end, durationMs, prefix = '', suffix = '', decimals = 0) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const startTs = performance.now();
+  function tick(now) {
+    const p = Math.min((now - startTs) / durationMs, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const current = start + (end - start) * ease;
+    el.textContent = `${prefix}${current.toFixed(decimals)}${suffix}`;
+    if (p < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      el.textContent = `${prefix}${end.toFixed(decimals)}${suffix}`;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// Dynamic Typewriter for Attacker Terminal
+function dynamicTypewriter(cmdText, outputText, speed, onDone) {
+  const cliBox = document.getElementById('sim-attacker-cli');
+  if (!cliBox) return;
+  clearInterval(_simTypewriterTimer);
+  
+  cliBox.innerHTML = `
+    <div><span class="sim-cli-prompt">root@kali:~#</span> <span id="sim-cli-type-content" class="sim-cli-cmd"></span><span class="sim-cli-cursor"></span></div>
+  `;
+  const textSpan = document.getElementById('sim-cli-type-content');
+  
+  let i = 0;
+  const delay = Math.max(8, Math.round(24 / speed));
+  
+  _simTypewriterTimer = setInterval(() => {
+    if (i < cmdText.length) {
+      textSpan.textContent += cmdText[i];
+      i++;
+      cliBox.scrollTop = cliBox.scrollHeight;
+    } else {
+      clearInterval(_simTypewriterTimer);
+      // Remove blinking cursor and print return output
+      setTimeout(() => {
+        const cursor = cliBox.querySelector('.sim-cli-cursor');
+        if (cursor) cursor.remove();
+        
+        const outDiv = document.createElement('div');
+        outDiv.className = 'sim-cli-out sim-log-arrival';
+        outDiv.innerHTML = outputText.replace(/\\n/g, '<br>');
+        cliBox.appendChild(outDiv);
+        cliBox.scrollTop = cliBox.scrollHeight;
+        if (onDone) onDone();
+      }, 140 / speed);
+    }
+  }, delay);
+}
+
+// Dynamic Telemetry Log Streamer for Defender Feed
+function dynamicDefenderStream(logsText, speed, onDone) {
+  const defBox = document.getElementById('sim-defender-telemetry');
+  if (!defBox) return;
+  clearInterval(_simLogStreamTimer);
+  defBox.innerHTML = '';
+  
+  const lines = logsText.split('\\n').filter(Boolean);
+  let lineIdx = 0;
+  const lineDelay = Math.max(90, Math.round(320 / speed));
+  
+  function pushLine() {
+    if (lineIdx >= lines.length) {
+      clearInterval(_simLogStreamTimer);
+      if (onDone) onDone();
+      return;
+    }
+    const rawLine = lines[lineIdx++];
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+    
+    const isCrit = rawLine.includes('ALERT') || rawLine.includes('blocked') || rawLine.includes('SEALED') || rawLine.includes('TRIP') || rawLine.includes('ZERO_DAY');
+    const isWarn = rawLine.includes('GAP') || rawLine.includes('PENALTY') || rawLine.includes('WARNING') || rawLine.includes('FLAGGED') || rawLine.includes('SURICATA');
+    const cls = isCrit ? 'sim-log-alert' : (isWarn ? 'sim-log-warn' : 'sim-log-ok');
+    
+    const row = document.createElement('div');
+    row.className = `${cls} sim-log-arrival`;
+    row.innerHTML = `<span style="color:#64748B">[${timeStr}]</span> ${escapeHtml(rawLine)}`;
+    defBox.appendChild(row);
+    defBox.scrollTop = defBox.scrollHeight;
+  }
+  
+  pushLine();
+  _simLogStreamTimer = setInterval(pushLine, lineDelay);
+}
+
+// Dynamic Stage Step Progress Bar
+function dynamicStageProgressBar(stageNum, totalDurationMs, onComplete) {
+  clearInterval(_simProgressTimer);
+  const fill = document.getElementById(`sim-step-fill-${stageNum}`);
+  if (!fill) return;
+  
+  let elapsed = 0;
+  const stepInterval = 40;
+  
+  _simProgressTimer = setInterval(() => {
+    if (state.attackSimTheater && state.attackSimTheater.isPaused) return;
+    elapsed += stepInterval;
+    const pct = Math.min(100, (elapsed / totalDurationMs) * 100);
+    fill.style.width = `${pct}%`;
+    
+    if (elapsed >= totalDurationMs) {
+      clearInterval(_simProgressTimer);
+      fill.style.width = '100%';
+      if (onComplete && !(state.attackSimTheater && state.attackSimTheater.isPaused)) {
+        onComplete();
+      }
+    }
+  }, stepInterval);
+}
+
+// MAIN DYNAMIC STAGE CONTROLLER
 function updateAttackSimStage(stageNum) {
   state.liveSim.currentStage = stageNum;
-  const scenario = state.attackSimTheater.scenarios[state.attackSimTheater.currentScenario] || state.attackSimTheater.scenarios.apt29;
+  const scenarioKey = state.attackSimTheater && state.attackSimTheater.currentScenario || 'apt29';
+  const scenario = state.attackSimTheater.scenarios[scenarioKey] || state.attackSimTheater.scenarios.apt29;
   const stage = scenario.stages[stageNum - 1];
   if (!stage) return;
 
-  // 1. Highlight buttons in modal timeline
-  document.querySelectorAll('.sim-stage-step-btn').forEach((b, idx) => {
-    b.classList.toggle('active', (idx + 1) === stageNum);
-  });
+  const speed = (state.attackSimTheater && state.attackSimTheater.speedMultiplier) || 1;
+  const stageDurationMs = Math.round(3500 / speed);
 
-  // 2. Update Terminals
+  // 1. Timeline Step States
+  for (let s = 1; s <= 6; s++) {
+    const btn = document.getElementById(`sim-btn-stage-${s}`);
+    const check = document.getElementById(`sim-step-check-${s}`);
+    const fill = document.getElementById(`sim-step-fill-${s}`);
+    if (!btn) continue;
+    
+    if (s < stageNum) {
+      btn.classList.add('completed');
+      btn.classList.remove('active');
+      if (check) check.textContent = '✓';
+      if (fill) fill.style.width = '100%';
+    } else if (s === stageNum) {
+      btn.classList.add('active');
+      btn.classList.remove('completed');
+      if (check) check.textContent = '';
+      if (fill) fill.style.width = '0%';
+    } else {
+      btn.classList.remove('active', 'completed');
+      if (check) check.textContent = '';
+      if (fill) fill.style.width = '0%';
+    }
+  }
+
+  // 2. Tactic Pill
   const termTactic = document.getElementById('sim-term-tactic');
   if (termTactic) termTactic.textContent = stage.tactic;
 
-  const cliBox = document.getElementById('sim-attacker-cli');
-  if (cliBox) {
-    cliBox.innerHTML = `
-      <div><span class="sim-cli-prompt">root@kali:~#</span><span class="sim-cli-cmd">${stage.attackerCmd.replace(/\\n/g, '<br><span class="sim-cli-prompt">root@kali:~#</span> ')}</span></div>
-      <div class="sim-cli-out">[+] Executed with code 0. Attack pipeline advancing to Stage ${stageNum}...</div>
-    `;
-  }
+  // 3. Dynamic Terminals
+  const outputMsg = `[+] Exit code 0. Payload delivered to ${stage.name}. Advancing to Stage ${stageNum}...`;
+  dynamicTypewriter(stage.attackerCmd, outputMsg, speed);
+  dynamicDefenderStream(stage.defenderLogs, speed);
 
-  const defBox = document.getElementById('sim-defender-telemetry');
-  if (defBox) {
-    const lines = stage.defenderLogs.split('\\n');
-    defBox.innerHTML = lines.map(l => {
-      const isCrit = l.includes('ALERT') || l.includes('blocked');
-      const isWarn = l.includes('GAP') || l.includes('PENALTY');
-      const cls = isCrit ? 'sim-log-alert' : (isWarn ? 'sim-log-warn' : 'sim-log-ok');
-      return `<div class="${cls}">${escapeHtml(l)}</div>`;
-    }).join('');
-  }
-
-  // 3. Highlight SVG Network Nodes & Edges
+  // 4. Dynamic SVG Packets & Radars
   for (let i = 1; i <= 6; i++) {
     const edge = document.getElementById(`sim-edge-${i}`);
+    const packet = document.getElementById(`sim-packet-${i}`);
     if (edge) {
       if (i <= stageNum) {
         edge.style.opacity = '1';
@@ -6157,31 +6437,87 @@ function updateAttackSimStage(stageNum) {
         edge.classList.remove('sim-laser-beam');
       }
     }
+    if (packet) {
+      packet.style.opacity = (i === stageNum || (stageNum === 6 && i >= 5)) ? '1' : (i < stageNum ? '0.35' : '0');
+    }
   }
 
-  // 4. Update Metrics Dials
-  const kpis = {
-    1: { snr: "48 → 1", pz: "185.220.101.47", br: "1 Asset", conf: "74.0%", status: "INGESTION PHASE" },
-    2: { snr: "96 → 2", pz: "wkst-04-dev", br: "2 Assets", conf: "82.0%", status: "PROCESS DETECTED" },
-    3: { snr: "180 → 3", pz: "wkst-04-dev", br: "3 Assets", conf: "89.0%", status: "AD RECON FLAGGED" },
-    4: { snr: "240 → 5", pz: "wkst-04-dev", br: "4 Assets", conf: "84.0%", status: "GAP-BRIDGING APPLIED" },
-    5: { snr: "310 → 6", pz: "wkst-04-dev", br: "5 Assets", conf: "94.0%", status: "DECEPTION TRIGGERED" },
-    6: { snr: "350 → 7", pz: "185.220.101.47", br: "5 Assets", conf: "95.8%", status: "ISOLATED & SEALED" }
-  };
-  const m = kpis[stageNum] || kpis[6];
-  if (document.getElementById('sim-kpi-snr')) document.getElementById('sim-kpi-snr').textContent = m.snr;
-  if (document.getElementById('sim-kpi-pz')) document.getElementById('sim-kpi-pz').textContent = m.pz;
-  if (document.getElementById('sim-kpi-br')) document.getElementById('sim-kpi-br').textContent = m.br;
-  if (document.getElementById('sim-kpi-conf')) document.getElementById('sim-kpi-conf').textContent = m.conf;
-  if (document.getElementById('sim-kpi-status')) document.getElementById('sim-kpi-status').textContent = m.status;
+  // Active Radar Pulse on Target Node
+  for (let n = 1; n <= 7; n++) {
+    const radar = document.getElementById(`sim-radar-node-${n}`);
+    const box = document.getElementById(`sim-box-node-${n}`);
+    if (radar) {
+      const isTarget = (n === stage.targetNode) || (stageNum === 6 && (n === 7 || n === 2));
+      radar.style.opacity = isTarget ? '1' : '0';
+    }
+    if (box) {
+      const isTarget = (n === stage.targetNode);
+      if (isTarget) {
+        box.classList.add('sim-active-target-box');
+      } else {
+        box.classList.remove('sim-active-target-box');
+      }
+    }
+  }
 
-  // Sync to Cockpit Storyboard
+  // 5. Dynamic KPI Metrics (Smooth Count-up Animation)
+  const kpiTargets = {
+    1: { raw: 48,  sig: 1, pz: "185.220.101.47", br: 1, conf: 74.0, status: "INGESTION PHASE" },
+    2: { raw: 96,  sig: 2, pz: "wkst-04-dev",    br: 2, conf: 82.0, status: "PROCESS DETECTED" },
+    3: { raw: 180, sig: 3, pz: "wkst-04-dev",    br: 3, conf: 89.0, status: "AD RECON FLAGGED" },
+    4: { raw: 240, sig: 5, pz: "wkst-04-dev",    br: 4, conf: 84.0, status: "GAP-BRIDGING APPLIED" },
+    5: { raw: 310, sig: 6, pz: "wkst-04-dev",    br: 5, conf: 94.0, status: "DECEPTION TRIGGERED" },
+    6: { raw: 350, sig: 7, pz: "185.220.101.47", br: 5, conf: 95.8, status: "ISOLATED & SEALED" }
+  };
+  const target = kpiTargets[stageNum] || kpiTargets[6];
+  const animDur = Math.round(1100 / speed);
+
+  animateKpiCounter('sim-kpi-conf', _simPrevMetrics.conf, target.conf, animDur, '', '%', 1);
+  animateKpiCounter('sim-kpi-br', _simPrevMetrics.br, target.br, animDur, '', ' Assets', 0);
+  
+  const snrEl = document.getElementById('sim-kpi-snr');
+  if (snrEl) snrEl.textContent = `${target.raw} → ${target.sig}`;
+  
+  const pzEl = document.getElementById('sim-kpi-pz');
+  if (pzEl) pzEl.textContent = target.pz;
+  
+  const statusEl = document.getElementById('sim-kpi-status');
+  if (statusEl) {
+    statusEl.textContent = target.status;
+    statusEl.className = `sim-metric-val ${stageNum === 6 ? 'success' : (stageNum >= 3 ? 'critical' : '')}`;
+  }
+
+  _simPrevMetrics = { snrRaw: target.raw, snrSignals: target.sig, br: target.br, conf: target.conf };
+
+  // 6. Dynamic Cockpit Sync & Storyboard update
   if (typeof activateAttackStage === 'function') {
     activateAttackStage(stageNum);
   }
+
+  // 7. Dynamic Progress Bar & Auto-Advance Loop
+  dynamicStageProgressBar(stageNum, stageDurationMs, () => {
+    if (stageNum < 6) {
+      updateAttackSimStage(stageNum + 1);
+    } else {
+      const check6 = document.getElementById('sim-step-check-6');
+      if (check6) check6.textContent = '✓';
+      const btn6 = document.getElementById('sim-btn-stage-6');
+      if (btn6) btn6.classList.add('completed');
+      
+      const statusFinal = document.getElementById('sim-kpi-status');
+      if (statusFinal) statusFinal.textContent = '🛡️ MITIGATED (100% CONTAINED)';
+      
+      if (typeof showToast === 'function') {
+        showToast('🛡️ Attack Simulation Complete: Threat Contained & Graph Reconstructed with 95.8% Confidence');
+      }
+    }
+  });
 }
 
 function applyAttackSimulationToCockpit() {
   closeAttackSimModal();
   scrollToSection('cockpit');
+  if (typeof activateAttackStage === 'function') {
+    activateAttackStage(state.liveSim.currentStage || 1);
+  }
 }

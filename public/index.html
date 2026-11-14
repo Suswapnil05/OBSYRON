@@ -959,7 +959,41 @@
           <svg viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
+          
+          <!-- Dynamic Animated Packet Spheres Traveling Along Attack Paths -->
+          <g id="sim-svg-packets">
+            <circle id="sim-packet-1" r="5" fill="#EF4444" filter="url(#simGlowRed)" opacity="0">
+              <animateMotion id="sim-anim-1" dur="1.8s" repeatCount="indefinite" path="M 90 115 L 230 70" />
+            </circle>
+            <circle id="sim-packet-2" r="5" fill="#38BDF8" filter="url(#simGlowCyan)" opacity="0">
+              <animateMotion id="sim-anim-2" dur="1.5s" repeatCount="indefinite" path="M 230 70 L 370 70" />
+            </circle>
+            <circle id="sim-packet-3" r="5" fill="#EF4444" filter="url(#simGlowRed)" opacity="0">
+              <animateMotion id="sim-anim-3" dur="1.8s" repeatCount="indefinite" path="M 370 70 L 510 115" />
+            </circle>
+            <circle id="sim-packet-4" r="5" fill="#F59E0B" filter="url(#simGlowCyan)" opacity="0">
+              <animateMotion id="sim-anim-4" dur="1.6s" repeatCount="indefinite" path="M 230 70 L 370 160" />
+            </circle>
+            <circle id="sim-packet-5" r="5" fill="#10B981" filter="url(#simGlowCyan)" opacity="0">
+              <animateMotion id="sim-anim-5" dur="1.6s" repeatCount="indefinite" path="M 510 115 L 650 160" />
+            </circle>
+            <circle id="sim-packet-6" r="6" fill="#EF4444" filter="url(#simGlowRed)" opacity="0">
+              <animateMotion id="sim-anim-6" dur="1.7s" repeatCount="indefinite" path="M 510 115 L 770 115" />
+            </circle>
+          </g>
+
+          <!-- Dynamic Radar Waves Emitted by Target Nodes -->
+          <g id="sim-svg-radars">
+            <circle id="sim-radar-node-1" class="sim-radar-wave" cx="90" cy="115" r="22" stroke="#EF4444" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-2" class="sim-radar-wave" cx="230" cy="70" r="24" stroke="#38BDF8" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-3" class="sim-radar-wave" cx="370" cy="70" r="24" stroke="#38BDF8" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-4" class="sim-radar-wave" cx="370" cy="160" r="24" stroke="#F59E0B" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-5" class="sim-radar-wave" cx="510" cy="115" r="26" stroke="#EF4444" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-6" class="sim-radar-wave" cx="650" cy="160" r="24" stroke="#10B981" stroke-width="2" fill="none" opacity="0"></circle>
+            <circle id="sim-radar-node-7" class="sim-radar-wave" cx="770" cy="115" r="26" stroke="#EF4444" stroke-width="2" fill="none" opacity="0"></circle>
+          </g>
+
+        </svg>
         </div>
         <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
       </div>
@@ -2184,56 +2218,56 @@
             <g id="sim-node-1" transform="translate(90,115)">
               <circle r="22" fill="#2E1018" stroke="#EF4444" stroke-width="2" filter="url(#simGlowRed)" />
               <text y="4" font-size="16" text-anchor="middle">🌐</text>
-              <text y="36" font-size="9" fill="#FCA5A5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">Tor Exit 185.220</text>
-              <text y="47" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">[Adversary Origin]</text>
+              <text id="sim-node-1-name" y="36" font-size="9" fill="#FCA5A5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">Tor Exit 185.220</text>
+              <text id="sim-node-1-sub" y="47" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">[Adversary Origin]</text>
             </g>
 
             <!-- Node 2: Patient Zero Workstation -->
             <g id="sim-node-2" transform="translate(230,70)">
               <rect x="-22" y="-18" width="44" height="36" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="2" id="sim-box-node-2" />
               <text y="5" font-size="15" text-anchor="middle">💻</text>
-              <text y="30" font-size="9.5" fill="#38BDF8" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">wkst-04-dev</text>
-              <text y="41" font-size="8" fill="#F59E0B" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">[PATIENT ZERO: m_thorne]</text>
+              <text id="sim-node-2-name" y="30" font-size="9.5" fill="#38BDF8" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">wkst-04-dev</text>
+              <text id="sim-node-2-sub" y="41" font-size="8" fill="#F59E0B" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">[PATIENT ZERO: m_thorne]</text>
             </g>
 
             <!-- Node 3: Execution Process -->
             <g id="sim-node-3" transform="translate(370,70)">
               <rect x="-22" y="-18" width="44" height="36" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="1.8" id="sim-box-node-3" />
               <text y="5" font-size="15" text-anchor="middle">⚙️</text>
-              <text y="30" font-size="9" fill="#E2E8F0" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">powershell.exe</text>
-              <text y="41" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">SeDebugPrivilege</text>
+              <text id="sim-node-3-name" y="30" font-size="9" fill="#E2E8F0" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">powershell.exe</text>
+              <text id="sim-node-3-sub" y="41" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">SeDebugPrivilege</text>
             </g>
 
             <!-- Node 4: File Server (Inferred Pivot) -->
             <g id="sim-node-4" transform="translate(370,160)">
               <rect x="-22" y="-18" width="44" height="36" rx="6" fill="#1E293B" stroke="#F59E0B" stroke-width="2" id="sim-box-node-4" />
               <text y="5" font-size="15" text-anchor="middle">🖥️</text>
-              <text y="30" font-size="9" fill="#FCD34D" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">srv-file-02</text>
-              <text y="41" font-size="8" fill="#F59E0B" text-anchor="middle" font-family="'JetBrains Mono', monospace">[INFERRED BRIDGE]</text>
+              <text id="sim-node-4-name" y="30" font-size="9" fill="#FCD34D" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">srv-file-02</text>
+              <text id="sim-node-4-sub" y="41" font-size="8" fill="#F59E0B" text-anchor="middle" font-family="'JetBrains Mono', monospace">[INFERRED BRIDGE]</text>
             </g>
 
             <!-- Node 5: Domain Controller -->
             <g id="sim-node-5" transform="translate(510,115)">
               <rect x="-24" y="-20" width="48" height="40" rx="6" fill="#1E293B" stroke="#38BDF8" stroke-width="2.2" id="sim-box-node-5" />
               <text y="5" font-size="16" text-anchor="middle">🏢</text>
-              <text y="32" font-size="9.5" fill="#38BDF8" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">DC-01 (Target)</text>
-              <text y="43" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">Active Directory</text>
+              <text id="sim-node-5-name" y="32" font-size="9.5" fill="#38BDF8" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">DC-01 (Target)</text>
+              <text id="sim-node-5-sub" y="43" font-size="8" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">Active Directory</text>
             </g>
 
             <!-- Node 6: Cowrie Honeypot Trap -->
             <g id="sim-node-6" transform="translate(650,160)">
               <rect x="-22" y="-18" width="44" height="36" rx="6" fill="#064E3B" stroke="#10B981" stroke-width="2" id="sim-box-node-6" />
               <text y="5" font-size="15" text-anchor="middle">🍯</text>
-              <text y="30" font-size="9" fill="#34D399" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">ssh-honeypot</text>
-              <text y="41" font-size="8" fill="#10B981" text-anchor="middle" font-family="'JetBrains Mono', monospace">[DECEPTION TRAP]</text>
+              <text id="sim-node-6-name" y="30" font-size="9" fill="#34D399" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">ssh-honeypot</text>
+              <text id="sim-node-6-sub" y="41" font-size="8" fill="#10B981" text-anchor="middle" font-family="'JetBrains Mono', monospace">[DECEPTION TRAP]</text>
             </g>
 
             <!-- Node 7: C2 Server -->
             <g id="sim-node-7" transform="translate(770,115)">
               <circle r="22" fill="#2E1018" stroke="#EF4444" stroke-width="2.2" filter="url(#simGlowRed)" id="sim-box-node-7" />
               <text y="4" font-size="16" text-anchor="middle">📡</text>
-              <text y="36" font-size="9" fill="#FCA5A5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">C2 185.220.101.5</text>
-              <text y="47" font-size="8" fill="#EF4444" text-anchor="middle" font-family="'JetBrains Mono', monospace">[Cobalt Strike C2]</text>
+              <text id="sim-node-7-name" y="36" font-size="9" fill="#FCA5A5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">C2 185.220.101.5</text>
+              <text id="sim-node-7-sub" y="47" font-size="8" fill="#EF4444" text-anchor="middle" font-family="'JetBrains Mono', monospace">[Cobalt Strike C2]</text>
             </g>
           </g>
         </svg>

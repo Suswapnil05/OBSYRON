@@ -5220,3 +5220,104 @@ body:not(.dark-theme) .sim-metrics-strip {
   font-size: 9.5px;
   font-weight: 600;
 }
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DYNAMIC ATTACK SIMULATION THEATER ADDITIONS (PACKETS, RADAR, TYPEWRITER)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Dynamic Energy Packets Traversing Edges */
+.sim-packet-pulse {
+  filter: drop-shadow(0 0 6px currentColor);
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+/* Radar Ping Waves Radiating From Target Nodes */
+@keyframes simRadarPing {
+  0% {
+    r: 20px;
+    opacity: 0.95;
+    stroke-width: 2.5px;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    r: 52px;
+    opacity: 0;
+    stroke-width: 0.5px;
+  }
+}
+.sim-radar-wave {
+  animation: simRadarPing 1.6s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Step Progress Bar on Timeline Buttons */
+.sim-step-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.sim-step-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #0284C7, #38BDF8);
+  transition: width 0.08s linear;
+}
+.sim-stage-step-btn.completed .sim-step-progress-fill {
+  width: 100% !important;
+  background: #10B981 !important;
+}
+
+/* Blinking Terminal Typewriter Cursor */
+.sim-cli-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: #38BDF8;
+  vertical-align: middle;
+  margin-left: 2px;
+  animation: simCursorBlink 0.75s steps(2, start) infinite;
+}
+@keyframes simCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Streaming Log Lines Arrival Glow */
+.sim-log-arrival {
+  animation: simLogFlash 0.5s ease-out;
+}
+@keyframes simLogFlash {
+  0% { background: rgba(56, 189, 248, 0.25); color: #fff; }
+  100% { background: transparent; }
+}
+
+/* Active Node Pulsing Glow in SVG */
+.sim-active-target-box {
+  stroke: #EF4444 !important;
+  stroke-width: 2.8px !important;
+  filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8)) !important;
+  animation: simTargetPulse 1s ease-in-out infinite alternate;
+}
+@keyframes simTargetPulse {
+  from { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5)); }
+  to { filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.95)); }
+}
+
+/* Node Status Tag */
+.sim-node-status-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: #EF4444;
+  letter-spacing: 0.04em;
+}
