@@ -2127,8 +2127,17 @@ body:not(.dark-theme) #footer {
   transform: scale(0.96);
   transition: transform 0.25s ease;
 }
-.auth-modal-overlay.show .auth-modal-card {
+.auth-modal-overlay.show .auth-modal-card,
+.auth-modal-overlay.show .chaos-modal-card,
+.auth-modal-overlay.show .report-modal-card {
   transform: scale(1);
+}
+
+.chaos-modal-card,
+.report-modal-card {
+  position: relative;
+  transform: scale(0.96);
+  transition: transform 0.25s ease;
 }
 
 .auth-modal-close {

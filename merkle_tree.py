@@ -115,3 +115,15 @@ def verify_merkle_proof(leaf_hash: str, proof_path: List[Dict[str, str]], expect
         else:
             current = _sha256(current + sibling)
     return current == expected_root
+
+
+def generate_merkle_tree(logs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Convenience helper to build Merkle Tree and return summary dict."""
+    tree = ForensicMerkleTree(logs)
+    return {
+        "merkle_root": tree.get_merkle_root(),
+        "leaf_count": len(tree.leaf_hashes),
+        "tree_depth": len(tree.tree_levels),
+        "_tree": tree
+    }
+

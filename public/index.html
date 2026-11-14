@@ -158,8 +158,8 @@
 <!-- ── FILIGRAN-STYLE HERO SECTION ───────────────────────────────────────── -->
 <section class="hero-section">
   <h1 class="hero-title">
-    Beyond Detection.<br>
-    <em class="hero-italic-gradient">Into Investigation.</em>
+    Every Attack Leaves a Trace.<br>
+    <em class="hero-italic-gradient">We Connect Them.</em>
   </h1>
 
   <p class="hero-subtitle">
@@ -172,7 +172,7 @@
       <span>Reconstruct Attack Graph</span>
       <span>⚡</span>
     </a>
-    <a href="#cockpit" class="hero-btn-secondary" onclick="simulateChaosDemo()">
+    <a href="#cockpit" class="hero-btn-secondary" onclick="triggerChaosBenchmark()">
       <span>Simulate Ingestion Chaos</span>
       <span>🎲</span>
     </a>
@@ -255,7 +255,13 @@
           <span class="db-dot" id="db-status-dot" style="width:7px;height:7px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
           <span id="db-status-label">Supabase (ugkekxiwvgsitzqduzxq)</span>
         </button>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="header-action-btn" onclick="openReportModal()" title="View Printable Executive Forensic Briefing" style="padding:6px 10px;font-size:10.5px;border-color:var(--accent-cyan);color:var(--accent-cyan)">
+            📄 Executive Brief
+          </button>
+          <button class="header-action-btn" onclick="triggerChaosBenchmark()" title="Open Ingestion Chaos Raw Stream vs Graph Benchmark" style="padding:6px 10px;font-size:10.5px">
+            🎲 Chaos Benchmark
+          </button>
           <button class="header-action-btn" onclick="exportInvestigation('json')" title="Export NIST SP 800-61 JSON Incident Report" style="padding:6px 10px;font-size:10.5px">
             📥 JSON Report
           </button>
@@ -283,6 +289,14 @@
           </button>
 
           <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:4px">
+            <button class="rail-btn scenario-btn" id="btn-scenario-chaos" onclick="triggerChaosBenchmark()" title="Deterministic 8-dimension chaos simulation">
+              <span class="btn-dot" style="background:var(--color-critical)"></span>
+              <span>🎲 Ingestion Chaos Benchmark</span>
+            </button>
+            <button class="rail-btn scenario-btn" id="btn-scenario-deception" onclick="loadDeceptionTelemetry()" title="Correlate Cowrie SSH & OpenCanary decoys">
+              <span class="btn-dot" style="background:var(--color-success)"></span>
+              <span>🍯 Deception Intel Traps</span>
+            </button>
             <button class="rail-btn scenario-btn" id="btn-scenario-normal_enterprise_traffic" onclick="loadScenario('normal_enterprise_traffic')" title="200 benign background events">
               <span class="btn-dot" style="background:var(--accent-slate)"></span>
               <span>Baseline Normal Traffic</span>
@@ -333,15 +347,24 @@
         </div>
 
         <div class="rail-group">
-          <div class="rail-title">Investigation Time-Travel</div>
+          <div class="rail-title">Investigation Time-Travel &amp; Replay</div>
           <div class="time-travel-box">
-            <div class="timeline-controls">
+            <div class="timeline-controls" style="gap:4px">
+              <button class="ctrl-btn" onclick="stepReplay(-1)" title="Step Back (Previous Event)">⏮</button>
               <button class="ctrl-btn" id="btn-play-pause" onclick="toggleTimelinePlay()" title="Play / Pause incident replay">▶</button>
-              <button class="ctrl-btn" onclick="resetTimeline()" title="Reset to Patient Zero">⏮</button>
-              <div style="flex:1;font-size:9.5px;font-family:var(--font-mono);color:var(--text-tertiary);text-align:right" id="playback-speed">1x SPEED</div>
+              <button class="ctrl-btn" onclick="stepReplay(1)" title="Step Forward (Next Event)">⏭</button>
+              <select id="sel-playback-speed" class="tool-select" style="padding:2px 4px;font-size:9px" onchange="changeReplaySpeed(this.value)">
+                <option value="1">1x SPEED</option>
+                <option value="0.5">0.5x</option>
+                <option value="2">2x</option>
+                <option value="5">5x FAST</option>
+              </select>
             </div>
             <input type="range" id="timeline-slider" min="0" max="100" value="100" oninput="onSliderInput(this.value)">
-            <div id="timeline-display">Master Timeline Sync</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+              <div id="timeline-display" style="font-size:9.5px;font-family:var(--font-mono);color:var(--accent-cyan)">Master Timeline Sync</div>
+              <div id="replay-step-indicator" style="font-size:9px;font-family:var(--font-mono);color:var(--text-tertiary)">Step: 7 / 7</div>
+            </div>
           </div>
         </div>
 
@@ -394,7 +417,9 @@
           <div class="legend-box">
             <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-user-color);background:var(--entity-user-bg)"></div><span>[USER] Compromised Identity</span></div>
             <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-device-color);background:var(--entity-device-bg)"></div><span>[DEVICE] Host Asset</span></div>
+            <div class="legend-item"><div class="leg-dot" style="border-color:#C084FC;background:rgba(192,132,252,0.15)"></div><span>[PROCESS] Executed Binary</span></div>
             <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-service-color);background:var(--entity-service-bg)"></div><span>[SERVICE] Service Account</span></div>
+            <div class="legend-item"><div class="leg-dot" style="border-color:#10B981;background:rgba(16,185,129,0.15)"></div><span>[HONEYPOT] Decoy Trap</span></div>
             <div class="legend-item"><div class="leg-dot" style="border-color:var(--entity-endpoint-color);background:var(--entity-endpoint-bg)"></div><span>[EXT_IP] Ingress / C2 Endpoint</span></div>
             <div class="legend-item"><div class="leg-line-solid"></div><span>Corroborated Edge (90–98%)</span></div>
             <div class="legend-item"><div class="leg-line-dash"></div><span>Inferred Gap Bridge (58–65%)</span></div>
@@ -407,6 +432,8 @@
             <button class="tab-btn active" onclick="switchTab('xai')">Root Cause AI</button>
             <button class="tab-btn" onclick="switchTab('playbook')">Containment</button>
             <button class="tab-btn" onclick="switchTab('matrix')">Pivots &amp; MITRE</button>
+            <button class="tab-btn" onclick="switchTab('deception')">Deception Traps</button>
+            <button class="tab-btn" onclick="switchTab('warnings')">Telemetry Gaps</button>
           </div>
 
           <!-- Tab 1: Root Cause AI Narrative -->
@@ -422,6 +449,16 @@
           <!-- Tab 3: Matrix & Pivot Centrality -->
           <div id="tab-matrix" class="tab-pane">
             <div id="matrix-content"></div>
+          </div>
+
+          <!-- Tab 4: Deception Intelligence (Cowrie & OpenCanary) -->
+          <div id="tab-deception" class="tab-pane">
+            <div id="deception-content"></div>
+          </div>
+
+          <!-- Tab 5: Missing Evidence & Timeline Warnings -->
+          <div id="tab-warnings" class="tab-pane">
+            <div id="warnings-content"></div>
           </div>
         </div>
 
@@ -797,6 +834,81 @@
   </div>
 </div>
 
+<!-- ── INGESTION CHAOS STREAM VS GRAPH BENCHMARK MODAL ────────────────── -->
+<div id="chaos-modal" class="auth-modal-overlay" onclick="handleChaosModalClick(event)">
+  <div class="chaos-modal-card" style="max-width:960px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:22px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🎲</span>
+        <div>
+          <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px">INGESTION CHAOS BENCHMARK // STREAM VS RECONSTRUCTION</h3>
+          <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary)">Deterministic 8-Dimension Telemetry Chaos: Out-of-Order Packets, Clock Drifts, Duplicates, and Dropped Logs</p>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="closeChaosModal()">✕ Close</button>
+    </div>
+
+    <!-- Chaos KPI Summary Bar -->
+    <div id="chaos-kpis-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:16px">
+      <!-- Injected dynamically by app.js -->
+    </div>
+
+    <!-- Side-by-Side Comparison -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <!-- Column 1: Incoming Raw Stream -->
+      <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--color-critical);font-family:var(--font-mono)">🔴 RAW INCOMING STREAM (CHAOS)</span>
+          <span class="chip-red" style="font-size:9.5px;padding:1px 6px">UNORDERED / DRIFTED</span>
+        </div>
+        <div id="chaos-raw-stream-table" style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10px">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+
+      <!-- Column 2: Reconstructed Master State -->
+      <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--color-success);font-family:var(--font-mono)">🟢 RECONSTRUCTED INVESTIGATION</span>
+          <span class="chip-green" style="font-size:9.5px;padding:1px 6px">DEDUPLICATED / SYNCED</span>
+        </div>
+        <div id="chaos-reconstructed-summary" style="max-height:320px;overflow-y:auto;font-family:var(--font-mono);font-size:10.5px">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:14px">
+      <span style="font-size:10.5px;color:var(--text-tertiary);font-family:var(--font-mono)">Verified via SHA-256 Merkle Chain of Custody</span>
+      <div style="display:flex;gap:8px">
+        <button class="drawer-close-btn" onclick="applyChaosToCockpit()">⚡ Apply to Graph Canvas</button>
+        <button class="btn-filigran-gradient" style="padding:6px 14px;font-size:11px" onclick="closeChaosModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EXECUTIVE INCIDENT REPORT VIEWER MODAL ───────────────────────────── -->
+<div id="report-modal" class="auth-modal-overlay" onclick="handleReportModalClick(event)">
+  <div class="report-modal-card" style="max-width:880px;width:95%;max-height:88vh;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border-default);border-radius:12px;padding:24px;box-shadow:var(--shadow-drawer);color:var(--text-primary)">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;margin-bottom:16px">
+      <div>
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">FORENSIC INCIDENT BRIEFING</h3>
+        <p style="margin:2px 0 0 0;font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)">NIST SP 800-61 Rev 2 Compliant Executive Cyber Briefing</p>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="drawer-close-btn" onclick="printReportModal()">🖨️ Print / PDF</button>
+        <button class="drawer-close-btn" onclick="copyReportMarkdown()">📋 Copy Markdown</button>
+        <button class="drawer-close-btn" onclick="closeReportModal()">✕ Close</button>
+      </div>
+    </div>
+
+    <div id="report-modal-body" style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-family:var(--font-sans)">
+      <!-- Rendered dynamically -->
+    </div>
+  </div>
+</div>
+
 <!-- ── SUPABASE DATABASE INTEGRATION MODAL ─────────────────────────────── -->
 <div id="database-modal" class="auth-modal-overlay" onclick="handleDatabaseModalClick(event)" style="display:none">
   <div class="auth-modal-card" style="max-width:540px">
@@ -885,18 +997,15 @@
     </div>
   </div>
 </div>
+    </div>
+  </div>
+</div>
 
 <script src="/static/app.js"></script>
 <script>
-  // Quick helper to simulate chaos demo from hero section
+  // Backward compatibility alias for hero button
   function simulateChaosDemo() {
-    const togDrop = document.getElementById('tog-drop');
-    if (togDrop) {
-      togDrop.checked = !togDrop.checked;
-      onToggleChange();
-    }
-    const cockpit = document.getElementById('cockpit');
-    if (cockpit) cockpit.scrollIntoView({ behavior: 'smooth' });
+    triggerChaosBenchmark();
   }
 </script>
 </body>

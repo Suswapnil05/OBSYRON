@@ -123,3 +123,4 @@ BEGIN
     DROP POLICY IF EXISTS "Public insert containment_actions" ON public.containment_actions;
     CREATE POLICY "Public insert containment_actions" ON public.containment_actions FOR ALL USING (true);
 END $$;
+
