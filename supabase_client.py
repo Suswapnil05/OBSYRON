@@ -305,3 +305,4 @@ class SupabaseClient:
 
 # Singleton instance
 supabase_client = SupabaseClient()
+

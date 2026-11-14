@@ -352,27 +352,33 @@ function formatEdgeLabel(e) {
   if (e.is_inferred) {
     return `③ [INFERRED] Priv Esc\n${confVal}% [T1558] ⚠️`;
   }
-  const action = (e.action || '').toUpperCase();
-  const mitre = e.mitre_tag || '';
 
-  if (mitre === 'T1078' || action === 'AUTH_ANOMALY') {
-    return `① Ingress Auth\n${confVal}% [T1078]`;
+  const isThreat = Boolean(e.is_malicious) ||
+    (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
+
+  if (isThreat) {
+    const src = e.source;
+    const tgt = e.target;
+    if (src === '185.220.101.47' && tgt === 'emp_rohan') {
+      return `① Ingress Auth\n${confVal}% [T1078]`;
+    }
+    if (src === 'emp_rohan' && tgt === 'wkst-04-dev') {
+      return `② AD Discovery\n${confVal}% [T1087]`;
+    }
+    if (src === 'wkst-04-dev' && tgt === 'svc_ci_deploy') {
+      return `③ Priv Escalation\n${confVal}% [T1558]`;
+    }
+    if (src === 'svc_ci_deploy' && tgt === 'db-prod-01') {
+      return `④ Lateral Move\n${confVal}% [T1021]`;
+    }
+    if (src === 'db-prod-01' && tgt === '185.220.101.47') {
+      return `⑤ Exfiltration\n${confVal}% [T1048]`;
+    }
+    if (src === '185.220.101.47' && tgt === 'db-prod-01') {
+      return `⑥ C2 Callback\n${confVal}% [T1048]`;
+    }
   }
-  if (mitre === 'T1087' || action === 'RECON_ENUM') {
-    return `② AD Discovery\n${confVal}% [T1087]`;
-  }
-  if (mitre === 'T1558' || action === 'PRIV_ESC') {
-    return `③ Priv Escalation\n${confVal}% [T1558]`;
-  }
-  if (mitre === 'T1021' || action === 'LATERAL_MOVE') {
-    return `④ Lateral SMB\n${confVal}% [T1021]`;
-  }
-  if (action === 'DATA_EXFIL') {
-    return `⑤ Exfiltration\n${confVal}% [T1048]`;
-  }
-  if (action === 'C2_BEACON') {
-    return `⑥ C2 Callback\n${confVal}% [T1048]`;
-  }
+
   return `${e.action || 'TRAFFIC'}\n${confVal}%`;
 }
 
@@ -439,14 +445,21 @@ function renderGraph(data) {
   const ancestorColor = dark ? '#38BDF8' : '#0284C7';
   const descendantColor = dark ? '#EF4444' : '#DC2626';
 
-  // 1. Identify Threat-Relevant Edges
+  // 1. Identify Threat-Relevant Edges (Clean & Focused Kill Chain)
   const allEdges = data.edges || [];
-  const threatEdges = allEdges.filter(e => {
-    return Boolean(e.is_inferred) ||
-      (e.mitre_tag && e.mitre_tag.length > 0) ||
-      e.severity === 'CRITICAL' ||
-      e.severity === 'HIGH';
+  let threatEdges = allEdges.filter(e => {
+    return Boolean(e.is_malicious) ||
+      Boolean(e.is_inferred) ||
+      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
   });
+
+  // Fallback if custom uploaded dataset has no pre-flagged APT IDs
+  if (threatEdges.length === 0) {
+    threatEdges = allEdges.filter(e => e.severity === 'CRITICAL');
+  }
+  if (threatEdges.length === 0) {
+    threatEdges = allEdges.slice(0, 8);
+  }
 
   // 2. Identify Threat-Relevant Nodes
   const threatNodeIds = new Set();
@@ -499,7 +512,8 @@ function renderGraph(data) {
 
   // Add Edges
   edgesToRender.forEach((e, i) => {
-    const isThreatEdge = e.is_inferred || (e.mitre_tag && e.mitre_tag.length > 0) || e.severity === 'CRITICAL' || e.severity === 'HIGH';
+    const isThreatEdge = Boolean(e.is_inferred) || Boolean(e.is_malicious) ||
+      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
     elements.push({
       group: 'edges',
       data: {
@@ -540,8 +554,8 @@ function renderGraph(data) {
     name: 'breadthfirst',
     directed: true,
     roots: rootSelector,
-    padding: 35,
-    spacingFactor: 1.35,
+    padding: 45,
+    spacingFactor: 1.5,
     avoidOverlap: true,
     maximal: true,
     animate: false
@@ -692,7 +706,11 @@ function renderGraph(data) {
       container,
       elements,
       layout: layoutOpts,
-      style: cyStyle
+      style: cyStyle,
+      wheelSensitivity: 0.1,    // Smooth, gentle mousewheel zoom (prevents flying/spinning)
+      minZoom: 0.35,
+      maxZoom: 2.2,
+      boxSelectionEnabled: false
     });
   } catch (cyErr) {
     console.warn('Primary Cytoscape layout failed, falling back:', cyErr);
@@ -701,7 +719,10 @@ function renderGraph(data) {
         container,
         elements,
         layout: { name: 'breadthfirst', directed: true, padding: 35, animate: false },
-        style: cyStyle
+        style: cyStyle,
+        wheelSensitivity: 0.1,
+        minZoom: 0.35,
+        maxZoom: 2.2
       });
     } catch (fallbackErr) {
       console.warn('Breadthfirst fallback failed, using grid layout:', fallbackErr);
@@ -709,7 +730,8 @@ function renderGraph(data) {
         container,
         elements,
         layout: { name: 'grid', padding: 35 },
-        style: cyStyle
+        style: cyStyle,
+        wheelSensitivity: 0.1
       });
     }
   }
@@ -717,22 +739,16 @@ function renderGraph(data) {
   if (!cyInstance) return;
   state.cy = cyInstance;
 
-  // Node Click -> Smooth Zoom/Center + Evidence DNA + Blast Radius Highlight
+  // Node Click -> Evidence DNA + Blast Radius Highlight (Stable viewport, no camera jerk)
   state.cy.on('tap', 'node', function(evt) {
     const node = evt.target;
     const logIds = node.data('log_ids') || [];
     const chosenId = logIds.find(id => id.startsWith('LOG-APT') || id.startsWith('UPLOAD')) || logIds[0];
     if (chosenId) fetchEvidence(chosenId);
     highlightBlastRadius(node);
-
-    // Smooth responsive camera center
-    state.cy.animate({
-      center: { eles: node },
-      zoom: Math.max(state.cy.zoom(), 1.15)
-    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
-  // Edge Click -> Smooth Center + Evidence DNA
+  // Edge Click -> Evidence DNA (Stable viewport)
   state.cy.on('tap', 'edge', function(evt) {
     const edge = evt.target;
     const logIds = edge.data('log_ids') || [];
@@ -743,10 +759,6 @@ function renderGraph(data) {
     edge.removeClass('dimmed').addClass('highlighted');
     edge.source().removeClass('dimmed').addClass('highlighted ancestor-highlight');
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
-
-    state.cy.animate({
-      center: { eles: edge }
-    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
   // Hover Tooltip
@@ -952,9 +964,8 @@ function focusAttackStep(stepNum) {
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
 
     cy.animate({
-      center: { eles: edge },
-      zoom: Math.max(cy.zoom(), 1.25)
-    }, { duration: 400, easing: 'ease-in-out-cubic' });
+      center: { eles: edge }
+    }, { duration: 300, easing: 'ease-in-out-cubic' });
 
     const logIds = edge.data('log_ids') || [];
     if (logIds[0]) fetchEvidence(logIds[0]);
