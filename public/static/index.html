@@ -574,11 +574,11 @@
 
           <div class="rail-group">
             <div class="rail-title">Telemetry Dataset &amp; Scenarios</div>
+            <button class="rail-btn live-sim-rail-btn" id="btn-rail-live-sim" onclick="startLiveDemoSimulation()" title="Start automated step-by-step attack simulation demo" style="background:rgba(16,185,129,0.12);border-color:#10B981;color:#34D399;font-weight:700;margin-bottom:6px">
+              <span class="live-pulse-dot"></span>
+              <span id="rail-sim-label">▶ Run Live Attack Simulation</span>
+            </button>
             <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
-          <button class="rail-btn live-sim-rail-btn" id="btn-rail-live-sim" onclick="startLiveDemoSimulation()" title="Start automated step-by-step attack simulation demo" style="background:rgba(16,185,129,0.12);border-color:#10B981;color:#34D399;font-weight:700;margin-top:6px;margin-bottom:4px">
-            <span class="live-pulse-dot"></span>
-            <span id="rail-sim-label">▶ Run Live Attack Simulation</span>
-          </button>
               <span class="btn-dot" style="background:var(--accent-cyan)"></span>
               <span>Built-in APT Kill Chain</span>
             </button>
@@ -704,6 +704,11 @@
                   title="Chronological Left-to-Right Attack Flow Storyboard">⚡ Attack Flow Storyboard</button>
                 <button class="tool-btn" id="btn-view-topology" onclick="setGraphViewMode('topology')"
                   title="Full Infrastructure Asset Topology Graph">🌐 Asset Topology Graph</button>
+                <button class="tool-btn" id="btn-live-stream-toggle" onclick="toggleLiveTelemetryStreaming()"
+                  title="Toggle Autonomous Real-Time Dynamic Telemetry Stream" style="border-color:#10B981;color:#10B981;font-weight:700;display:flex;align-items:center;gap:5px">
+                  <span class="live-pulse-dot" style="width:6px;height:6px"></span>
+                  <span id="live-stream-toggle-label">Dynamic Live Stream</span>
+                </button>
               </div>
               <div class="graph-search-wrap">
                 <input type="text" id="graph-search" class="graph-search-input"
