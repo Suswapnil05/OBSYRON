@@ -4935,3 +4935,320 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 15. LIVE DEMO SIMULATION ENGINE (INTERACTIVE LIVE ATTACK RECONSTRUCTION)
+// ═══════════════════════════════════════════════════════════════════════════
+
+state.liveSim = {
+  isRunning: false,
+  isPaused: false,
+  currentStage: 1,
+  totalStages: 6,
+  speedMultiplier: 1,
+  baseIntervalMs: 2500,
+  timerInterval: null,
+  stepTimeout: null,
+  startTime: null,
+  elapsedSeconds: 0,
+  stageData: [
+    {
+      stage: 1,
+      title: "Stage 1: Patient Zero Ingress (Tor Exit Relay)",
+      phaseName: "INITIAL ACCESS & INGRESS",
+      tactic: "Initial Access (T1566.001)",
+      entity: "185.220.101.47 ➔ wkst-04-dev",
+      logs: 48,
+      signals: 1,
+      blast: 1,
+      conf: 0.74,
+      ticker: "[INGESTION] Weaponized attachment opened by operator m_thorne. Tor exit node 185.220.101.47 confirmed as Patient Zero origin."
+    },
+    {
+      stage: 2,
+      title: "Stage 2: Code Execution & Memory Dumping",
+      phaseName: "EXECUTION & DEFENSE EVASION",
+      tactic: "Execution (T1059.001)",
+      entity: "powershell.exe -enc",
+      logs: 96,
+      signals: 2,
+      blast: 2,
+      conf: 0.82,
+      ticker: "[SYS_CORRELATION] Base64 encoded PowerShell spawned child process; SeDebugPrivilege enabled to dump LSASS memory."
+    },
+    {
+      stage: 3,
+      title: "Stage 3: Credential Abuse & Active Directory Recon",
+      phaseName: "CREDENTIAL ACCESS & DISCOVERY",
+      tactic: "Credential Access (T1003.001)",
+      entity: "Kerberos TGS (DC-01)",
+      logs: 180,
+      signals: 3,
+      blast: 3,
+      conf: 0.89,
+      ticker: "[GRAPH_ENGINE] Kerberoasting ticket request logged for Domain Controller DC-01. Account hashes harvested."
+    },
+    {
+      stage: 4,
+      title: "Stage 4: Lateral Movement & Telemetry Gap-Bridging",
+      phaseName: "LATERAL MOVEMENT (INFERRED BRIDGE)",
+      tactic: "Lateral Movement (T1021.002)",
+      entity: "wkst-04-dev ➔ srv-file-02 (Inferred)",
+      logs: 240,
+      signals: 5,
+      blast: 4,
+      conf: 0.84,
+      ticker: "[GAP-BRIDGING] Telemetry silence detected between subnets: MultiDiGraph algorithm bridged unmonitored lateral pivot."
+    },
+    {
+      stage: 5,
+      title: "Stage 5: C2 Beaconing & Honeypot Deception Trigger",
+      phaseName: "COMMAND & CONTROL / DECEPTION",
+      tactic: "Command & Control (T1071.001)",
+      entity: "185.220.101.5 (Cobalt Strike)",
+      logs: 310,
+      signals: 6,
+      blast: 5,
+      conf: 0.94,
+      ticker: "[DECEPTION_TRAP] Outbound beacon matched external C2! Cowrie SSH decoy sensor triggered by adversary signature."
+    },
+    {
+      stage: 6,
+      title: "Stage 6: Automated Forensic Containment & Ledger Sealed",
+      phaseName: "CONTAINMENT & MERKLE LEDGER",
+      tactic: "Containment Playbook (NIST SP 800-61)",
+      entity: "wkst-04-dev (Isolated) & Token Revocation",
+      logs: 350,
+      signals: 7,
+      blast: 5,
+      conf: 0.958,
+      ticker: "[CONTAINMENT_FINAL] Cryptographic Merkle Root finalized. Blast radius boundary isolated. Full attack reconstructed in 16.4ms."
+    }
+  ]
+};
+
+function startLiveDemoSimulation() {
+  const sim = state.liveSim;
+
+  if (sim.isRunning) {
+    toggleSimPause();
+    return;
+  }
+
+  scrollToSection('cockpit');
+
+  if (!state.analysisResult) {
+    runAnalysis();
+  }
+
+  sim.isRunning = true;
+  sim.isPaused = false;
+  sim.currentStage = 1;
+  sim.elapsedSeconds = 0;
+  sim.startTime = Date.now();
+
+  const hud = document.getElementById('live-sim-hud');
+  if (hud) hud.style.display = 'flex';
+
+  if (typeof setGraphViewMode === 'function') {
+    setGraphViewMode('attack_flow');
+  }
+
+  updateLiveSimButtons(true, false);
+  executeSimStage(1);
+
+  clearInterval(sim.timerInterval);
+  sim.timerInterval = setInterval(() => {
+    if (!sim.isPaused) {
+      sim.elapsedSeconds++;
+      updateSimTimerDisplay();
+    }
+  }, 1000);
+}
+
+function executeSimStage(stageNum) {
+  const sim = state.liveSim;
+  if (!sim.isRunning || sim.isPaused) return;
+
+  sim.currentStage = stageNum;
+  const stageInfo = sim.stageData[stageNum - 1];
+  if (!stageInfo) return;
+
+  if (typeof activateAttackStage === 'function') {
+    activateAttackStage(stageNum);
+  }
+
+  const phaseTitle = document.getElementById('sim-phase-title');
+  if (phaseTitle) phaseTitle.textContent = stageInfo.title;
+
+  const statusLabel = document.getElementById('sim-status-label');
+  if (statusLabel) statusLabel.textContent = `LIVE SIMULATION: ${stageInfo.phaseName}`;
+
+  const progressBar = document.getElementById('sim-progress-bar');
+  if (progressBar) {
+    const pct = Math.round((stageNum / sim.totalStages) * 100);
+    progressBar.style.width = `${pct}%`;
+  }
+
+  const eventsCounter = document.getElementById('sim-events-counter');
+  if (eventsCounter) {
+    eventsCounter.textContent = `⚡ Stage ${stageNum} of ${sim.totalStages} Reconstructed`;
+  }
+
+  const tickerText = document.getElementById('sim-ticker-text');
+  if (tickerText) {
+    tickerText.textContent = stageInfo.ticker;
+  }
+
+  animateKpiValues(stageInfo);
+  updateLiveSimButtons(true, false, stageNum);
+
+  clearTimeout(sim.stepTimeout);
+  if (stageNum < sim.totalStages) {
+    const delay = Math.round(sim.baseIntervalMs / sim.speedMultiplier);
+    sim.stepTimeout = setTimeout(() => {
+      executeSimStage(stageNum + 1);
+    }, delay);
+  } else {
+    setTimeout(() => {
+      concludeLiveSimulation();
+    }, 1800);
+  }
+}
+
+function animateKpiValues(info) {
+  const snrEl = document.getElementById('kpi-snr');
+  if (snrEl) snrEl.textContent = `${info.logs} → ${info.signals}`;
+
+  const pzEl = document.getElementById('kpi-pz');
+  if (pzEl) pzEl.textContent = info.entity.split(' ➔ ')[0] || '185.220.101.47';
+
+  const brEl = document.getElementById('kpi-br');
+  if (brEl) brEl.textContent = `${info.blast} Asset${info.blast > 1 ? 's' : ''}`;
+
+  const confEl = document.getElementById('kpi-conf');
+  if (confEl) confEl.textContent = `${(info.conf * 100).toFixed(1)}%`;
+}
+
+function updateSimTimerDisplay() {
+  const sim = state.liveSim;
+  const timerEl = document.getElementById('sim-timer');
+  if (!timerEl) return;
+  const mins = Math.floor(sim.elapsedSeconds / 60);
+  const secs = sim.elapsedSeconds % 60;
+  const fmt = (n) => String(n).padStart(2, '0');
+  timerEl.textContent = `${fmt(mins)}:${fmt(secs)} / 00:18`;
+}
+
+function toggleSimPause() {
+  const sim = state.liveSim;
+  if (!sim.isRunning) return;
+
+  sim.isPaused = !sim.isPaused;
+  const pauseIcon = document.getElementById('sim-pause-icon');
+
+  if (sim.isPaused) {
+    clearTimeout(sim.stepTimeout);
+    if (pauseIcon) pauseIcon.textContent = '▶';
+    updateLiveSimButtons(true, true);
+    const statusLabel = document.getElementById('sim-status-label');
+    if (statusLabel) statusLabel.textContent = 'SIMULATION PAUSED (CLICK RESUME)';
+  } else {
+    if (pauseIcon) pauseIcon.textContent = '⏸';
+    updateLiveSimButtons(true, false);
+    executeSimStage(sim.currentStage);
+  }
+}
+
+function cycleSimSpeed() {
+  const sim = state.liveSim;
+  if (sim.speedMultiplier === 1) sim.speedMultiplier = 2;
+  else if (sim.speedMultiplier === 2) sim.speedMultiplier = 4;
+  else sim.speedMultiplier = 1;
+
+  const speedLabel = document.getElementById('sim-speed-label');
+  if (speedLabel) speedLabel.textContent = `${sim.speedMultiplier}x`;
+}
+
+function restartLiveDemoSimulation() {
+  stopLiveDemoSimulation(false);
+  setTimeout(() => {
+    startLiveDemoSimulation();
+  }, 100);
+}
+
+function stopLiveDemoSimulation(hideHud = true) {
+  const sim = state.liveSim;
+  sim.isRunning = false;
+  sim.isPaused = false;
+  clearTimeout(sim.stepTimeout);
+  clearInterval(sim.timerInterval);
+
+  if (hideHud) {
+    const hud = document.getElementById('live-sim-hud');
+    if (hud) hud.style.display = 'none';
+  }
+
+  updateLiveSimButtons(false, false);
+}
+
+function concludeLiveSimulation() {
+  const sim = state.liveSim;
+  sim.isRunning = false;
+  sim.isPaused = false;
+  clearTimeout(sim.stepTimeout);
+  clearInterval(sim.timerInterval);
+
+  const statusLabel = document.getElementById('sim-status-label');
+  if (statusLabel) statusLabel.textContent = '✓ SIMULATION COMPLETE: PATIENT ZERO ISOLATED';
+
+  const phaseTitle = document.getElementById('sim-phase-title');
+  if (phaseTitle) phaseTitle.textContent = 'Incident Solved — Blast Radius Contained with 0 False Positives';
+
+  const tickerText = document.getElementById('sim-ticker-text');
+  if (tickerText) {
+    tickerText.textContent = 'Full attack reconstructed in 16.4ms across 6 stages. Click "↺ Replay" to run simulation again.';
+  }
+
+  updateLiveSimButtons(false, false, 6, true);
+}
+
+function updateLiveSimButtons(isRunning, isPaused, stageNum = 1, isCompleted = false) {
+  const heroBtn = document.getElementById('btn-hero-live-sim');
+  const heroLabel = document.getElementById('hero-sim-label');
+  const headerBtn = document.getElementById('btn-header-live-sim');
+  const headerLabel = document.getElementById('header-sim-label');
+  const cockpitBtn = document.getElementById('btn-cockpit-live-sim');
+  const cockpitLabel = document.getElementById('cockpit-sim-label');
+  const railBtn = document.getElementById('btn-rail-live-sim');
+  const railLabel = document.getElementById('rail-sim-label');
+
+  if (isRunning) {
+    const statusText = isPaused ? `Paused (Stage ${stageNum}/6)` : `Simulating (Stage ${stageNum}/6)...`;
+    [heroBtn, headerBtn, cockpitBtn, railBtn].forEach(b => {
+      if (b) b.classList.add('sim-active');
+    });
+    if (heroLabel) heroLabel.textContent = statusText;
+    if (headerLabel) headerLabel.textContent = isPaused ? 'Resume Sim' : `Sim ${stageNum}/6`;
+    if (cockpitLabel) cockpitLabel.textContent = statusText;
+    if (railLabel) railLabel.textContent = statusText;
+  } else if (isCompleted) {
+    [heroBtn, headerBtn, cockpitBtn, railBtn].forEach(b => {
+      if (b) b.classList.remove('sim-active');
+    });
+    if (heroLabel) heroLabel.textContent = '↺ Replay Live Simulation';
+    if (headerLabel) headerLabel.textContent = '↺ Replay Sim';
+    if (cockpitLabel) cockpitLabel.textContent = '↺ Replay Sim';
+    if (railLabel) railLabel.textContent = '↺ Replay Sim';
+  } else {
+    [heroBtn, headerBtn, cockpitBtn, railBtn].forEach(b => {
+      if (b) b.classList.remove('sim-active');
+    });
+    if (heroLabel) heroLabel.textContent = 'Start Live Demo Simulation';
+    if (headerLabel) headerLabel.textContent = 'Live Simulation';
+    if (cockpitLabel) cockpitLabel.textContent = 'Live Simulation';
+    if (railLabel) railLabel.textContent = '▶ Run Live Attack Simulation';
+  }
+}

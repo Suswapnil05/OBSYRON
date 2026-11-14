@@ -99,6 +99,12 @@
       </div>
 
       <!-- Mode Icon-Only Button between Log In and Launch Investigation -->
+      <button type="button" id="btn-header-live-sim" class="btn-live-sim-header" onclick="startLiveDemoSimulation()" title="Start Live Attack Reconstruction Simulation for Demo">
+        <span class="live-pulse-dot"></span>
+        <span id="header-sim-label">Live Simulation</span>
+        <span style="font-size:11px">▶</span>
+      </button>
+
       <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode"
         aria-label="Toggle theme">
         <span id="theme-icon">🌙</span>
@@ -203,13 +209,17 @@
     </h1>
 
     <p class="hero-subtitle">
-      <strong>Unify</strong> threat intelligence, dynamic multi-entity attack graph reconstruction, and automated
-      zero-hallucination containment with the industry-first open-source cyber forensic investigation platform.<br>
-      <strong>Break siloes — isolate patient zero and exposed assets in seconds.</strong>
+      Connect your threat intelligence. Reconstruct the full attack. Contain it with confidence.<br>
+      Find patient zero and every exposed asset in seconds, all in one open-source forensic platform.
     </p>
 
     <div class="hero-actions">
-      <a href="#cockpit" class="btn-filigran-gradient hero-btn-primary" onclick="runAnalysis()">
+      <button type="button" id="btn-hero-live-sim" class="btn-filigran-gradient hero-btn-primary btn-live-sim" onclick="startLiveDemoSimulation()">
+        <span class="live-pulse-dot"></span>
+        <span id="hero-sim-label">Start Live Demo Simulation</span>
+        <span style="font-size:13px">▶</span>
+      </button>
+      <a href="#cockpit" class="hero-btn-secondary" onclick="runAnalysis()">
         <span>Reconstruct Attack Graph</span>
         <span>⚡</span>
       </a>
@@ -441,7 +451,12 @@
             <span id="db-status-label">Supabase (ugkekxiwvgsitzqduzxq)</span>
           </button>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="header-action-btn" onclick="openReportModal()"
+            <button class="btn-filigran-gradient btn-cockpit-live-sim" id="btn-cockpit-live-sim" onclick="startLiveDemoSimulation()" title="Run autonomous live attack simulation demo" style="padding:6px 12px;font-size:11px;font-weight:700">
+            <span class="live-pulse-dot"></span>
+            <span id="cockpit-sim-label">Live Simulation</span>
+            <span>▶</span>
+          </button>
+          <button class="header-action-btn" onclick="openReportModal()"
               title="View Printable Executive Forensic Briefing"
               style="padding:6px 10px;font-size:10.5px;border-color:var(--accent-cyan);color:var(--accent-cyan)">
               📄 Executive Brief
@@ -475,6 +490,10 @@
           <div class="rail-group">
             <div class="rail-title">Telemetry Dataset &amp; Scenarios</div>
             <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
+          <button class="rail-btn live-sim-rail-btn" id="btn-rail-live-sim" onclick="startLiveDemoSimulation()" title="Start automated step-by-step attack simulation demo" style="background:rgba(16,185,129,0.12);border-color:#10B981;color:#34D399;font-weight:700;margin-top:6px;margin-bottom:4px">
+            <span class="live-pulse-dot"></span>
+            <span id="rail-sim-label">▶ Run Live Attack Simulation</span>
+          </button>
               <span class="btn-dot" style="background:var(--accent-cyan)"></span>
               <span>Built-in APT Kill Chain</span>
             </button>
@@ -622,6 +641,53 @@
             </div>
 
             <!-- VIEW 1: GRAPHICAL ATTACK FLOW STORYBOARD (RICH HTML/SVG PIPELINE) -->
+            
+          <!-- LIVE DEMO SIMULATION HUD BAR -->
+          <div id="live-sim-hud" class="live-sim-hud" style="display:none;">
+            <div class="live-sim-hud-top">
+              <div class="live-sim-hud-left">
+                <div class="live-sim-badge">
+                  <span class="live-pulse-dot red"></span>
+                  <span id="sim-status-label">LIVE ATTACK SIMULATION ACTIVE</span>
+                </div>
+                <div class="live-sim-phase" id="sim-phase-title">
+                  Stage 1: Patient Zero Ingress (Tor Exit Relay)
+                </div>
+              </div>
+
+              <div class="live-sim-hud-center">
+                <div class="live-sim-progress-track">
+                  <div class="live-sim-progress-bar" id="sim-progress-bar" style="width: 16%;"></div>
+                </div>
+                <div class="live-sim-time-row">
+                  <span id="sim-timer">00:00 / 00:18</span>
+                  <span id="sim-events-counter">⚡ Stage 1 of 6 Reconstructed</span>
+                </div>
+              </div>
+
+              <div class="live-sim-hud-actions">
+                <button type="button" class="sim-ctrl-btn" id="btn-sim-pause" onclick="toggleSimPause()" title="Pause / Resume">
+                  <span id="sim-pause-icon">⏸</span>
+                </button>
+                <button type="button" class="sim-ctrl-btn" id="btn-sim-speed" onclick="cycleSimSpeed()" title="Change Speed (1x, 2x, 4x)">
+                  <span id="sim-speed-label">1x</span>
+                </button>
+                <button type="button" class="sim-ctrl-btn" onclick="restartLiveDemoSimulation()" title="Replay Simulation">
+                  <span>↺</span>
+                </button>
+                <button type="button" class="sim-ctrl-btn sim-close-btn" onclick="stopLiveDemoSimulation()" title="Exit Simulation">
+                  <span>✕</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Real-time Live Log Ticker -->
+            <div class="live-sim-ticker">
+              <span class="live-sim-ticker-tag">AI INGESTION FEED</span>
+              <span id="sim-ticker-text">[INGESTION] Weaponized attachment opened by operator m_thorne. Tor exit node 185.220.101.47 confirmed as Patient Zero origin.</span>
+            </div>
+          </div>
+
             <div id="graph-flow-view" class="graph-flow-view">
               <!-- Stage Sequence Progress Header -->
               <div class="flow-stage-nav" id="flow-stage-nav"></div>

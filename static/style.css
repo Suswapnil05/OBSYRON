@@ -4222,3 +4222,230 @@ body:not(.dark-theme) .dash-table tr:hover td {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(51, 120, 255, 0.2);
 }
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE DEMO SIMULATION HUD & BUTTONS (OBSYRON DEMO ENGINE)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981, 0 0 20px rgba(16, 185, 129, 0.6);
+  display: inline-block;
+  animation: liveSimPulse 1.4s infinite ease-in-out;
+  flex-shrink: 0;
+}
+.live-pulse-dot.red {
+  background: #EF4444;
+  box-shadow: 0 0 10px #EF4444, 0 0 20px rgba(239, 68, 68, 0.6);
+}
+.live-pulse-dot.cyan {
+  background: #38BDF8;
+  box-shadow: 0 0 10px #38BDF8, 0 0 20px rgba(56, 189, 248, 0.6);
+}
+
+@keyframes liveSimPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.3); }
+}
+
+.btn-live-sim {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.25);
+}
+.btn-live-sim:hover {
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4);
+}
+.btn-live-sim.sim-active {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  border-color: #34D399 !important;
+  box-shadow: 0 0 26px rgba(16, 185, 129, 0.6) !important;
+}
+
+.btn-live-sim-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.38);
+  color: #34D399;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+.btn-live-sim-header:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #34D399;
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+.btn-live-sim-header.sim-active {
+  background: rgba(16, 185, 129, 0.32);
+  border-color: #34D399;
+  color: #FFFFFF;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+}
+
+/* Live Simulation HUD Bar */
+.live-sim-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(90deg, rgba(8, 20, 50, 0.95) 0%, rgba(3, 7, 24, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 22px rgba(56, 189, 248, 0.15);
+  animation: simHudSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+body:not(.dark-theme) .live-sim-hud {
+  background: linear-gradient(90deg, #EFF6FF 0%, #FFFFFF 100%);
+  border-color: rgba(51, 120, 255, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes simHudSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.live-sim-hud-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.live-sim-hud-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 240px;
+}
+.live-sim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #38BDF8;
+  text-transform: uppercase;
+}
+.live-sim-phase {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+body:not(.dark-theme) .live-sim-phase {
+  color: #0F172A;
+}
+
+.live-sim-hud-center {
+  flex: 1;
+  max-width: 460px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.live-sim-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+body:not(.dark-theme) .live-sim-progress-track {
+  background: rgba(0, 0, 0, 0.08);
+}
+.live-sim-progress-bar {
+  height: 100%;
+  width: 16%;
+  background: linear-gradient(90deg, #38BDF8 0%, #10B981 100%);
+  border-radius: 4px;
+  transition: width 0.35s ease;
+  box-shadow: 0 0 10px #38BDF8;
+}
+.live-sim-time-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.live-sim-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sim-ctrl-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sim-ctrl-btn:hover {
+  background: rgba(51, 120, 255, 0.2);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+.sim-ctrl-btn.sim-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #EF4444;
+  color: #FCA5A5;
+}
+
+/* Live Simulation Ticker Banner */
+.live-sim-ticker {
+  width: 100%;
+  background: rgba(0, 2, 14, 0.6);
+  border: 1px dashed rgba(56, 189, 248, 0.28);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #CBD5E1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body:not(.dark-theme) .live-sim-ticker {
+  background: rgba(51, 120, 255, 0.06);
+  color: #334155;
+}
+.live-sim-ticker-tag {
+  color: #38BDF8;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  flex-shrink: 0;
+}
