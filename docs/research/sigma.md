@@ -6,3 +6,4 @@ OBSYRON's log ingestion and event detection criteria are aligned with open-sourc
 - **T1558:** Matches Sigma rule `win_security_sedebugprivilege_assigned.yml` (Event ID 4672 / 4673).
 - **T1021:** Matches Sigma rule `win_security_net_share_mounted.yml` (Event ID 5140 / 5145 targeting `ADMIN$`).
 - **T1048:** Matches Sigma rule `sysmon_network_unusual_outbound_port.yml` (outbound traffic to non-standard TCP ports).
+

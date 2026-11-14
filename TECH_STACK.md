@@ -46,3 +46,4 @@ python-multipart>=0.0.12
 pydantic>=2.9.0
 ```
 Total package size: < 15 MB. Build time on Vercel: < 3 seconds.
+

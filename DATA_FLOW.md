@@ -73,3 +73,4 @@ When an operator clicks on any node, edge, or `[LOG: LOG-XXXX]` citation tag:
 2. The server searches `_cache["normalized_logs"]` for the matching `log_id`.
 3. Returns complete Evidence DNA record including raw payload, skew offset, protocol, and severity.
 4. The frontend slide-out drawer displays the exact provenance card, with 1-click JSON and CSV export actions.
+

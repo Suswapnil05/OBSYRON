@@ -10,3 +10,4 @@ OBSYRON provides a dedicated operator authorization system:
 - **L4 (Lead Forensic Director):** Full administrative access, containment simulation, chaos telemetry injection, raw evidence export.
 - **L3 (Senior Incident Responder):** Attack graph reconstruction, containment execution, chaos simulation.
 - **L2 (Threat Auditor):** Read-only graph analysis, MITRE technique audit, evidence verification.
+

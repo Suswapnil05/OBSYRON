@@ -41,3 +41,4 @@ OBSYRON is strictly a **defensive cyber-forensic investigation platform**.
 - **Python:** Black formatting, type hints where appropriate, clean docstrings.
 - **Frontend:** Semantic HTML5, accessible ARIA labels, clean CSS variables adhering to the Filigran dark SOC palette.
 - **Zero Hallucination:** Any new narrative generation must link to verifiable `log_id` citations in the Evidence DNA ledger.
+

@@ -69,3 +69,4 @@ When Vercel rewrites `/api/*` to `api/index.py`, it injects specific headers:
 | `PORT` | `8000` | Port for local uvicorn server |
 | `VERCEL` | `None` (autodetected) | Enables serverless runtime optimizations |
 | `LOG_LEVEL` | `info` | Logging verbosity (`debug`, `info`, `warning`) |
+

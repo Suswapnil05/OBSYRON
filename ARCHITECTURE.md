@@ -131,3 +131,4 @@ d:\HACK INNOVISION\
 | Root Cause Reverse Traversal | Backward DAG search | 0.8 ms | < 3 ms |
 | Blast Radius Forward Reachability | Forward DFS reachability | 1.1 ms | < 5 ms |
 | Full Analysis Execution (`/api/analyze`) | Complete pipeline | 14.2 ms | < 50 ms |
+

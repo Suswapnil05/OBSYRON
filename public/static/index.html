@@ -369,10 +369,26 @@
 
           <!-- Floating Canvas Toolbar -->
           <div class="graph-toolbar">
-            <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
-            <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">-</button>
-            <button class="tool-btn" onclick="fitGraph()" title="Fit to Viewport">FIT</button>
-            <button class="tool-btn" onclick="reLayoutGraph()" title="Re-arrange Graph Layout">RE-LAYOUT</button>
+            <div style="display:flex;align-items:center;background:rgba(0,0,0,0.3);border-radius:5px;padding:2px;gap:2px">
+              <button class="tool-btn active" id="btn-view-threat" onclick="setGraphViewMode('threat')" title="Show clean, focused attack path (Zero Clutter)">🎯 Threat Path</button>
+              <button class="tool-btn" id="btn-view-all" onclick="setGraphViewMode('all')" title="Show all infrastructure nodes">🌐 All Assets</button>
+            </div>
+            <div class="graph-search-wrap">
+              <input type="text" id="graph-search" class="graph-search-input" placeholder="🔍 Search entity..." oninput="onGraphSearch(this.value)">
+              <button class="clear-search-btn" onclick="clearGraphSearch()" title="Clear search">✕</button>
+            </div>
+            <select class="tool-select" id="sel-graph-layout" onchange="changeGraphLayout(this.value)" title="Change Graph Layout">
+              <option value="breadthfirst">Flow Hierarchy</option>
+              <option value="concentric">Concentric Rings</option>
+              <option value="cose">Force-Directed</option>
+              <option value="circle">Circular</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:2px">
+              <button class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
+              <button class="tool-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+              <button class="tool-btn" onclick="fitGraph()" title="Fit View">⛶ FIT</button>
+              <button class="tool-btn" onclick="resetGraphFocus()" title="Reset Focus & Un-dim">↺ RESET</button>
+            </div>
           </div>
 
           <div id="cy"></div>

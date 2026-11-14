@@ -19,3 +19,4 @@
 | `POST` | `/api/reports/export` | Exports report as JSON, CSV ledger, or Markdown briefing |
 | `POST` | `/api/briefing/audio` | Generates structured voice debrief speech script |
 | `POST` | `/api/simulation/reset` | Purges memory cache and restores baseline zero |
+
