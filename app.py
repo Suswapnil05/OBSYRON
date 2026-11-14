@@ -1025,9 +1025,14 @@ async def load_scenario(req: ScenarioLoadRequest):
 
 
 if __name__ == "__main__":
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", 8000))
     print("=" * 60)
     print("  OBSYRON // HackInnovision 2026 (Track C)")
     print("  Attack Graph Reconstruction & Forensic Analysis Server")
-    print("  Listening at: http://localhost:8000")
+    print(f"  Listening at: http://{host}:{port}")
     print("=" * 60)
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)
+    try:
+        uvicorn.run("app:app", host=host, port=port, reload=False)
+    except OSError:
+        uvicorn.run("app:app", host="127.0.0.1", port=port, reload=False)
