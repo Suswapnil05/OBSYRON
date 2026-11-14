@@ -286,7 +286,7 @@ class SQLiteStorage:
             conn.commit()
 
     def _seed_default_profiles(self):
-        """Seeds default operator accounts with securely hashed passwords."""
+        """Seeds default operator accounts with securely hashed passwords and complete forensic demo datasets."""
         now = datetime.now(timezone.utc).isoformat()
         default_users = [
             {
@@ -340,38 +340,398 @@ class SQLiteStorage:
                     u["role"], u["department"], u["clearance"], u["clearance_code"],
                     u["avatar"], now, now
                 ))
-
-                # Seed an initial default investigation for Maya Thorne if none exists
-                cursor.execute("SELECT count(*) as cnt FROM investigations WHERE user_id = ?", (u["id"],))
-                cnt = cursor.fetchone()["cnt"]
-                if cnt == 0 and u["id"] == "usr_maya_thorne":
-                    cursor.execute("""
-                    INSERT INTO investigations (
-                        id, user_id, name, description, severity, status,
-                        dataset_name, raw_log_count, malicious_signal_count,
-                        initial_access_entity, initial_access_tactic, blast_radius_count,
-                        overall_confidence, nodes_count, edges_count, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        "OBS-INV-20261114-001",
-                        u["id"],
-                        "Operation Red Relic (APT29 Infiltration)",
-                        "Autonomous multi-stage intrusion reconstruction originating from TOR exit relay targeting CI/CD credentials.",
-                        "CRITICAL",
-                        "ACTIVE",
-                        "Enterprise Telemetry APT29",
-                        357,
-                        7,
-                        "185.220.101.47",
-                        "Valid Accounts (T1078)",
-                        15,
-                        0.944,
-                        29,
-                        357,
-                        now,
-                        now
-                    ))
             conn.commit()
+
+        # Seed full relational forensic demo data across all 10 tables for all default operators
+        for u in default_users:
+            self.seed_complete_forensic_demo_data(u["id"])
+
+    def seed_complete_forensic_demo_data(self, target_user_id: str, force_reset: bool = False) -> Dict[str, Any]:
+        """
+        Seeds complete, realistic forensic demo records across all 10 tables for the specified user.
+        Includes 4 investigations, telemetry files, normalized events, rectangular attack nodes,
+        causal attack edges, SHA-256 Merkle evidence records, CIRT handover notes,
+        deception honeypot events, and executive forensic reports.
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        u_suffix = "001" if target_user_id == "usr_maya_thorne" else target_user_id[-6:]
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if user already has investigations
+            cursor.execute("SELECT count(*) as cnt FROM investigations WHERE user_id = ?", (target_user_id,))
+            cnt = cursor.fetchone()["cnt"]
+            if cnt >= 4 and not force_reset:
+                return {
+                    "success": True,
+                    "message": "Demo data already seeded for operator",
+                    "investigations_count": cnt
+                }
+
+            if force_reset:
+                cursor.execute("DELETE FROM investigations WHERE user_id = ?", (target_user_id,))
+
+            inv1_id = "OBS-INV-20261114-001" if target_user_id == "usr_maya_thorne" else f"OBS-INV-{u_suffix}-001"
+            inv2_id = "OBS-INV-20261114-002" if target_user_id == "usr_maya_thorne" else f"OBS-INV-{u_suffix}-002"
+            inv3_id = "OBS-INV-20261114-003" if target_user_id == "usr_maya_thorne" else f"OBS-INV-{u_suffix}-003"
+            inv4_id = "OBS-INV-20261114-004" if target_user_id == "usr_maya_thorne" else f"OBS-INV-{u_suffix}-004"
+
+            # 1. Four Core Investigations with Rich Analysis JSON
+            inv1_analysis = {
+                "raw_log_count": 357,
+                "malicious_signal_count": 7,
+                "snr": "357 Raw Logs → 7 Malicious Signals",
+                "initial_access": {
+                    "entity": "185.220.101.47",
+                    "target": "vpn.obsyron.corp",
+                    "mitre_tactic": "Initial Access",
+                    "mitre_id": "T1078",
+                    "timestamp": "2026-03-31T01:14:02Z",
+                    "confidence": 0.98,
+                    "why_suspicious": "Known TOR exit node authenticating to corporate VPN gateway without MFA token challenge."
+                },
+                "blast_radius": {
+                    "count": 15,
+                    "entities": ["vpn.obsyron.corp", "emp_rohan", "wkst-04-dev", "powershell.exe", "svc_ci_deploy", "db-prod-01", "198.51.100.23"]
+                },
+                "overall_confidence": 0.944,
+                "timeline_min": "2026-03-31T01:14:02Z",
+                "timeline_max": "2026-03-31T01:21:40Z",
+                "merkle_root": "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0",
+                "nodes": [
+                    {"id": "185.220.101.47", "label": "185.220.101.47", "entity_type": "AUTH_ENDPOINT", "is_malicious": True, "centrality": 0.354, "log_ids": ["EVT-001"], "mitre_tags": ["T1078"], "color": "#EF4444"},
+                    {"id": "vpn.obsyron.corp", "label": "vpn.obsyron.corp", "entity_type": "GATEWAY", "is_malicious": True, "centrality": 0.281, "log_ids": ["EVT-001", "EVT-002"], "mitre_tags": ["T1078"], "color": "#38BDF8"},
+                    {"id": "emp_rohan", "label": "emp_rohan", "entity_type": "USER", "is_malicious": True, "centrality": 0.291, "log_ids": ["EVT-002", "EVT-003"], "mitre_tags": ["T1078.004"], "color": "#818CF8"},
+                    {"id": "wkst-04-dev", "label": "wkst-04-dev", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.482, "log_ids": ["EVT-003", "EVT-004"], "mitre_tags": ["T1021.001"], "color": "#34D399"},
+                    {"id": "powershell.exe", "label": "powershell.exe", "entity_type": "PROCESS", "is_malicious": True, "centrality": 0.412, "log_ids": ["EVT-004", "EVT-005"], "mitre_tags": ["T1059.001"], "color": "#F59E0B"},
+                    {"id": "svc_ci_deploy", "label": "svc_ci_deploy", "entity_type": "SERVICE", "is_malicious": True, "centrality": 0.228, "log_ids": ["EVT-005", "EVT-006"], "mitre_tags": ["T1558"], "color": "#818CF8"},
+                    {"id": "db-prod-01", "label": "db-prod-01", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.186, "log_ids": ["EVT-006", "EVT-007"], "mitre_tags": ["T1021.002"], "color": "#EC4899"},
+                    {"id": "198.51.100.23", "label": "198.51.100.23", "entity_type": "AUTH_ENDPOINT", "is_malicious": True, "centrality": 0.125, "log_ids": ["EVT-007"], "mitre_tags": ["T1048"], "color": "#EF4444"}
+                ],
+                "edges": [
+                    {"id": "e0", "source": "185.220.101.47", "target": "vpn.obsyron.corp", "action": "EXTERNAL_AUTH", "confidence": 0.98, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1078"},
+                    {"id": "e1", "source": "vpn.obsyron.corp", "target": "emp_rohan", "action": "VALID_CREDENTIALS", "confidence": 0.95, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1078.004"},
+                    {"id": "e2", "source": "emp_rohan", "target": "wkst-04-dev", "action": "RDP_ACCESS", "confidence": 0.92, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1021.001"},
+                    {"id": "e3", "source": "wkst-04-dev", "target": "powershell.exe", "action": "PROC_CREATE", "confidence": 0.99, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1059.001"},
+                    {"id": "e4", "source": "powershell.exe", "target": "svc_ci_deploy", "action": "INFERRED_LATERAL_BRIDGE", "confidence": 0.62, "is_inferred": True, "is_malicious": True, "mitre_tag": "T1558"},
+                    {"id": "e5", "source": "svc_ci_deploy", "target": "db-prod-01", "action": "SMB_LATERAL_MOVE", "confidence": 0.88, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1021.002"},
+                    {"id": "e6", "source": "db-prod-01", "target": "198.51.100.23", "action": "C2_EXFILTRATION", "confidence": 0.99, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1048"}
+                ],
+                "xai_report": [
+                    {"step": 1, "title": "Initial Access: Ingress via Stolen Credentials", "entity": "185.220.101.47", "target": "vpn.obsyron.corp", "action": "EXTERNAL_AUTH", "mitre": "T1078", "severity": "CRITICAL", "confidence": 0.98, "why_suspicious": "Anomalous ingress from known TOR exit relay matching compromised credentials of emp_rohan.", "time": "01:14:02 UTC", "log_citations": ["LOG-APT-001"], "is_inferred": False},
+                    {"step": 2, "title": "Identity Hijack: Valid Account Session Issue", "entity": "vpn.obsyron.corp", "target": "emp_rohan", "action": "VALID_CREDENTIALS", "mitre": "T1078.004", "severity": "HIGH", "confidence": 0.95, "why_suspicious": "Single-factor VPN tunnel established without required MFA biometric challenge.", "time": "01:14:35 UTC", "log_citations": ["LOG-APT-002"], "is_inferred": False},
+                    {"step": 3, "title": "Lateral Movement: Remote Desktop Access to Dev Host", "entity": "emp_rohan", "target": "wkst-04-dev", "action": "RDP_ACCESS", "mitre": "T1021.001", "severity": "HIGH", "confidence": 0.92, "why_suspicious": "RDP connection initiated outside scheduled shifts with abnormal screen resolution.", "time": "01:15:10 UTC", "log_citations": ["LOG-APT-003"], "is_inferred": False},
+                    {"step": 4, "title": "Execution: Obfuscated PowerShell Command Launch", "entity": "wkst-04-dev", "target": "powershell.exe", "action": "PROC_CREATE", "mitre": "T1059.001", "severity": "CRITICAL", "confidence": 0.99, "why_suspicious": "Base64-encoded PowerShell script spawned by explorer.exe bypassing execution policies.", "time": "01:16:45 UTC", "log_citations": ["LOG-APT-004"], "is_inferred": False},
+                    {"step": 5, "title": "Privilege Escalation: Inferred Token Elevation Bridge", "entity": "powershell.exe", "target": "svc_ci_deploy", "action": "INFERRED_LATERAL_BRIDGE", "mitre": "T1558", "severity": "CRITICAL", "confidence": 0.62, "why_suspicious": "Telemetry gap bridged: wkst-04-dev memory dump followed by privileged service token activity.", "time": "01:18:00 UTC", "log_citations": ["INFERRED-GAP-BRIDGE"], "is_inferred": True},
+                    {"step": 6, "title": "Lateral Movement: Production SQL Database Mounting", "entity": "svc_ci_deploy", "target": "db-prod-01", "action": "SMB_LATERAL_MOVE", "mitre": "T1021.002", "severity": "HIGH", "confidence": 0.88, "why_suspicious": "Administrative C$ share mounted on production database cluster from developer workstation.", "time": "01:19:15 UTC", "log_citations": ["LOG-APT-005"], "is_inferred": False},
+                    {"step": 7, "title": "Exfiltration: High-Volume Egress to Drop Server", "entity": "db-prod-01", "target": "198.51.100.23", "action": "C2_EXFILTRATION", "mitre": "T1048", "severity": "CRITICAL", "confidence": 0.99, "why_suspicious": "84.2 MB compressed SQL backup dumped to unclassified external IP over encrypted HTTPS stream.", "time": "01:21:40 UTC", "log_citations": ["LOG-APT-006"], "is_inferred": False}
+                ]
+            }
+
+            inv2_analysis = {
+                "raw_log_count": 194,
+                "malicious_signal_count": 5,
+                "snr": "194 Raw Logs → 5 Malicious Signals",
+                "initial_access": {
+                    "entity": "192.168.10.84",
+                    "target": "CORP-DC-01",
+                    "mitre_tactic": "Credential Access",
+                    "mitre_id": "T1558.003",
+                    "timestamp": "2026-03-31T02:05:12Z",
+                    "confidence": 0.91,
+                    "why_suspicious": "SPN Kerberos TGS-REQ ticket requested with RC4 encryption downgrade (Kerberoasting)."
+                },
+                "blast_radius": {
+                    "count": 8,
+                    "entities": ["wkst-12-qa", "CORP-DC-01", "svc_sql_admin", "db-cluster-01", "app-server-02"]
+                },
+                "overall_confidence": 0.887,
+                "timeline_min": "2026-03-31T02:05:12Z",
+                "timeline_max": "2026-03-31T02:18:40Z",
+                "merkle_root": "4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e",
+                "nodes": [
+                    {"id": "192.168.10.84", "label": "wkst-12-qa", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.28, "log_ids": ["KRB-001"], "mitre_tags": ["T1558.003"], "color": "#34D399"},
+                    {"id": "CORP-DC-01", "label": "CORP-DC-01 (DC)", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.42, "log_ids": ["KRB-001", "KRB-002"], "mitre_tags": ["T1558.003"], "color": "#38BDF8"},
+                    {"id": "svc_sql_admin", "label": "svc_sql_admin", "entity_type": "SERVICE", "is_malicious": True, "centrality": 0.35, "log_ids": ["KRB-002", "KRB-003"], "mitre_tags": ["T1078.002"], "color": "#818CF8"},
+                    {"id": "db-cluster-01", "label": "db-cluster-01", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.25, "log_ids": ["KRB-003", "KRB-004"], "mitre_tags": ["T1021.002"], "color": "#EC4899"},
+                    {"id": "app-server-02", "label": "app-server-02", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.15, "log_ids": ["KRB-004"], "mitre_tags": ["T1053.005"], "color": "#F59E0B"}
+                ],
+                "edges": [
+                    {"id": "e0", "source": "192.168.10.84", "target": "CORP-DC-01", "action": "KERBEROS_TGS_REQ", "confidence": 0.94, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1558.003"},
+                    {"id": "e1", "source": "CORP-DC-01", "target": "svc_sql_admin", "action": "RC4_DOWNGRADE", "confidence": 0.92, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1558.003"},
+                    {"id": "e2", "source": "svc_sql_admin", "target": "db-cluster-01", "action": "MSSQL_AUTH", "confidence": 0.89, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1078.002"},
+                    {"id": "e3", "source": "db-cluster-01", "target": "app-server-02", "action": "PERSISTENCE_TASK", "confidence": 0.85, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1053.005"}
+                ],
+                "xai_report": [
+                    {"step": 1, "title": "Kerberoasting: RC4 SPN Request", "entity": "192.168.10.84", "target": "CORP-DC-01", "action": "KERBEROS_TGS_REQ", "mitre": "T1558.003", "severity": "HIGH", "confidence": 0.94, "why_suspicious": "Anomalous TGS-REQ ticket requested for svc_sql_admin with weak encryption.", "time": "02:05:12 UTC", "log_citations": ["KRB-001"], "is_inferred": False},
+                    {"step": 2, "title": "Credential Access: RC4 Downgrade Extraction", "entity": "CORP-DC-01", "target": "svc_sql_admin", "action": "RC4_DOWNGRADE", "mitre": "T1558.003", "severity": "HIGH", "confidence": 0.92, "why_suspicious": "RC4 Kerberos ticket granted for offline hashcat cracking.", "time": "02:07:30 UTC", "log_citations": ["KRB-002"], "is_inferred": False},
+                    {"step": 3, "title": "Lateral Movement: Database Cluster Ingress", "entity": "svc_sql_admin", "target": "db-cluster-01", "action": "MSSQL_AUTH", "mitre": "T1078.002", "severity": "HIGH", "confidence": 0.89, "why_suspicious": "Privileged MSSQL authentication using cracked service account ticket.", "time": "02:12:45 UTC", "log_citations": ["KRB-003"], "is_inferred": False},
+                    {"step": 4, "title": "Persistence: Scheduled Task Registration", "entity": "db-cluster-01", "target": "app-server-02", "action": "PERSISTENCE_TASK", "mitre": "T1053.005", "severity": "HIGH", "confidence": 0.85, "why_suspicious": "Hidden persistence task scheduled across internal application server.", "time": "02:18:40 UTC", "log_citations": ["KRB-004"], "is_inferred": False}
+                ]
+            }
+
+            inv3_analysis = {
+                "raw_log_count": 280,
+                "malicious_signal_count": 6,
+                "snr": "280 Raw Logs → 6 Malicious Signals",
+                "initial_access": {
+                    "entity": "wkst-09-fin",
+                    "target": "vssadmin.exe",
+                    "mitre_tactic": "Defense Evasion",
+                    "mitre_id": "T1490",
+                    "timestamp": "2026-03-31T03:30:15Z",
+                    "confidence": 0.965,
+                    "why_suspicious": "Volume Shadow Copy deletion initiated silently via vssadmin.exe."
+                },
+                "blast_radius": {
+                    "count": 12,
+                    "entities": ["wkst-09-fin", "vssadmin.exe", "encryptor.exe", "backup-nas-01"]
+                },
+                "overall_confidence": 0.965,
+                "timeline_min": "2026-03-31T03:30:15Z",
+                "timeline_max": "2026-03-31T03:35:50Z",
+                "merkle_root": "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b",
+                "nodes": [
+                    {"id": "wkst-09-fin", "label": "wkst-09-fin (Finance)", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.38, "log_ids": ["RSM-001"], "mitre_tags": ["T1566.001"], "color": "#34D399"},
+                    {"id": "vssadmin.exe", "label": "vssadmin.exe", "entity_type": "PROCESS", "is_malicious": True, "centrality": 0.45, "log_ids": ["RSM-002"], "mitre_tags": ["T1490"], "color": "#F59E0B"},
+                    {"id": "encryptor.exe", "label": "encryptor.exe", "entity_type": "PROCESS", "is_malicious": True, "centrality": 0.40, "log_ids": ["RSM-003"], "mitre_tags": ["T1486"], "color": "#EF4444"},
+                    {"id": "backup-nas-01", "label": "backup-nas-01", "entity_type": "DEVICE", "is_malicious": True, "centrality": 0.22, "log_ids": ["RSM-004"], "mitre_tags": ["T1046"], "color": "#EC4899"}
+                ],
+                "edges": [
+                    {"id": "e0", "source": "wkst-09-fin", "target": "vssadmin.exe", "action": "PROC_CREATE", "confidence": 0.99, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1490"},
+                    {"id": "e1", "source": "vssadmin.exe", "target": "encryptor.exe", "action": "PAYLOAD_STAGE", "confidence": 0.97, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1486"},
+                    {"id": "e2", "source": "encryptor.exe", "target": "backup-nas-01", "action": "SMB_SCAN", "confidence": 0.91, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1046"}
+                ],
+                "xai_report": [
+                    {"step": 1, "title": "Execution: Malicious Office Macro Trigger", "entity": "wkst-09-fin", "target": "vssadmin.exe", "action": "PROC_CREATE", "mitre": "T1566.001", "severity": "CRITICAL", "confidence": 0.99, "why_suspicious": "Finance user opened spoofed invoice triggering vssadmin shadow deletion.", "time": "03:30:15 UTC", "log_citations": ["RSM-001"], "is_inferred": False},
+                    {"step": 2, "title": "Impact: System Recovery Sabotage", "entity": "vssadmin.exe", "target": "encryptor.exe", "action": "PAYLOAD_STAGE", "mitre": "T1490", "severity": "CRITICAL", "confidence": 0.97, "why_suspicious": "Shadow copies wiped to prevent local restoration prior to encryption.", "time": "03:32:00 UTC", "log_citations": ["RSM-002"], "is_inferred": False},
+                    {"step": 3, "title": "Discovery: Network Share Probing", "entity": "encryptor.exe", "target": "backup-nas-01", "action": "SMB_SCAN", "mitre": "T1046", "severity": "HIGH", "confidence": 0.91, "why_suspicious": "Ransomware scanned for enterprise backup shares before containment isolation kicked in.", "time": "03:35:50 UTC", "log_citations": ["RSM-003"], "is_inferred": False}
+                ]
+            }
+
+            inv4_analysis = {
+                "raw_log_count": 142,
+                "malicious_signal_count": 2,
+                "snr": "142 Raw Logs → 2 Malicious Signals",
+                "initial_access": {
+                    "entity": "45.33.32.156",
+                    "target": "cowrie-ssh-dmz",
+                    "mitre_tactic": "Credential Access",
+                    "mitre_id": "T1110.003",
+                    "timestamp": "2026-03-31T04:10:00Z",
+                    "confidence": 0.991,
+                    "why_suspicious": "Distributed SSH dictionary spray targeting root/admin credentials."
+                },
+                "blast_radius": {
+                    "count": 2,
+                    "entities": ["bastion-dmz", "cowrie-ssh-dmz"]
+                },
+                "overall_confidence": 0.991,
+                "timeline_min": "2026-03-31T04:10:00Z",
+                "timeline_max": "2026-03-31T04:14:22Z",
+                "merkle_root": "8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a",
+                "nodes": [
+                    {"id": "45.33.32.156", "label": "45.33.32.156 (Scanner)", "entity_type": "AUTH_ENDPOINT", "is_malicious": True, "centrality": 0.45, "log_ids": ["SSH-001"], "mitre_tags": ["T1110.003"], "color": "#EF4444"},
+                    {"id": "cowrie-ssh-dmz", "label": "cowrie-ssh-dmz (Honeytrap)", "entity_type": "DECEPTION_SENSOR", "is_malicious": False, "centrality": 0.45, "log_ids": ["SSH-001", "SSH-002"], "mitre_tags": ["T1046"], "color": "#38BDF8"}
+                ],
+                "edges": [
+                    {"id": "e0", "source": "45.33.32.156", "target": "cowrie-ssh-dmz", "action": "SSH_SPRAY", "confidence": 0.99, "is_inferred": False, "is_malicious": True, "mitre_tag": "T1110.003"}
+                ],
+                "xai_report": [
+                    {"step": 1, "title": "Credential Access: Low-and-Slow Password Spray", "entity": "45.33.32.156", "target": "cowrie-ssh-dmz", "action": "SSH_SPRAY", "mitre": "T1110.003", "severity": "MEDIUM", "confidence": 0.99, "why_suspicious": "142 SSH connection attempts with dictionary passwords captured by decoy honeypot.", "time": "04:10:00 UTC", "log_citations": ["SSH-001"], "is_inferred": False}
+                ]
+            }
+
+            demo_invs = [
+                (
+                    inv1_id, target_user_id, "Operation Red Relic (APT29 Infiltration)",
+                    "Autonomous multi-stage intrusion reconstruction originating from TOR exit relay targeting CI/CD credentials and production database.",
+                    "CRITICAL", "ACTIVE", "Enterprise Telemetry APT29",
+                    357, 7, "185.220.101.47", "Valid Accounts (T1078)", 15, 0.944, 29, 52, json.dumps(inv1_analysis), now, now
+                ),
+                (
+                    inv2_id, target_user_id, "Operation Velvet Typhoon (Kerberoasting Campaign)",
+                    "Service Principal Name (SPN) ticket extraction attempt detected targeting Domain Controller CORP-DC-01 with RC4 downgrade requests.",
+                    "HIGH", "ACTIVE", "Active Directory Kerberos Audits",
+                    194, 5, "192.168.10.84", "Kerberoasting (T1558.003)", 8, 0.887, 18, 27, json.dumps(inv2_analysis), now, now
+                ),
+                (
+                    inv3_id, target_user_id, "DarkSide Ransomware Staging (Subnet 10.0.4.0/24)",
+                    "Volume Shadow Copy deletion (vssadmin delete shadows /all) and staging of encrypted archive targeting backup-nas-01. Quarantined via host firewall isolation.",
+                    "CRITICAL", "CONTAINED", "Endpoint EDR & Sysmon Telemetry",
+                    280, 6, "wkst-09-fin", "Inhibit System Recovery (T1490)", 12, 0.965, 22, 34, json.dumps(inv3_analysis), now, now
+                ),
+                (
+                    inv4_id, target_user_id, "Automated Brute Force on SSH Bastion",
+                    "Low-and-slow SSH password spray originating from bulletproof hosting subnet; safely isolated and absorbed by OpenCanary honeypot trap.",
+                    "MEDIUM", "RESOLVED", "Auth.log / OpenCanary Decoy",
+                    142, 2, "45.33.32.156", "Brute Force (T1110.003)", 2, 0.991, 6, 8, json.dumps(inv4_analysis), now, now
+                )
+            ]
+
+            for inv in demo_invs:
+                cursor.execute("""
+                INSERT OR REPLACE INTO investigations (
+                    id, user_id, name, description, severity, status,
+                    dataset_name, raw_log_count, malicious_signal_count,
+                    initial_access_entity, initial_access_tactic, blast_radius_count,
+                    overall_confidence, nodes_count, edges_count, analysis_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, inv)
+
+            # 2. Telemetry Files
+            file1_id = f"FILE-{u_suffix}-001"
+            file2_id = f"FILE-{u_suffix}-002"
+            file3_id = f"FILE-{u_suffix}-003"
+            file4_id = f"FILE-{u_suffix}-004"
+
+            files = [
+                (file1_id, inv1_id, target_user_id, "apt29_telemetry_batch1.csv", 48210, "CSV", 357, 350, 0, 7, now),
+                (file2_id, inv2_id, target_user_id, "kerberos_event4769_dump.json", 24900, "JSON", 194, 190, 0, 4, now),
+                (file3_id, inv3_id, target_user_id, "sysmon_ransomware_staging.csv", 36400, "CSV", 280, 275, 0, 5, now),
+                (file4_id, inv4_id, target_user_id, "cowrie_auth_spray.log", 18200, "LOG", 142, 140, 0, 2, now)
+            ]
+            for f in files:
+                cursor.execute("""
+                INSERT OR REPLACE INTO telemetry_files (
+                    id, investigation_id, user_id, filename, file_size, file_format,
+                    record_count, valid_count, invalid_count, duplicate_count, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, f)
+
+            # 3. Telemetry Events (Core Chronological Sequence)
+            events = [
+                (f"EVT-{u_suffix}-001", file1_id, inv1_id, target_user_id, "2026-03-31T01:14:02Z", "2026-03-31T01:14:02Z", "vpn.obsyron.corp", "AUTH_ENDPOINT", "185.220.101.47", "vpn.obsyron.corp", "EXTERNAL_INGRESS", "T1078", "CRITICAL", 0.98, 1, json.dumps({"ip": "185.220.101.47", "asn": "AS44111", "country": "NL", "auth_method": "Single-Factor Password"}), "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0", now),
+                (f"EVT-{u_suffix}-002", file1_id, inv1_id, target_user_id, "2026-03-31T01:14:15Z", "2026-03-31T01:14:15Z", "vpn.obsyron.corp", "USER", "vpn.obsyron.corp", "emp_rohan", "CREDENTIAL_VALIDATION", "T1078.004", "CRITICAL", 0.95, 1, json.dumps({"user": "emp_rohan", "session_id": "SESS-VPN-9182", "mfa_prompted": False}), "2b8c9d1e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c", now),
+                (f"EVT-{u_suffix}-003", file1_id, inv1_id, target_user_id, "2026-03-31T01:15:30Z", "2026-03-31T01:15:30Z", "wkst-04-dev", "DEVICE", "emp_rohan", "wkst-04-dev", "RDP_SESSION_START", "T1021.001", "HIGH", 0.92, 1, json.dumps({"protocol": "RDP", "source_ip": "10.0.8.24", "target_workstation": "wkst-04-dev"}), "3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d", now),
+                (f"EVT-{u_suffix}-004", file1_id, inv1_id, target_user_id, "2026-03-31T01:16:04Z", "2026-03-31T01:16:04Z", "wkst-04-dev", "PROCESS", "wkst-04-dev", "powershell.exe", "PROCESS_CREATE", "T1059.001", "CRITICAL", 0.99, 1, json.dumps({"command_line": "powershell.exe -NonI -W Hidden -Enc SQBFAFgA...", "parent": "explorer.exe"}), "4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e", now),
+                (f"EVT-{u_suffix}-005", file1_id, inv1_id, target_user_id, "2026-03-31T01:20:18Z", "2026-03-31T01:20:18Z", "wkst-04-dev", "SERVICE", "powershell.exe", "svc_ci_deploy", "INFERRED_PRIVILEGE_BRIDGE", "T1558", "CRITICAL", 0.91, 1, json.dumps({"impersonated_service": "svc_ci_deploy", "inferred": True, "rationale": "Missing Event 4672 bridged via gap heuristic"}), "5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f", now),
+                (f"EVT-{u_suffix}-006", file1_id, inv1_id, target_user_id, "2026-03-31T01:22:45Z", "2026-03-31T01:22:45Z", "db-prod-01", "DEVICE", "svc_ci_deploy", "db-prod-01", "SMB_ACCESS", "T1021.002", "HIGH", 0.88, 1, json.dumps({"share": "\\\\db-prod-01\\c$\\Backups", "auth_user": "svc_ci_deploy"}), "6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a", now),
+                (f"EVT-{u_suffix}-007", file1_id, inv1_id, target_user_id, "2026-03-31T01:25:12Z", "2026-03-31T01:25:12Z", "db-prod-01", "AUTH_ENDPOINT", "db-prod-01", "198.51.100.23", "DATA_EXFILTRATION", "T1048", "CRITICAL", 0.99, 1, json.dumps({"dest_ip": "198.51.100.23", "bytes_sent": 84200000, "protocol": "HTTPS (Encrypted)"}), "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b", now),
+                (f"EVT-{u_suffix}-008", file2_id, inv2_id, target_user_id, "2026-03-31T02:10:00Z", "2026-03-31T02:10:00Z", "CORP-DC-01", "DEVICE", "192.168.10.84", "CORP-DC-01", "KERBEROS_TGS_REQ", "T1558.003", "HIGH", 0.89, 1, json.dumps({"spn": "MSSQLSvc/db-prod-01.corp", "ticket_encryption": "0x17 (RC4-HMAC)"}), "8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c", now),
+                (f"EVT-{u_suffix}-009", file3_id, inv3_id, target_user_id, "2026-03-31T03:00:15Z", "2026-03-31T03:00:15Z", "wkst-09-fin", "PROCESS", "wkst-09-fin", "vssadmin.exe", "DELETE_SHADOWS", "T1490", "CRITICAL", 0.98, 1, json.dumps({"command": "vssadmin delete shadows /all /quiet", "status": "BLOCKED"}), "9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d", now),
+                (f"EVT-{u_suffix}-010", file4_id, inv4_id, target_user_id, "2026-03-31T03:45:00Z", "2026-03-31T03:45:00Z", "bastion-dmz-01", "DECEPTION_SENSOR", "45.33.32.156", "cowrie-ssh-dmz", "SSH_AUTH_FAIL", "T1110.003", "MEDIUM", 0.99, 1, json.dumps({"user_attempt": "root", "honeypot": "cowrie-ssh-dmz"}), "0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e", now)
+            ]
+
+            for e in events:
+                cursor.execute("""
+                INSERT OR REPLACE INTO telemetry_events (
+                    id, file_id, investigation_id, user_id, raw_timestamp, normalized_timestamp,
+                    host, entity_type, source, target, action, mitre_tag, severity,
+                    confidence, is_malicious, raw_payload, sha256_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, e)
+
+            # 4. Attack Nodes (Rectangular Visual Graph Nodes)
+            nodes = [
+                (f"NODE-{u_suffix}-01", inv1_id, target_user_id, "185.220.101.47", "AUTH_ENDPOINT", "185.220.101.47 (TOR C2)", "CRITICAL", 1, 0.354, json.dumps(["T1078"])),
+                (f"NODE-{u_suffix}-02", inv1_id, target_user_id, "vpn.obsyron.corp", "GATEWAY", "vpn.obsyron.corp", "HIGH", 1, 0.281, json.dumps(["T1078"])),
+                (f"NODE-{u_suffix}-03", inv1_id, target_user_id, "emp_rohan", "USER", "emp_rohan (Identity)", "HIGH", 1, 0.291, json.dumps(["T1078.004"])),
+                (f"NODE-{u_suffix}-04", inv1_id, target_user_id, "wkst-04-dev", "DEVICE", "wkst-04-dev (Endpoint)", "HIGH", 1, 0.482, json.dumps(["T1021.001"])),
+                (f"NODE-{u_suffix}-05", inv1_id, target_user_id, "powershell.exe", "PROCESS", "powershell.exe", "CRITICAL", 1, 0.412, json.dumps(["T1059.001"])),
+                (f"NODE-{u_suffix}-06", inv1_id, target_user_id, "svc_ci_deploy", "SERVICE", "svc_ci_deploy (Service)", "CRITICAL", 1, 0.228, json.dumps(["T1558"])),
+                (f"NODE-{u_suffix}-07", inv1_id, target_user_id, "db-prod-01", "DEVICE", "db-prod-01 (Database)", "CRITICAL", 1, 0.186, json.dumps(["T1021.002"])),
+                (f"NODE-{u_suffix}-08", inv1_id, target_user_id, "198.51.100.23", "AUTH_ENDPOINT", "198.51.100.23 (Drop Server)", "CRITICAL", 1, 0.125, json.dumps(["T1048"])),
+                (f"NODE-{u_suffix}-09", inv1_id, target_user_id, "cowrie-ssh-dmz", "DECEPTION_SENSOR", "cowrie-ssh-dmz (Honeytrap)", "LOW", 0, 0.05, json.dumps(["T1046"]))
+            ]
+            for n in nodes:
+                cursor.execute("""
+                INSERT OR REPLACE INTO attack_nodes (
+                    id, investigation_id, user_id, entity_id, entity_type, label,
+                    severity, is_malicious, centrality, mitre_tags
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, n)
+
+            # 5. Attack Edges
+            edges = [
+                (f"EDGE-{u_suffix}-01", inv1_id, target_user_id, "185.220.101.47", "vpn.obsyron.corp", "EXTERNAL_AUTH", "T1078", "CRITICAL", 0.98, 0, "TOR ingress authenticated against perimeter gateway"),
+                (f"EDGE-{u_suffix}-02", inv1_id, target_user_id, "vpn.obsyron.corp", "emp_rohan", "VALID_CREDENTIALS", "T1078.004", "HIGH", 0.95, 0, "Single-factor session issued to stolen account"),
+                (f"EDGE-{u_suffix}-03", inv1_id, target_user_id, "emp_rohan", "wkst-04-dev", "RDP_ACCESS", "T1021.001", "HIGH", 0.92, 0, "Interactive session established to developer endpoint"),
+                (f"EDGE-{u_suffix}-04", inv1_id, target_user_id, "wkst-04-dev", "powershell.exe", "PROC_CREATE", "T1059.001", "CRITICAL", 0.99, 0, "Obfuscated PowerShell execution launched"),
+                (f"EDGE-{u_suffix}-05", inv1_id, target_user_id, "powershell.exe", "svc_ci_deploy", "INFERRED_PRIVILEGE_BRIDGE", "T1558", "CRITICAL", 0.91, 1, "Bridged privilege escalation across telemetry gap"),
+                (f"EDGE-{u_suffix}-06", inv1_id, target_user_id, "svc_ci_deploy", "db-prod-01", "SMB_LATERAL_MOVE", "T1021.002", "HIGH", 0.88, 0, "Authenticated network share mount to production SQL server"),
+                (f"EDGE-{u_suffix}-07", inv1_id, target_user_id, "db-prod-01", "198.51.100.23", "C2_EXFILTRATION", "T1048", "CRITICAL", 0.99, 0, "84.2 MB archive transmitted to external listener")
+            ]
+            for ed in edges:
+                cursor.execute("""
+                INSERT OR REPLACE INTO attack_edges (
+                    id, investigation_id, user_id, source, target, action,
+                    mitre_tag, severity, confidence, is_inferred, causal_connection
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, ed)
+
+            # 6. Evidence Records (Cryptographic Ledger)
+            evidences = [
+                (f"EVD-{u_suffix}-01", inv1_id, target_user_id, f"EVT-{u_suffix}-001", "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0", "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0", 1, "Syslog packet auth.vpn.nl ingress match", json.dumps(["Observed at 01:14:02Z", "Source ASN44111"]), json.dumps([]), now),
+                (f"EVD-{u_suffix}-02", inv1_id, target_user_id, f"EVT-{u_suffix}-004", "4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e", "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0", 1, "Sysmon Event ID 1: Process Creation powershell.exe", json.dumps(["Parent explorer.exe", "Encoded payload"]), json.dumps([]), now),
+                (f"EVD-{u_suffix}-03", inv1_id, target_user_id, f"EVT-{u_suffix}-007", "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b", "160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0", 1, "Palo Alto NetFlow: TCP 443 84.2MB to 198.51.100.23", json.dumps(["Volume anomaly 84.2MB", "External destination"]), json.dumps([]), now)
+            ]
+            for ev in evidences:
+                cursor.execute("""
+                INSERT OR REPLACE INTO evidence_records (
+                    id, investigation_id, user_id, event_id, sha256_hash, merkle_root,
+                    is_verified, raw_log, supporting_facts, contradictory_facts, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, ev)
+
+            # 7. Investigation Notes
+            notes = [
+                (f"NOTE-{u_suffix}-01", inv1_id, target_user_id, "Cmdr. Maya Thorne", "Initial Ingress Triage & Patient Zero Identification", "Observed external IP 185.220.101.47 authenticating via employee portal from known TOR exit relay. Active session issued to emp_rohan without MFA challenge.", now),
+                (f"NOTE-{u_suffix}-02", inv1_id, target_user_id, "Lt. Alex Chen", "Host Subnet Isolation for wkst-04-dev", "Developer host wkst-04-dev spawned encoded PowerShell script executing Invoke-Mimikatz against LSASS memory. Isolated host subnet egress.", now),
+                (f"NOTE-{u_suffix}-03", inv1_id, target_user_id, "Sgt. Elena Rostova", "Perimeter Firewall Block Applied for 185.220.101.47", "Outbound TCP connection to 198.51.100.23 on port 443 blocked at perimeter firewall. Stolen database dump contained in quarantine zone.", now)
+            ]
+            for n in notes:
+                cursor.execute("""
+                INSERT OR REPLACE INTO investigation_notes (
+                    id, investigation_id, user_id, author_name, title, content, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, n)
+
+            # 8. Deception Events
+            deceptions = [
+                (f"DEC-{u_suffix}-01", inv1_id, target_user_id, "Cowrie SSH Decoy", "185.220.101.47", "cowrie-ssh-dmz", "2026-03-31T01:14:12Z", "uname -a", "CRITICAL", now),
+                (f"DEC-{u_suffix}-02", inv1_id, target_user_id, "Cowrie SSH Decoy", "185.220.101.47", "cowrie-ssh-dmz", "2026-03-31T01:14:38Z", "cat /etc/shadow", "CRITICAL", now),
+                (f"DEC-{u_suffix}-03", inv1_id, target_user_id, "OpenCanary MySQL", "10.0.8.24", "db-canary-01", "2026-03-31T01:18:22Z", "SELECT * FROM users_admin", "HIGH", now),
+                (f"DEC-{u_suffix}-04", inv1_id, target_user_id, "OpenCanary AWS Bait", "185.220.101.47", "aws-decoy-bucket", "2026-03-31T01:21:05Z", "GET /credentials/backup.enc", "CRITICAL", now)
+            ]
+            for d in deceptions:
+                cursor.execute("""
+                INSERT OR REPLACE INTO deception_events (
+                    id, investigation_id, user_id, sensor_type, src_ip, target_decoy,
+                    trigger_timestamp, payload, severity, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, d)
+
+            # 9. Investigation Reports
+            reports = [
+                (f"REP-{u_suffix}-01", inv1_id, target_user_id, "markdown", "Executive Cyber Incident Briefing (NIST SP 800-61 Rev 2)", "# NIST SP 800-61 Rev 2 Incident Briefing\n\n## Summary\nCritical unauthorized external ingress detected from 185.220.101.47 targeting production database cluster.\n\n## Recommendations\n1. Enforce FIDO2 WebAuthn MFA\n2. Block IP 185.220.101.47\n3. Rotate CI/CD deploy tokens.", now),
+                (f"REP-{u_suffix}-02", inv1_id, target_user_id, "json", "Technical Incident Data Exchange (OASIS STIX 2.1)", json.dumps({"spec_version": "2.1", "type": "bundle", "id": "bundle--8f7a8b9c", "objects_count": 230}), now),
+                (f"REP-{u_suffix}-03", inv1_id, target_user_id, "csv", "Full CIRT Forensic Evidence Ledger Export", "event_id,timestamp,source,target,action,mitre_tag,severity,sha256\nEVT-001,2026-03-31T01:14:02Z,185.220.101.47,vpn.obsyron.corp,EXTERNAL_INGRESS,T1078,CRITICAL,160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0\n", now)
+            ]
+            for rep in reports:
+                cursor.execute("""
+                INSERT OR REPLACE INTO investigation_reports (
+                    id, investigation_id, user_id, format, title, content, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, rep)
+
+            conn.commit()
+
+        return {
+            "success": True,
+            "message": "Forensic demo dataset seeded successfully!",
+            "target_user_id": target_user_id,
+            "investigations_count": len(demo_invs),
+            "telemetry_files_count": len(files),
+            "telemetry_events_count": len(events),
+            "attack_nodes_count": len(nodes),
+            "attack_edges_count": len(edges),
+            "evidence_records_count": len(evidences),
+            "investigation_notes_count": len(notes),
+            "deception_events_count": len(deceptions),
+            "investigation_reports_count": len(reports)
+        }
 
     # ── 1. PROFILES & AUTHENTICATION CRUD ─────────────────────────────────────
 
@@ -429,6 +789,9 @@ class SQLiteStorage:
             ))
 
             conn.commit()
+
+        # Seed full realistic forensic demo dataset for new operator
+        self.seed_complete_forensic_demo_data(user_id)
 
         return self.get_profile_by_id(user_id)
 
@@ -849,6 +1212,67 @@ class SQLiteStorage:
                 """, (investigation_id,))
             return [dict(row) for row in cursor.fetchall()]
 
+    def get_attack_nodes(self, investigation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves attack nodes from database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if user_id:
+                cursor.execute("SELECT * FROM attack_nodes WHERE investigation_id = ? AND user_id = ?", (investigation_id, user_id))
+            else:
+                cursor.execute("SELECT * FROM attack_nodes WHERE investigation_id = ?", (investigation_id,))
+            rows = [dict(r) for r in cursor.fetchall()]
+            for r in rows:
+                if r.get("mitre_tags"):
+                    try:
+                        r["mitre_tags"] = json.loads(r["mitre_tags"])
+                    except Exception:
+                        pass
+            return rows
+
+    def get_attack_edges(self, investigation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves directed attack edges from database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if user_id:
+                cursor.execute("SELECT * FROM attack_edges WHERE investigation_id = ? AND user_id = ?", (investigation_id, user_id))
+            else:
+                cursor.execute("SELECT * FROM attack_edges WHERE investigation_id = ?", (investigation_id,))
+            return [dict(r) for r in cursor.fetchall()]
+
+    def get_evidence_records(self, investigation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves SHA-256 Merkle evidence records from database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if user_id:
+                cursor.execute("SELECT * FROM evidence_records WHERE investigation_id = ? AND user_id = ? ORDER BY created_at ASC", (investigation_id, user_id))
+            else:
+                cursor.execute("SELECT * FROM evidence_records WHERE investigation_id = ? ORDER BY created_at ASC", (investigation_id,))
+            rows = [dict(r) for r in cursor.fetchall()]
+            for r in rows:
+                for k in ("supporting_facts", "contradictory_facts"):
+                    if r.get(k):
+                        try:
+                            r[k] = json.loads(r[k])
+                        except Exception:
+                            pass
+            return rows
+
+    def get_deception_events(self, investigation_id: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves honeypot deception events from database."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM deception_events WHERE 1=1"
+            params = []
+            if investigation_id:
+                query += " AND investigation_id = ?"
+                params.append(investigation_id)
+            if user_id:
+                query += " AND user_id = ?"
+                params.append(user_id)
+            query += " ORDER BY trigger_timestamp DESC"
+            cursor.execute(query, tuple(params))
+            return [dict(r) for r in cursor.fetchall()]
+
     # ── 6. LIVE DASHBOARD STATISTICS (CALCULATED FROM DB) ─────────────────────
 
     def get_user_dashboard_stats(self, user_id: str) -> Dict[str, Any]:
@@ -860,13 +1284,12 @@ class SQLiteStorage:
             cursor.execute("SELECT count(*) as total FROM investigations WHERE user_id = ?", (user_id,))
             total_inv = cursor.fetchone()["total"]
 
-            # 2. Total Telemetry Events
+            # 2. Total Telemetry Events (Calculated across telemetry records & investigations)
             cursor.execute("SELECT count(*) as total FROM telemetry_events WHERE user_id = ?", (user_id,))
-            total_events = cursor.fetchone()["total"]
-            # Fallback if no telemetry_events yet, sum raw_log_count from investigations
-            if total_events == 0:
-                cursor.execute("SELECT COALESCE(SUM(raw_log_count), 0) as total FROM investigations WHERE user_id = ?", (user_id,))
-                total_events = cursor.fetchone()["total"]
+            te_count = cursor.fetchone()["total"]
+            cursor.execute("SELECT COALESCE(SUM(raw_log_count), 0) as total FROM investigations WHERE user_id = ?", (user_id,))
+            inv_log_count = cursor.fetchone()["total"]
+            total_events = max(te_count, inv_log_count)
 
             # 3. Active Incidents
             cursor.execute("SELECT count(*) as active FROM investigations WHERE user_id = ? AND status != 'RESOLVED'", (user_id,))
@@ -915,6 +1338,38 @@ class SQLiteStorage:
                     "title": f"Telemetry Ingestion: {f['filename']}",
                     "detail": f"{f['record_count']} events imported ({f['file_format']})",
                     "timestamp": f["created_at"]
+                })
+
+            # Notes in recent activity
+            cursor.execute("""
+            SELECT title, author_name, created_at
+            FROM investigation_notes
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 3
+            """, (user_id,))
+            for n in cursor.fetchall():
+                activities.append({
+                    "type": "NOTE",
+                    "title": f"CIRT Note: {n['title']}",
+                    "detail": f"Logged by {n['author_name']}",
+                    "timestamp": n["created_at"]
+                })
+
+            # Deception alerts in recent activity
+            cursor.execute("""
+            SELECT sensor_type, src_ip, payload, created_at
+            FROM deception_events
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT 3
+            """, (user_id,))
+            for d in cursor.fetchall():
+                activities.append({
+                    "type": "DECEPTION",
+                    "title": f"Honeypot Trigger: {d['sensor_type']}",
+                    "detail": f"Attacker {d['src_ip']} executed '{d['payload']}'",
+                    "timestamp": d["created_at"]
                 })
 
             activities.sort(key=lambda a: a.get("timestamp", ""), reverse=True)

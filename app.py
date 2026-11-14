@@ -1943,6 +1943,20 @@ async def sync_database():
     })
 
 
+@app.post("/api/database/seed-demo")
+@app.post("/database/seed-demo")
+async def seed_database_demo_endpoint(user: Dict[str, Any] = Depends(get_current_user)):
+    """Populates complete realistic forensic demo datasets across all 10 database tables."""
+    user_id = user.get("id") or "usr_maya_thorne"
+    seed_res = sqlite_storage.seed_complete_forensic_demo_data(target_user_id=user_id, force_reset=True)
+
+    # Also ensure Maya Thorne has full demo dataset
+    if user_id != "usr_maya_thorne":
+        sqlite_storage.seed_complete_forensic_demo_data(target_user_id="usr_maya_thorne", force_reset=False)
+
+    return JSONResponse(seed_res)
+
+
 @app.get("/api/database/investigations")
 @app.get("/database/investigations")
 async def list_database_investigations(limit: int = Query(20, ge=1, le=100)):

@@ -254,6 +254,10 @@
             style="padding:9px 18px;font-size:12px;font-weight:600">
             <span>+ New Investigation</span>
           </button>
+          <button type="button" class="header-action-btn" onclick="seedDatabaseDemoData()" id="btn-dash-seed-demo"
+            style="padding:9px 16px;font-size:12px;font-weight:600;color:var(--accent-cyan);border-color:rgba(56,189,248,0.4)" title="Populate realistic 4-case forensic dataset across all 10 tables">
+            <span>🎲 Seed Demo Data</span>
+          </button>
           <button type="button" class="header-action-btn" onclick="document.getElementById('dash-file-input').click()"
             style="padding:9px 16px;font-size:12px;font-weight:600">
             <span>📤 Upload Telemetry</span>
@@ -1470,6 +1474,10 @@
 
       <!-- Modal Actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn-filigran-gradient" onclick="seedDatabaseDemoData()"
+          id="btn-seed-demo-db" style="flex:1;padding:10px;font-size:11.5px;justify-content:center;background:linear-gradient(135deg, #0284c7 0%, #2563eb 100%)">
+          🎲 Seed Forensic Demo Dataset
+        </button>
         <button type="button" class="header-action-btn" onclick="syncActiveInvestigationToSupabase()"
           id="btn-sync-supabase" style="flex:1;padding:10px;font-size:11.5px;justify-content:center">
           ⚡ Sync Active Investigation Now

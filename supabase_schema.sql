@@ -232,3 +232,64 @@ BEGIN
     DROP POLICY IF EXISTS "Users can manage own reports" ON public.investigation_reports;
     CREATE POLICY "Users can manage own reports" ON public.investigation_reports FOR ALL USING (true);
 END $$;
+
+-- ============================================================================
+-- 11. FORENSIC DEMO DATASET SEED (REALISTIC ENTERPRISE INVESTIGATIONS)
+-- ============================================================================
+INSERT INTO public.profiles (id, email, username, password_hash, full_name, role, department, clearance, clearance_code, avatar)
+VALUES
+('usr_maya_thorne', 'maya@obsyron.corp', 'analyst_lead', '3503f8319f390e1cb3229b4e1f7c0067$c914c6fb73d84f88e7343e74ec80026e474ff1f7cfcf99b244d564fa7e85c2b9', 'Cmdr. Maya Thorne', 'Lead Forensic Director', 'Global Threat Intel & Forensic CIRT', 'Level 4 (Top Secret / SCI)', 'L4', '🛡️'),
+('usr_alex_chen', 'alex@obsyron.corp', 'soc_tier2', '3503f8319f390e1cb3229b4e1f7c0067$c914c6fb73d84f88e7343e74ec80026e474ff1f7cfcf99b244d564fa7e85c2b9', 'Lt. Alex Chen', 'Senior Incident Responder', 'SOC Tier 2 Forensics', 'Level 3 (Secret / OpSec)', 'L3', '⚡'),
+('usr_elena_rostova', 'elena@obsyron.corp', 'sec_auditor', '3503f8319f390e1cb3229b4e1f7c0067$c914c6fb73d84f88e7343e74ec80026e474ff1f7cfcf99b244d564fa7e85c2b9', 'Sgt. Elena Rostova', 'Compliance & Triage Specialist', 'Security Audit Division', 'Level 2 (Confidential)', 'L2', '🔍')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.investigations (id, user_id, name, description, severity, status, dataset_name, raw_log_count, malicious_signal_count, initial_access_entity, initial_access_tactic, blast_radius_count, overall_confidence, nodes_count, edges_count)
+VALUES
+('OBS-INV-20261114-001', 'usr_maya_thorne', 'Operation Red Relic (APT29 Infiltration)', 'Autonomous multi-stage intrusion reconstruction originating from TOR exit relay targeting CI/CD credentials and production database.', 'CRITICAL', 'ACTIVE', 'Enterprise Telemetry APT29', 357, 7, '185.220.101.47', 'Valid Accounts (T1078)', 15, 0.944, 29, 52),
+('OBS-INV-20261114-002', 'usr_maya_thorne', 'Operation Velvet Typhoon (Kerberoasting Campaign)', 'Service Principal Name (SPN) ticket extraction attempt detected targeting Domain Controller CORP-DC-01 with RC4 downgrade requests.', 'HIGH', 'ACTIVE', 'Active Directory Kerberos Audits', 194, 5, '192.168.10.84', 'Kerberoasting (T1558.003)', 8, 0.887, 18, 27),
+('OBS-INV-20261114-003', 'usr_maya_thorne', 'DarkSide Ransomware Staging (Subnet 10.0.4.0/24)', 'Volume Shadow Copy deletion (vssadmin delete shadows /all) and staging of encrypted archive targeting backup-nas-01. Quarantined via host firewall isolation.', 'CRITICAL', 'CONTAINED', 'Endpoint EDR & Sysmon Telemetry', 280, 6, 'wkst-09-fin', 'Inhibit System Recovery (T1490)', 12, 0.965, 22, 34),
+('OBS-INV-20261114-004', 'usr_maya_thorne', 'Automated Brute Force on SSH Bastion', 'Low-and-slow SSH password spray originating from bulletproof hosting subnet; safely isolated and absorbed by OpenCanary honeypot trap.', 'MEDIUM', 'RESOLVED', 'Auth.log / OpenCanary Decoy', 142, 2, '45.33.32.156', 'Brute Force (T1110.003)', 2, 0.991, 6, 8)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.telemetry_files (id, investigation_id, user_id, filename, file_size, file_format, record_count, valid_count, invalid_count, duplicate_count)
+VALUES
+('FILE-001', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'apt29_telemetry_batch1.csv', 48210, 'CSV', 357, 350, 0, 7),
+('FILE-002', 'OBS-INV-20261114-002', 'usr_maya_thorne', 'kerberos_event4769_dump.json', 24900, 'JSON', 194, 190, 0, 4),
+('FILE-003', 'OBS-INV-20261114-003', 'usr_maya_thorne', 'sysmon_ransomware_staging.csv', 36400, 'CSV', 280, 275, 0, 5),
+('FILE-004', 'OBS-INV-20261114-004', 'usr_maya_thorne', 'cowrie_auth_spray.log', 18200, 'LOG', 142, 140, 0, 2)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.attack_nodes (id, investigation_id, user_id, entity_id, entity_type, label, severity, is_malicious, centrality, mitre_tags)
+VALUES
+('NODE-01', 'OBS-INV-20261114-001', 'usr_maya_thorne', '185.220.101.47', 'AUTH_ENDPOINT', '185.220.101.47 (TOR C2)', 'CRITICAL', TRUE, 0.354, '["T1078"]'::jsonb),
+('NODE-02', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'vpn.obsyron.corp', 'GATEWAY', 'vpn.obsyron.corp', 'HIGH', TRUE, 0.281, '["T1078"]'::jsonb),
+('NODE-03', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'emp_rohan', 'USER', 'emp_rohan (Identity)', 'HIGH', TRUE, 0.291, '["T1078.004"]'::jsonb),
+('NODE-04', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'wkst-04-dev', 'DEVICE', 'wkst-04-dev (Endpoint)', 'HIGH', TRUE, 0.482, '["T1021.001"]'::jsonb),
+('NODE-05', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'powershell.exe', 'PROCESS', 'powershell.exe', 'CRITICAL', TRUE, 0.412, '["T1059.001"]'::jsonb),
+('NODE-06', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'svc_ci_deploy', 'SERVICE', 'svc_ci_deploy (Service)', 'CRITICAL', TRUE, 0.228, '["T1558"]'::jsonb),
+('NODE-07', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'db-prod-01', 'DEVICE', 'db-prod-01 (Database)', 'CRITICAL', TRUE, 0.186, '["T1021.002"]'::jsonb),
+('NODE-08', 'OBS-INV-20261114-001', 'usr_maya_thorne', '198.51.100.23', 'AUTH_ENDPOINT', '198.51.100.23 (Drop Server)', 'CRITICAL', TRUE, 0.125, '["T1048"]'::jsonb),
+('NODE-09', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'cowrie-ssh-dmz', 'DECEPTION_SENSOR', 'cowrie-ssh-dmz (Honeytrap)', 'LOW', FALSE, 0.050, '["T1046"]'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.investigation_notes (id, investigation_id, user_id, author_name, title, content)
+VALUES
+('NOTE-01', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'Cmdr. Maya Thorne', 'Initial Ingress Triage & Patient Zero Identification', 'Observed external IP 185.220.101.47 authenticating via employee portal from known TOR exit relay. Active session issued to emp_rohan without MFA challenge.'),
+('NOTE-02', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'Lt. Alex Chen', 'Host Subnet Isolation for wkst-04-dev', 'Developer host wkst-04-dev spawned encoded PowerShell script executing Invoke-Mimikatz against LSASS memory. Isolated host subnet egress.'),
+('NOTE-03', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'Sgt. Elena Rostova', 'Perimeter Firewall Block Applied for 185.220.101.47', 'Outbound TCP connection to 198.51.100.23 on port 443 blocked at perimeter firewall. Stolen database dump contained in quarantine zone.')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.deception_events (id, investigation_id, user_id, sensor_type, src_ip, target_decoy, trigger_timestamp, payload, severity)
+VALUES
+('DEC-01', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'Cowrie SSH Decoy', '185.220.101.47', 'cowrie-ssh-dmz', '2026-03-31 01:14:12+00', 'uname -a', 'CRITICAL'),
+('DEC-02', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'Cowrie SSH Decoy', '185.220.101.47', 'cowrie-ssh-dmz', '2026-03-31 01:14:38+00', 'cat /etc/shadow', 'CRITICAL'),
+('DEC-03', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'OpenCanary MySQL', '10.0.8.24', 'db-canary-01', '2026-03-31 01:18:22+00', 'SELECT * FROM users_admin', 'HIGH'),
+('DEC-04', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'OpenCanary AWS Bait', '185.220.101.47', 'aws-decoy-bucket', '2026-03-31 01:21:05+00', 'GET /credentials/backup.enc', 'CRITICAL')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.investigation_reports (id, investigation_id, user_id, format, title, content)
+VALUES
+('REP-01', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'markdown', 'Executive Cyber Incident Briefing (NIST SP 800-61 Rev 2)', '# NIST SP 800-61 Rev 2 Incident Briefing\n\n## Summary\nCritical unauthorized external ingress detected from 185.220.101.47 targeting production database cluster.\n\n## Recommendations\n1. Enforce FIDO2 WebAuthn MFA\n2. Block IP 185.220.101.47\n3. Rotate CI/CD deploy tokens.'),
+('REP-02', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'json', 'Technical Incident Data Exchange (OASIS STIX 2.1)', '{"spec_version": "2.1", "type": "bundle", "id": "bundle--8f7a8b9c", "objects_count": 230}'),
+('REP-03', 'OBS-INV-20261114-001', 'usr_maya_thorne', 'csv', 'Full CIRT Forensic Evidence Ledger Export', 'event_id,timestamp,source,target,action,mitre_tag,severity,sha256\nEVT-001,2026-03-31T01:14:02Z,185.220.101.47,vpn.obsyron.corp,EXTERNAL_INGRESS,T1078,CRITICAL,160bce742077ef960056115f3f14a6f840de042fcbb65693cde49436d1f007e0\n')
+ON CONFLICT (id) DO NOTHING;

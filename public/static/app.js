@@ -3676,6 +3676,67 @@ async function syncActiveInvestigationToSupabase() {
   }
 }
 
+async function seedDatabaseDemoData() {
+  const feedback = document.getElementById('db-modal-feedback');
+  const btnModal = document.getElementById('btn-seed-demo-db');
+  const btnDash = document.getElementById('btn-dash-seed-demo');
+
+  if (btnModal) {
+    btnModal.disabled = true;
+    btnModal.innerHTML = '⏳ Seeding Relational Dataset...';
+  }
+  if (btnDash) {
+    btnDash.disabled = true;
+    btnDash.innerHTML = '<span>⏳ Seeding...</span>';
+  }
+
+  try {
+    const res = await apiFetch('/api/database/seed-demo', { method: 'POST' });
+    const data = await res.json();
+
+    if (feedback) {
+      feedback.style.display = 'block';
+      if (data.success) {
+        feedback.style.background = 'var(--color-success-bg)';
+        feedback.style.color = 'var(--color-success)';
+        feedback.textContent = `✓ ${data.message || 'Forensic demo dataset seeded!'} (${data.investigations_count || 4} investigations, ${data.telemetry_events_count || 10}+ telemetry events, ${data.attack_nodes_count || 9} nodes across all 10 tables)`;
+      } else {
+        feedback.style.background = 'var(--color-warning-bg)';
+        feedback.style.color = 'var(--color-warning)';
+        feedback.textContent = data.message || 'Notice during seeding';
+      }
+    }
+
+    // Refresh Dashboard stats & investigations list
+    await loadDashboardData();
+
+    // Re-render attack workbench if active
+    if (typeof openInvestigationWorkbench === 'function') {
+      const invId = (data.target_user_id === 'usr_maya_thorne') ? 'OBS-INV-20261114-001' : (_cachedInvestigations[0]?.id || 'OBS-INV-20261114-001');
+      if (invId) {
+        await openInvestigationWorkbench(invId);
+      }
+    }
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = `Demo seeding failed: ${err.message}`;
+    }
+    console.error('Demo seeding error:', err);
+  } finally {
+    if (btnModal) {
+      btnModal.disabled = false;
+      btnModal.innerHTML = '🎲 Seed Forensic Demo Dataset';
+    }
+    if (btnDash) {
+      btnDash.disabled = false;
+      btnDash.innerHTML = '<span>🎲 Seed Demo Data</span>';
+    }
+  }
+}
+
 // ── 13.5. FORENSIC CAPABILITIES TOOLS RUNNER ───────────────────────────────
 
 const FORENSIC_TOOLS_MAP = {
