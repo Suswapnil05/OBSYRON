@@ -366,28 +366,26 @@ function formatEdgeLabel(e) {
   if (e.is_inferred) {
     return `④ [INFERRED] Priv Esc\n${confVal}% [T1558] ⚠️`;
   }
-  const action = (e.action || '').toUpperCase();
-  const mitre = e.mitre_tag || '';
 
-  if (mitre === 'T1078' || action === 'AUTH_ANOMALY') {
+  if (mitre === 'T1078' || action === 'AUTH_ANOMALY' || (e.source === '185.220.101.47' && e.target === 'emp_rohan')) {
     return `① Ingress Auth\n${confVal}% [T1078]`;
   }
-  if (action === 'PROC_SPAWN' || mitre === 'T1059.001') {
+  if (action === 'PROC_SPAWN' || mitre === 'T1059.001' || e.target === 'powershell.exe') {
     return `② Spawn Shell\n${confVal}% [T1059]`;
   }
-  if (mitre === 'T1087' || action === 'RECON_ENUM') {
+  if (mitre === 'T1087' || action === 'RECON_ENUM' || (e.source === 'powershell.exe' && e.target === 'dc-01')) {
     return `③ AD Discovery\n${confVal}% [T1087]`;
   }
-  if (mitre === 'T1558' || action === 'PRIV_ESC') {
+  if (mitre === 'T1558' || action === 'PRIV_ESC' || (e.source === 'dc-01' && e.target === 'svc_ci_deploy')) {
     return `④ Priv Escalation\n${confVal}% [T1558]`;
   }
-  if (mitre === 'T1021' || action === 'LATERAL_MOVE') {
+  if (mitre === 'T1021' || action === 'LATERAL_MOVE' || (e.source === 'svc_ci_deploy' && e.target === 'db-prod-01')) {
     return `⑤ Lateral SMB\n${confVal}% [T1021]`;
   }
-  if (action === 'DATA_EXFIL') {
+  if (action === 'DATA_EXFIL' || (e.source === 'db-prod-01' && e.target === '185.220.101.47' && e.action === 'DATA_EXFIL')) {
     return `⑥ Exfiltration\n${confVal}% [T1048]`;
   }
-  if (action === 'C2_CALLBACK' || action === 'C2_BEACON') {
+  if (action === 'C2_CALLBACK' || action === 'C2_BEACON' || (e.source === '185.220.101.47' && e.target === 'db-prod-01')) {
     return `⑦ C2 Beacon\n${confVal}% [T1048]`;
   }
   if (action === 'COWRIE_CMD' || action === 'COWRIE_AUTH') {
@@ -396,6 +394,7 @@ function formatEdgeLabel(e) {
   if (action === 'CANARY_TRIGGER') {
     return `⚠️ Canary Trip\n${confVal}% [T1083]`;
   }
+
   return `${e.action || 'TRAFFIC'}\n${confVal}%`;
 }
 
@@ -470,14 +469,21 @@ function renderGraph(data) {
   const ancestorColor = dark ? '#38BDF8' : '#0284C7';
   const descendantColor = dark ? '#EF4444' : '#DC2626';
 
-  // 1. Identify Threat-Relevant Edges
+  // 1. Identify Threat-Relevant Edges (Clean & Focused Kill Chain)
   const allEdges = data.edges || [];
-  const threatEdges = allEdges.filter(e => {
-    return Boolean(e.is_inferred) ||
-      (e.mitre_tag && e.mitre_tag.length > 0) ||
-      e.severity === 'CRITICAL' ||
-      e.severity === 'HIGH';
+  let threatEdges = allEdges.filter(e => {
+    return Boolean(e.is_malicious) ||
+      Boolean(e.is_inferred) ||
+      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
   });
+
+  // Fallback if custom uploaded dataset has no pre-flagged APT IDs
+  if (threatEdges.length === 0) {
+    threatEdges = allEdges.filter(e => e.severity === 'CRITICAL');
+  }
+  if (threatEdges.length === 0) {
+    threatEdges = allEdges.slice(0, 8);
+  }
 
   // 2. Identify Threat-Relevant Nodes
   const threatNodeIds = new Set();
@@ -530,7 +536,8 @@ function renderGraph(data) {
 
   // Add Edges
   edgesToRender.forEach((e, i) => {
-    const isThreatEdge = e.is_inferred || (e.mitre_tag && e.mitre_tag.length > 0) || e.severity === 'CRITICAL' || e.severity === 'HIGH';
+    const isThreatEdge = Boolean(e.is_inferred) || Boolean(e.is_malicious) ||
+      (e.log_ids || []).some(id => String(id).startsWith('LOG-APT') || String(id).startsWith('UPLOAD-MAL'));
     elements.push({
       group: 'edges',
       data: {
@@ -571,8 +578,8 @@ function renderGraph(data) {
     name: 'breadthfirst',
     directed: true,
     roots: rootSelector,
-    padding: 35,
-    spacingFactor: 1.35,
+    padding: 45,
+    spacingFactor: 1.5,
     avoidOverlap: true,
     maximal: true,
     animate: false
@@ -731,7 +738,11 @@ function renderGraph(data) {
       container,
       elements,
       layout: layoutOpts,
-      style: cyStyle
+      style: cyStyle,
+      wheelSensitivity: 0.1,    // Smooth, gentle mousewheel zoom (prevents flying/spinning)
+      minZoom: 0.35,
+      maxZoom: 2.2,
+      boxSelectionEnabled: false
     });
   } catch (cyErr) {
     console.warn('Primary Cytoscape layout failed, falling back:', cyErr);
@@ -740,7 +751,10 @@ function renderGraph(data) {
         container,
         elements,
         layout: { name: 'breadthfirst', directed: true, padding: 35, animate: false },
-        style: cyStyle
+        style: cyStyle,
+        wheelSensitivity: 0.1,
+        minZoom: 0.35,
+        maxZoom: 2.2
       });
     } catch (fallbackErr) {
       console.warn('Breadthfirst fallback failed, using grid layout:', fallbackErr);
@@ -748,7 +762,8 @@ function renderGraph(data) {
         container,
         elements,
         layout: { name: 'grid', padding: 35 },
-        style: cyStyle
+        style: cyStyle,
+        wheelSensitivity: 0.1
       });
     }
   }
@@ -756,22 +771,16 @@ function renderGraph(data) {
   if (!cyInstance) return;
   state.cy = cyInstance;
 
-  // Node Click -> Smooth Zoom/Center + Evidence DNA + Blast Radius Highlight
+  // Node Click -> Evidence DNA + Blast Radius Highlight (Stable viewport, no camera jerk)
   state.cy.on('tap', 'node', function(evt) {
     const node = evt.target;
     const logIds = node.data('log_ids') || [];
     const chosenId = logIds.find(id => id.startsWith('LOG-APT') || id.startsWith('UPLOAD')) || logIds[0];
     if (chosenId) fetchEvidence(chosenId);
     highlightBlastRadius(node);
-
-    // Smooth responsive camera center
-    state.cy.animate({
-      center: { eles: node },
-      zoom: Math.max(state.cy.zoom(), 1.15)
-    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
-  // Edge Click -> Smooth Center + Evidence DNA
+  // Edge Click -> Evidence DNA (Stable viewport)
   state.cy.on('tap', 'edge', function(evt) {
     const edge = evt.target;
     const logIds = edge.data('log_ids') || [];
@@ -782,10 +791,6 @@ function renderGraph(data) {
     edge.removeClass('dimmed').addClass('highlighted');
     edge.source().removeClass('dimmed').addClass('highlighted ancestor-highlight');
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
-
-    state.cy.animate({
-      center: { eles: edge }
-    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
   // Hover Tooltip
@@ -991,9 +996,8 @@ function focusAttackStep(stepNum) {
     edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
 
     cy.animate({
-      center: { eles: edge },
-      zoom: Math.max(cy.zoom(), 1.25)
-    }, { duration: 400, easing: 'ease-in-out-cubic' });
+      center: { eles: edge }
+    }, { duration: 300, easing: 'ease-in-out-cubic' });
 
     const logIds = edge.data('log_ids') || [];
     if (logIds[0]) fetchEvidence(logIds[0]);
@@ -2453,10 +2457,153 @@ async function logoutOperator() {
   }
 }
 
+// ── 13. SUPABASE POSTGRESQL DATABASE MANAGEMENT ───────────────────────────
+
+async function initDatabaseStatus() {
+  try {
+    const res = await apiFetch('/api/database/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    updateDatabaseUI(data);
+  } catch (err) {
+    console.warn('Database status check notice:', err);
+  }
+}
+
+function updateDatabaseUI(data) {
+  const dot = document.getElementById('db-status-dot');
+  const label = document.getElementById('db-status-label');
+  const modalDot = document.getElementById('db-modal-dot');
+  const modalText = document.getElementById('db-modal-status-text');
+
+  if (data.authenticated) {
+    if (dot) dot.style.background = '#10B981'; // Green
+    if (label) label.textContent = 'Supabase: Connected';
+    if (modalDot) modalDot.style.background = '#10B981';
+    if (modalText) {
+      modalText.textContent = '🟢 Connected & Authenticated (PostgreSQL Live)';
+      modalText.style.color = 'var(--color-success)';
+    }
+  } else if (data.connected) {
+    if (dot) dot.style.background = '#F59E0B'; // Amber
+    if (label) label.textContent = 'Supabase: Key Needed';
+    if (modalDot) modalDot.style.background = '#F59E0B';
+    if (modalText) {
+      modalText.textContent = '🟡 Host Reached (Key Required)';
+      modalText.style.color = 'var(--color-warning)';
+    }
+  } else {
+    if (dot) dot.style.background = '#64748B'; // Muted
+    if (label) label.textContent = 'Supabase: Standby';
+    if (modalDot) modalDot.style.background = '#64748B';
+    if (modalText) {
+      modalText.textContent = '⚪ Local-First Standby';
+      modalText.style.color = 'var(--text-secondary)';
+    }
+  }
+}
+
+function openDatabaseModal() {
+  const modal = document.getElementById('database-modal');
+  if (modal) modal.style.display = 'flex';
+  initDatabaseStatus();
+}
+
+function closeDatabaseModal() {
+  const modal = document.getElementById('database-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleDatabaseModalClick(event) {
+  if (event.target.id === 'database-modal') {
+    closeDatabaseModal();
+  }
+}
+
+async function saveDatabaseKey() {
+  const input = document.getElementById('input-supabase-key');
+  const feedback = document.getElementById('db-modal-feedback');
+  const key = (input ? input.value : '').trim();
+
+  if (!key) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = 'Please paste your Supabase API key.';
+    }
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/database/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supabase_key: key })
+    });
+    const data = await res.json();
+    if (data.status) {
+      updateDatabaseUI(data.status);
+    }
+    if (feedback) {
+      feedback.style.display = 'block';
+      if (data.status && data.status.authenticated) {
+        feedback.style.background = 'var(--color-success-bg)';
+        feedback.style.color = 'var(--color-success)';
+        feedback.textContent = '✓ Connected to Supabase PostgreSQL successfully!';
+      } else {
+        feedback.style.background = 'var(--color-warning-bg)';
+        feedback.style.color = 'var(--color-warning)';
+        feedback.textContent = `Key saved. Status: ${data.status ? data.status.message : 'Configured'}`;
+      }
+    }
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = `Error: ${err.message}`;
+    }
+  }
+}
+
+async function syncActiveInvestigationToSupabase() {
+  const btn = document.getElementById('btn-sync-supabase');
+  const feedback = document.getElementById('db-modal-feedback');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await apiFetch('/api/database/sync', { method: 'POST' });
+    const data = await res.json();
+    if (feedback) {
+      feedback.style.display = 'block';
+      if (data.success) {
+        feedback.style.background = 'var(--color-success-bg)';
+        feedback.style.color = 'var(--color-success)';
+        feedback.textContent = '✓ Forensic case and audit logs synced to Supabase!';
+      } else {
+        feedback.style.background = 'var(--color-warning-bg)';
+        feedback.style.color = 'var(--color-warning)';
+        feedback.textContent = `Sync notice: ${data.error || data.message || 'Check API key permissions'}`;
+      }
+    }
+  } catch (err) {
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.background = 'var(--color-critical-bg)';
+      feedback.style.color = 'var(--color-critical)';
+      feedback.textContent = `Sync failed: ${err.message}`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // ── 14. BOOTSTRAP ──────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAuth();
+  initDatabaseStatus();
   runAnalysis(state.currentSettings);
 });

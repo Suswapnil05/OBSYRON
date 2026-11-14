@@ -176,12 +176,6 @@
       <span>Simulate Ingestion Chaos</span>
       <span>🎲</span>
     </a>
-    <button class="header-action-btn" style="padding:12px 20px;font-size:12px" onclick="toggleAudioBriefing()">
-      <svg viewBox="0 0 24 24">
-        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-      </svg>
-      <span>Listen to SOC Briefing</span>
-    </button>
   </div>
 
   <div class="hero-proof-bar">
@@ -257,6 +251,10 @@
           <span class="cockpit-tag">CYTOSCAPE.JS DARK CANVAS</span>
           <span class="cockpit-tag">ZERO HALLUCINATION XAI</span>
         </div>
+        <button id="btn-supabase-status" class="header-action-btn database-status-btn" onclick="openDatabaseModal()" title="Manage Supabase PostgreSQL Connection (ugkekxiwvgsitzqduzxq)" style="padding:6px 10px;font-size:10.5px;display:flex;align-items:center;gap:6px">
+          <span class="db-dot" id="db-status-dot" style="width:7px;height:7px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+          <span id="db-status-label">Supabase (ugkekxiwvgsitzqduzxq)</span>
+        </button>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="header-action-btn" onclick="openReportModal()" title="View Printable Executive Forensic Briefing" style="padding:6px 10px;font-size:10.5px;border-color:var(--accent-cyan);color:var(--accent-cyan)">
             📄 Executive Brief
@@ -742,10 +740,10 @@
     <!-- Modal Cyber Tab Switcher -->
     <div class="auth-tabs-nav" style="margin-bottom:16px">
       <button type="button" class="auth-tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">
-        <span>🔑 Log In</span>
+        <span>Sign In</span>
       </button>
       <button type="button" class="auth-tab-btn" id="modal-tab-signup" onclick="switchModalAuthTab('signup')">
-        <span>📝 Sign Up</span>
+        <span>Sign Up</span>
       </button>
     </div>
 
@@ -755,24 +753,21 @@
     <!-- Panel 1: Modal Log In -->
     <div id="modal-panel-login">
       <!-- 1-Click Role Selection -->
-      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent-cyan);font-weight:600;margin-bottom:6px">
-        ⚡ 1-CLICK TACTICAL PRESETS
+      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-tertiary);font-weight:600;margin-bottom:6px">
+        DEMO PRESETS (CLICK TO PREFILL)
       </div>
       
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('analyst_lead', 'obsyron2026', 'L4')">
-          <span style="font-size:16px">🛡️</span>
-          <span style="font-size:11px;font-weight:700">Lead (L4)</span>
-          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Top Secret</span>
+          <span style="font-size:12px;font-weight:700">Lead (L4)</span>
+          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Full Access</span>
         </button>
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('soc_tier2', 'obsyron2026', 'L3')">
-          <span style="font-size:16px">⚡</span>
-          <span style="font-size:11px;font-weight:700">Responder (L3)</span>
+          <span style="font-size:12px;font-weight:700">Responder (L3)</span>
           <span style="font-size:9.5px;color:var(--color-warning);font-family:var(--font-mono)">Incident Ops</span>
         </button>
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('sec_auditor', 'obsyron2026', 'L2')">
-          <span style="font-size:16px">🔍</span>
-          <span style="font-size:11px;font-weight:700">Auditor (L2)</span>
+          <span style="font-size:12px;font-weight:700">Auditor (L2)</span>
           <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono)">Read-Only</span>
         </button>
       </div>
@@ -782,16 +777,17 @@
         <div style="margin-bottom:10px">
           <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign</label>
           <input type="text" id="modal-input-username" class="cyber-input" style="padding-left:12px;font-size:12px" value="analyst_lead" required autocomplete="username">
+          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>analyst_lead</code></span>
         </div>
 
         <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Defense Passcode</label>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode</label>
           <input type="password" id="modal-input-password" class="cyber-input" style="padding-left:12px;font-size:12px" value="obsyron2026" required autocomplete="current-password">
+          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>obsyron2026</code></span>
         </div>
 
         <button type="submit" id="btn-modal-auth" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Log In to Terminal</span>
-          <span>⚡</span>
+          <span>Sign In</span>
         </button>
       </form>
     </div>
@@ -805,7 +801,7 @@
         </div>
 
         <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign (Username)</label>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Callsign</label>
           <input type="text" id="modal-signup-username" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. m_thorne" required autocomplete="username">
         </div>
 
@@ -824,8 +820,7 @@
         </div>
 
         <button type="submit" id="btn-modal-signup" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Create Account &amp; Authorize</span>
-          <span>🛡️</span>
+          <span>Create Account</span>
         </button>
       </form>
     </div>
@@ -910,6 +905,98 @@
 
     <div id="report-modal-body" style="font-size:12px;line-height:1.6;color:var(--text-secondary);font-family:var(--font-sans)">
       <!-- Rendered dynamically -->
+    </div>
+  </div>
+</div>
+
+<!-- ── SUPABASE DATABASE INTEGRATION MODAL ─────────────────────────────── -->
+<div id="database-modal" class="auth-modal-overlay" onclick="handleDatabaseModalClick(event)" style="display:none">
+  <div class="auth-modal-card" style="max-width:540px">
+    <button class="auth-modal-close" onclick="closeDatabaseModal()" title="Close">&times;</button>
+    
+    <div class="auth-modal-header" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:34px;height:34px;border-radius:8px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:18px">
+          ⚡
+        </div>
+        <div>
+          <h2 style="font-size:16px;font-weight:700;margin:0;color:var(--text-primary)">Supabase Database Integration</h2>
+          <p style="font-size:11px;color:var(--text-secondary);margin:2px 0 0">PostgreSQL Cloud Persistence &amp; Forensic Sync</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Status Banner -->
+    <div id="db-modal-status-banner" style="background:rgba(15,23,42,0.6);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="db-modal-dot" style="width:9px;height:9px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+          <span id="db-modal-status-text" style="font-weight:700;font-size:12px;color:var(--text-primary)">Probing Supabase Endpoint...</span>
+        </div>
+        <span class="cockpit-tag" style="font-size:10px">POSTGREST V1</span>
+      </div>
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);word-break:break-all" id="db-modal-url-display">
+        https://ugkekxiwvgsitzqduzxq.supabase.co
+      </div>
+    </div>
+
+    <!-- API Key Input Section -->
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">
+        Supabase API Key (anon / public or service_role):
+      </label>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="input-supabase-key" class="cyber-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-size:11px;font-family:var(--font-mono);flex:1">
+        <button type="button" class="btn-filigran-gradient" onclick="saveDatabaseKey()" style="padding:8px 14px;font-size:11.5px;white-space:nowrap">
+          Save &amp; Connect
+        </button>
+      </div>
+      <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px">
+        Found in Supabase Dashboard &rarr; Project Settings &rarr; API &rarr; Project API keys.
+      </div>
+    </div>
+
+    <!-- Feedback Message Box -->
+    <div id="db-modal-feedback" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;margin-bottom:14px;font-family:var(--font-mono)"></div>
+
+    <!-- Table Sync Summary -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: investigations</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Forensic Attack Graphs</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: audit_logs</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Normalized Telemetry</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: operators</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Security Clearances</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--text-tertiary)">TABLE: containment_actions</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">Mitigation Audit Log</div>
+      </div>
+    </div>
+
+    <!-- Modal Actions -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="header-action-btn" onclick="syncActiveInvestigationToSupabase()" id="btn-sync-supabase" style="flex:1;padding:10px;font-size:11.5px;justify-content:center">
+        ⚡ Sync Active Investigation Now
+      </button>
+      <a href="https://supabase.com/dashboard/project/ugkekxiwvgsitzqduzxq" target="_blank" rel="noopener noreferrer" class="header-action-btn" style="padding:10px 14px;font-size:11.5px;text-decoration:none;display:flex;align-items:center;gap:6px">
+        <span>Open Supabase Console</span>
+        <span style="font-size:10px">&nearr;</span>
+      </a>
+    </div>
+
+    <!-- Schema hint -->
+    <div style="margin-top:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:10.5px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between">
+      <span>Need to create tables in Supabase? Run schema:</span>
+      <a href="/supabase_schema.sql" download="supabase_schema.sql" style="color:var(--accent-cyan);text-decoration:underline;font-family:var(--font-mono)">supabase_schema.sql</a>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 </div>
