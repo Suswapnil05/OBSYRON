@@ -3,18 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OBSYRON — Operator Authorization &amp; Defense Clearance Gateway</title>
+<title>Sign In — OBSYRON</title>
 <link rel="icon" type="image/png" href="/static/icon.png">
 <link rel="shortcut icon" href="/static/icon.png">
 <link rel="apple-touch-icon" href="/static/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
   /* ═══════════════════════════════════════════════════════════════════════════
-     OBSYRON — FULL-SCREEN CENTERED AUTHENTICATION PORTAL
-     Direct Centered Viewport Architecture (Zero Side-Split)
+     OBSYRON — PROFESSIONAL MINIMALIST AUTHENTICATION PORTAL
+     Clean, modern enterprise styling (Linear / Stripe / Vercel aesthetic)
+     Zero animated stickers, pure professional clarity with helpful hints.
      ═══════════════════════════════════════════════════════════════════════════ */
 
   *, *::before, *::after {
@@ -27,481 +28,359 @@
     width: 100%;
     min-height: 100vh;
     font-family: var(--font-sans);
-    background-color: var(--bg-app);
-    color: var(--text-primary);
+    background-color: #060912;
+    color: #F1F5F9;
     overflow-x: hidden;
   }
 
-  body {
-    position: relative;
-    background-color: #00020C;
-    background-image: 
-      radial-gradient(circle at 50% 35%, rgba(51, 120, 255, 0.14) 0%, rgba(168, 85, 247, 0.06) 40%, transparent 70%);
-  }
   body:not(.dark-theme) {
     background-color: #F8FAFC;
-    background-image: 
-      radial-gradient(circle at 50% 35%, rgba(51, 120, 255, 0.08) 0%, rgba(168, 85, 247, 0.04) 40%, transparent 70%);
+    color: #0F172A;
   }
 
-  /* Subtle Cyber Grid Texture */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: 
-      radial-gradient(rgba(51, 120, 255, 0.15) 1px, transparent 1px);
-    background-size: 32px 32px;
-    pointer-events: none;
-    z-index: 0;
-  }
-  body:not(.dark-theme)::before {
-    background-image: radial-gradient(rgba(51, 120, 255, 0.08) 1px, transparent 1px);
-  }
-
-  /* Ambient Glowing Orb */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(720px, 90vw);
-    height: min(620px, 80vh);
-    background: radial-gradient(circle, rgba(51, 120, 255, 0.18) 0%, rgba(111, 215, 255, 0.08) 40%, transparent 70%);
-    filter: blur(60px);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Full Screen Flex Layout Container */
-  .auth-fullscreen-container {
-    position: relative;
-    z-index: 1;
+  /* Full Screen Flex Layout */
+  .auth-page {
     min-height: 100vh;
     width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    padding: clamp(16px, 2.8vh, 28px) clamp(16px, 3.5vw, 32px);
+    padding: 24px 20px 32px 20px;
   }
 
-  /* ── TOP NAVIGATION BAR ─────────────────────────────────────────────────── */
-  .auth-topbar {
+  /* ── TOP HEADER ─────────────────────────────────────────────────────────── */
+  .auth-header {
     width: 100%;
-    max-width: 1080px;
+    max-width: 960px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding-bottom: 8px;
   }
 
-  .btn-return-cockpit {
+  .btn-back {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     text-decoration: none;
     color: var(--text-secondary);
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border-default);
-    background: var(--bg-card);
-    transition: all 0.2s ease;
-    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-subtle);
+    background: transparent;
+    transition: all 0.15s ease;
   }
-  body:not(.dark-theme) .btn-return-cockpit {
-    background: #FFFFFF;
+  .btn-back:hover {
     color: var(--text-primary);
-    border-color: rgba(0, 0, 0, 0.12);
-  }
-  .btn-return-cockpit:hover {
-    color: var(--text-primary);
-    border-color: var(--primary);
-    background: var(--bg-card-hover);
-    transform: translateX(-2px);
-  }
-  .btn-return-cockpit .return-arrow {
-    font-size: 14px;
-    transition: transform 0.2s ease;
-  }
-  .btn-return-cockpit:hover .return-arrow {
-    transform: translateX(-2px);
+    border-color: var(--border-default);
+    background: var(--bg-surface-elevated);
   }
 
-  .auth-topbar-right {
+  .header-controls {
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
-  .auth-enclave-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: var(--radius-full);
-    background: rgba(16, 185, 129, 0.08);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    color: var(--color-success);
-    font-size: 10px;
+  .enclave-badge {
+    font-size: 11px;
     font-family: var(--font-mono);
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.5px;
   }
-  @media (max-width: 640px) {
-    .auth-enclave-pill {
-      display: none;
-    }
+  @media (max-width: 600px) {
+    .enclave-badge { display: none; }
   }
 
-  /* ── CENTER STAGE & AUTHENTICATION CARD ─────────────────────────────────── */
-  .auth-center-stage {
+  .btn-theme-minimal {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-theme-minimal:hover {
+    color: var(--text-primary);
+    border-color: var(--border-default);
+    background: var(--bg-surface-elevated);
+  }
+
+  /* ── CENTER STAGE ───────────────────────────────────────────────────────── */
+  .auth-container {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex: 1;
-    margin: clamp(16px, 2.5vh, 28px) 0;
+    max-width: 420px;
+    margin: auto 0;
+    padding: 20px 0;
   }
 
-  .auth-card {
-    width: 100%;
-    max-width: 480px;
-    background: rgba(13, 18, 36, 0.92);
-    border: 1px solid var(--border-default);
-    border-top: 1px solid rgba(111, 215, 255, 0.45);
-    border-radius: 16px;
-    padding: clamp(24px, 3.8vw, 36px) clamp(20px, 3.4vw, 32px);
-    box-shadow: 
-      0 24px 60px -12px rgba(0, 0, 0, 0.75),
-      0 0 45px -10px rgba(51, 120, 255, 0.25);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    position: relative;
-    transition: all 0.3s ease;
+  .auth-box {
+    background: #0B101E;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 32px 28px;
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5);
   }
-  body:not(.dark-theme) .auth-card {
-    background: rgba(255, 255, 255, 0.98);
-    border-color: rgba(0, 0, 0, 0.1);
-    border-top: 1px solid rgba(51, 120, 255, 0.45);
-    box-shadow: 
-      0 20px 45px -10px rgba(0, 0, 0, 0.12),
-      0 0 25px rgba(51, 120, 255, 0.08);
+  body:not(.dark-theme) .auth-box {
+    background: #FFFFFF;
+    border-color: #E2E8F0;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
   }
 
-  /* Card Header */
-  .auth-card-header {
+  /* Brand and Heading */
+  .auth-brand {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    margin-bottom: 22px;
+    margin-bottom: 24px;
   }
-
-  .auth-brand-emblem {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, rgba(51, 120, 255, 0.25) 0%, rgba(168, 85, 247, 0.2) 100%);
-    border: 1px solid rgba(111, 215, 255, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 24px rgba(51, 120, 255, 0.35);
+  .auth-logo {
+    width: 36px;
+    height: 36px;
     margin-bottom: 12px;
-  }
-  .auth-brand-emblem img {
-    width: 30px;
-    height: 30px;
     object-fit: contain;
   }
-
-  .auth-brand-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-  .auth-brand-name {
-    font-size: 19px;
-    font-weight: 800;
+  .auth-title {
+    font-size: 20px;
+    font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-primary);
+    margin-bottom: 4px;
   }
-  .auth-brand-tag {
-    font-size: 9.5px;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    color: var(--accent-cyan);
-    letter-spacing: 0.8px;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    background: rgba(51, 120, 255, 0.12);
-    border: 1px solid rgba(111, 215, 255, 0.25);
-  }
-
-  .auth-card-title {
-    font-size: clamp(21px, 2.6vw, 25px);
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    color: var(--text-primary);
-    margin-bottom: 5px;
-  }
-  .auth-card-subtitle {
+  .auth-desc {
     font-size: 13px;
     color: var(--text-secondary);
-    line-height: 1.5;
-    max-width: 380px;
+    line-height: 1.4;
   }
 
-  /* Segmented Auth Tabs */
-  .auth-segmented-nav {
+  /* Clean Minimal Tabs */
+  .auth-nav {
     display: flex;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    padding: 4px;
-    margin-bottom: 18px;
-    gap: 4px;
-  }
-  body:not(.dark-theme) .auth-segmented-nav {
-    background: #F1F5F9;
-    border-color: rgba(0, 0, 0, 0.08);
-  }
-  .auth-segmented-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 20px;
     gap: 8px;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 12.5px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: var(--font-sans);
   }
-  .auth-segmented-btn:hover {
+  .auth-nav-btn {
+    flex: 1;
+    padding: 10px 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+  .auth-nav-btn:hover {
     color: var(--text-primary);
   }
-  .auth-segmented-btn.active {
-    background: var(--primary);
-    color: #FFFFFF;
-    box-shadow: 0 2px 10px rgba(51, 120, 255, 0.4);
+  .auth-nav-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+  body:not(.dark-theme) .auth-nav-btn.active {
+    color: #2563EB;
+    border-bottom-color: #2563EB;
   }
 
-  /* Feedback Alert Box */
-  #auth-feedback {
-    display: none;
-    padding: 12px 16px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-family: var(--font-mono);
-    margin-bottom: 16px;
-    line-height: 1.5;
-    animation: fadeIn 0.2s ease-out;
+  /* Quick Demo Hint Bar */
+  .demo-hint-box {
+    background: rgba(51, 120, 255, 0.06);
+    border: 1px solid rgba(51, 120, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 18px;
   }
-  #auth-feedback.error {
-    display: block;
-    background: var(--color-critical-bg);
-    border: 1px solid var(--color-critical-border);
-    color: var(--color-critical);
+  body:not(.dark-theme) .demo-hint-box {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
   }
-  #auth-feedback.success {
-    display: block;
-    background: var(--color-success-bg);
-    border: 1px solid var(--color-success-border);
-    color: var(--color-success);
-  }
-
-  /* Quick Role Presets Grid */
-  .quick-roles-title {
+  .demo-hint-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-bottom: 6px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10.5px;
-    font-weight: 700;
-    font-family: var(--font-mono);
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-bottom: 8px;
   }
-  .quick-roles-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
+  body:not(.dark-theme) .demo-hint-label {
+    color: #1D4ED8;
   }
-  .quick-role-btn {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm);
-    padding: 9px 8px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  .demo-chips-row {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
+    gap: 6px;
+    flex-wrap: wrap;
   }
-  body:not(.dark-theme) .quick-role-btn {
-    background: #F8FAFC;
-    border-color: rgba(0, 0, 0, 0.08);
-  }
-  .quick-role-btn:hover {
-    border-color: var(--accent-cyan);
-    background: var(--bg-card-hover);
-    transform: translateY(-1px);
-  }
-  .quick-role-btn.active {
-    border-color: var(--accent-cyan);
-    background: rgba(51, 120, 255, 0.14);
-    box-shadow: 0 0 12px rgba(51, 120, 255, 0.25);
-  }
-  .quick-role-icon {
-    font-size: 15px;
-  }
-  .quick-role-name {
+  .demo-chip {
+    flex: 1;
+    padding: 5px 8px;
     font-size: 11px;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
   }
-  .quick-role-lvl {
-    font-size: 9.5px;
-    font-family: var(--font-mono);
-    font-weight: 600;
+  body:not(.dark-theme) .demo-chip {
+    background: #FFFFFF;
+    border-color: #CBD5E1;
+    color: #334155;
+  }
+  .demo-chip:hover, .demo-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #FFFFFF;
   }
 
-  /* Form Elements */
-  .auth-form-group {
-    margin-bottom: 15px;
+  /* Alerts */
+  #auth-feedback {
+    display: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 16px;
+    line-height: 1.4;
   }
-  .auth-form-row {
+  #auth-feedback.error {
+    display: block;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #EF4444;
+  }
+  #auth-feedback.success {
+    display: block;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10B981;
+  }
+
+  /* Form Fields */
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .form-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .form-input {
+    width: 100%;
+    background: #111726;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #F8FAFC;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  body:not(.dark-theme) .form-input {
+    background: #FFFFFF;
+    border-color: #CBD5E1;
+    color: #0F172A;
+  }
+  .form-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(51, 120, 255, 0.2);
+  }
+  .form-hint {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .form-hint code {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    background: rgba(51, 120, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  body:not(.dark-theme) .form-hint code {
+    color: #1D4ED8;
+    background: #EFF6FF;
+  }
+
+  .btn-pwd-text {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .btn-pwd-text:hover {
+    color: var(--text-primary);
+  }
+
+  .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .auth-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 5px;
-  }
-  .auth-input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-  .auth-input-prefix {
-    position: absolute;
-    left: 14px;
-    color: var(--text-tertiary);
-    font-size: 14px;
-    pointer-events: none;
-  }
-  .auth-cyber-input {
-    width: 100%;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm);
-    padding: 10.5px 14px 10.5px 40px;
-    color: var(--text-primary);
-    font-size: 13px;
-    font-family: var(--font-sans);
-    outline: none;
-    transition: all 0.2s ease;
-  }
-  body:not(.dark-theme) .auth-cyber-input {
-    background: #FFFFFF;
-    border-color: rgba(0, 0, 0, 0.12);
-    color: #0F172A;
-  }
-  .auth-cyber-input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(51, 120, 255, 0.25);
-    background: var(--bg-card-hover);
-  }
-  .auth-pwd-toggle {
-    position: absolute;
-    right: 12px;
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    font-size: 15px;
-    padding: 4px;
-    line-height: 1;
-  }
-  .auth-pwd-toggle:hover {
-    color: var(--text-primary);
+  @media (max-width: 480px) {
+    .form-row { grid-template-columns: 1fr; gap: 0; }
   }
 
-  /* Hardware Security Checkbox Card */
-  .auth-hardware-card {
+  /* Checkbox Row */
+  .checkbox-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 11px 14px;
-    border-radius: var(--radius-sm);
-    background: rgba(16, 185, 129, 0.06);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    margin-bottom: 18px;
-    gap: 10px;
+    gap: 8px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
   }
-  .auth-hw-text {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .auth-hw-sub {
-    font-size: 9.5px;
-    font-family: var(--font-mono);
-    color: var(--text-tertiary);
-    margin-top: 1px;
+  .checkbox-row input {
+    cursor: pointer;
+    accent-color: var(--primary);
   }
 
   /* Submit Button */
-  .btn-terminal-submit {
+  .btn-submit {
     width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12.5px 20px;
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: linear-gradient(135deg, #3378FF 0%, #1550DD 100%);
+    padding: 11px 16px;
+    border-radius: 6px;
+    border: none;
+    background: #3378FF;
     color: #FFFFFF;
     font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 16px rgba(51, 120, 255, 0.4);
-    font-family: var(--font-sans);
+    transition: background-color 0.15s ease;
   }
-  .btn-terminal-submit:hover {
-    background: linear-gradient(135deg, #4A8CFF 0%, #1E5CFF 100%);
-    box-shadow: 0 6px 24px rgba(51, 120, 255, 0.55);
-    transform: translateY(-1px);
+  .btn-submit:hover {
+    background: #1754DD;
   }
-  .btn-terminal-submit:disabled {
+  .btn-submit:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    transform: none;
   }
 
   .auth-panel {
@@ -509,292 +388,211 @@
   }
   .auth-panel.active {
     display: block;
-    animation: fadeIn 0.2s ease-out;
   }
 
-  /* ── FOOTER AUDIT LINE ─────────────────────────────────────────────────── */
-  .auth-page-footer {
-    width: 100%;
-    max-width: 1080px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+  /* Footer Switch Text */
+  .auth-switch-note {
+    margin-top: 18px;
     text-align: center;
-    font-size: 10px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+  .auth-switch-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 4px;
+  }
+  .auth-switch-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Page Footer */
+  .auth-footer {
+    width: 100%;
+    max-width: 960px;
+    text-align: center;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-tertiary);
-    padding-top: 12px;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── RESPONSIVE ADAPTATIONS (MOBILE & TABLET) ───────────────────────────── */
-  @media (max-width: 600px) {
-    .auth-fullscreen-container {
-      padding: 14px 12px 20px 12px;
-    }
-    .auth-card {
-      padding: 22px 16px;
-      border-radius: 12px;
-    }
-    .auth-form-row {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .quick-roles-grid {
-      grid-template-columns: 1fr;
-      gap: 6px;
-    }
-    .quick-role-btn {
-      flex-direction: row;
-      justify-content: space-between;
-      padding: 9px 12px;
-    }
-    .auth-card-title {
-      font-size: 20px;
-    }
-  }
-
-  @media (max-width: 375px) {
-    .btn-return-cockpit {
-      padding: 6px 10px;
-      font-size: 11px;
-    }
-    .auth-card-title {
-      font-size: 18px;
-    }
-    .btn-terminal-submit {
-      padding: 11px 14px;
-      font-size: 12px;
-    }
   }
 </style>
 </head>
 <body class="dark-theme">
 
-<div class="auth-fullscreen-container">
+<div class="auth-page">
 
-  <!-- ── TOP NAVIGATION BAR ─────────────────────────────────────────────────── -->
-  <header class="auth-topbar">
-    <a href="/" class="btn-return-cockpit" title="Return to Platform Cockpit">
-      <span class="return-arrow">←</span>
-      <span>Return to Platform Cockpit</span>
+  <!-- ── TOP NAVIGATION ─────────────────────────────────────────────────────── -->
+  <header class="auth-header">
+    <a href="/" class="btn-back">
+      <span>←</span>
+      <span>Back to Cockpit</span>
     </a>
 
-    <div class="auth-topbar-right">
-      <div class="auth-enclave-pill">
-        <span class="status-dot-pulse"></span>
-        <span>ZERO-TRUST ENCLAVE · NIST SP 800-61</span>
-      </div>
-
-      <button id="btn-theme" class="header-theme-icon-btn" onclick="toggleTheme()" title="Switch Light / Dark mode" aria-label="Toggle theme">
-        <span id="theme-icon">🌙</span>
+    <div class="header-controls">
+      <span class="enclave-badge">LOCAL AIR-GAPPED ENCLAVE</span>
+      <button id="btn-theme" class="btn-theme-minimal" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">Light</span>
       </button>
     </div>
   </header>
 
-  <!-- ── CENTERED AUTHENTICATION CARD ───────────────────────────────────────── -->
-  <main class="auth-center-stage">
-    <div class="auth-card">
-      
-      <!-- Card Header -->
-      <div class="auth-card-header">
-        <div class="auth-brand-emblem">
-          <img src="/static/icon.png" alt="OBSYRON Logo">
-        </div>
-        <div class="auth-brand-meta">
-          <span class="auth-brand-name">OBSYRON</span>
-          <span class="auth-brand-tag">XTM 2.0 // GATEWAY</span>
-        </div>
-        <h1 class="auth-card-title" id="auth-main-title">Operator Authorization</h1>
-        <p class="auth-card-subtitle" id="auth-main-subtitle">
-          Authenticate with your defense clearance credentials or select a tactical evaluation preset.
-        </p>
+  <!-- ── CENTER AUTHENTICATION BOX ──────────────────────────────────────────── -->
+  <main class="auth-container">
+    <div class="auth-box">
+
+      <!-- Brand -->
+      <div class="auth-brand">
+        <img src="/static/icon.png" alt="OBSYRON Logo" class="auth-logo">
+        <h1 class="auth-title" id="auth-main-title">Sign in to OBSYRON</h1>
+        <p class="auth-desc" id="auth-main-subtitle">Enter your operator credentials to access the platform.</p>
       </div>
 
-      <!-- Segmented Tab Navigation -->
-      <div class="auth-segmented-nav" role="tablist">
-        <button type="button" class="auth-segmented-btn active" id="tab-login" onclick="switchAuthTab('login')" role="tab" aria-selected="true">
-          <span>🔑</span>
-          <span>Consigned Log In</span>
+      <!-- Clean Tabs -->
+      <div class="auth-nav" role="tablist">
+        <button type="button" class="auth-nav-btn active" id="tab-login" onclick="switchAuthTab('login')" role="tab" aria-selected="true">
+          Sign In
         </button>
-        <button type="button" class="auth-segmented-btn" id="tab-signup" onclick="switchAuthTab('signup')" role="tab" aria-selected="false">
-          <span>📝</span>
-          <span>Register / Sign Up</span>
+        <button type="button" class="auth-nav-btn" id="tab-signup" onclick="switchAuthTab('signup')" role="tab" aria-selected="false">
+          Sign Up
         </button>
       </div>
 
-      <!-- Feedback Alert Box -->
+      <!-- Feedback Alert -->
       <div id="auth-feedback" role="alert"></div>
 
-      <!-- ── PANEL 1: LOG IN ────────────────────────────────────────────────── -->
+      <!-- ── LOG IN PANEL ───────────────────────────────────────────────────── -->
       <div id="panel-login" class="auth-panel active">
         
-        <div class="quick-roles-title">
-          <span>⚡ 1-Click Tactical Clearances</span>
-          <span style="opacity:0.65;font-size:9.5px">Preset Evaluation</span>
-        </div>
-
-        <div class="quick-roles-grid">
-          <div class="quick-role-btn active" onclick="selectRole('analyst_lead', 'obsyron2026', 'L4', this)">
-            <div class="quick-role-icon">🛡️</div>
-            <div class="quick-role-name">Lead Director</div>
-            <div class="quick-role-lvl" style="color:var(--color-critical)">Level 4</div>
+        <!-- Quick Demo Hint Chips -->
+        <div class="demo-hint-box">
+          <div class="demo-hint-label">
+            <span>Quick Demo Presets</span>
+            <span style="opacity:0.7;font-weight:400">Click to fill</span>
           </div>
-          <div class="quick-role-btn" onclick="selectRole('soc_tier2', 'obsyron2026', 'L3', this)">
-            <div class="quick-role-icon">⚡</div>
-            <div class="quick-role-name">Responder</div>
-            <div class="quick-role-lvl" style="color:var(--color-warning)">Level 3</div>
-          </div>
-          <div class="quick-role-btn" onclick="selectRole('sec_auditor', 'obsyron2026', 'L2', this)">
-            <div class="quick-role-icon">🔍</div>
-            <div class="quick-role-name">Threat Auditor</div>
-            <div class="quick-role-lvl" style="color:var(--accent-cyan)">Level 2</div>
+          <div class="demo-chips-row">
+            <button type="button" class="demo-chip active" onclick="selectRole('analyst_lead', 'obsyron2026', 'L4', this)">
+              Lead (L4)
+            </button>
+            <button type="button" class="demo-chip" onclick="selectRole('soc_tier2', 'obsyron2026', 'L3', this)">
+              Responder (L3)
+            </button>
+            <button type="button" class="demo-chip" onclick="selectRole('sec_auditor', 'obsyron2026', 'L2', this)">
+              Auditor (L2)
+            </button>
           </div>
         </div>
 
         <form id="form-login" onsubmit="handleLoginSubmit(event)">
-          <div class="auth-form-group">
-            <label class="auth-label" for="login-username">
-              <span>Operator Identifier (Callsign)</span>
-              <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent-cyan)">[LDAP / SAML]</span>
-            </label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-prefix">👤</span>
-              <input type="text" id="login-username" class="auth-cyber-input" value="analyst_lead" placeholder="Enter operator callsign" required autocomplete="username">
+          <div class="form-group">
+            <label class="form-label" for="login-username">Operator Callsign</label>
+            <div class="form-input-wrap">
+              <input type="text" id="login-username" class="form-input" value="analyst_lead" placeholder="e.g. analyst_lead" required autocomplete="username">
             </div>
+            <div class="form-hint">Hint: Demo callsign is <code>analyst_lead</code></div>
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-label" for="login-password">
-              <span>Defense Security Passcode</span>
-              <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">Default: obsyron2026</span>
-            </label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-prefix">🔒</span>
-              <input type="password" id="login-password" class="auth-cyber-input" value="obsyron2026" placeholder="Enter security passcode" required autocomplete="current-password">
-              <button type="button" class="auth-pwd-toggle" onclick="togglePasswordVisibility('login-password')" title="Show/Hide passcode">👁️</button>
+          <div class="form-group">
+            <label class="form-label" for="login-password">Passcode</label>
+            <div class="form-input-wrap">
+              <input type="password" id="login-password" class="form-input" value="obsyron2026" placeholder="Enter security passcode" required autocomplete="current-password">
+              <button type="button" id="login-pwd-btn" class="btn-pwd-text" onclick="togglePasswordVisibility('login-password', 'login-pwd-btn')">Show</button>
             </div>
+            <div class="form-hint">Hint: Default passcode is <code>obsyron2026</code></div>
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-label" for="login-clearance">
-              <span>Security Clearance Verification</span>
-              <span style="font-family:var(--font-mono);font-size:10px;color:var(--color-success)">NIST SP 800-61</span>
-            </label>
-            <select id="login-clearance" class="auth-cyber-input" style="padding-left:14px;cursor:pointer">
+          <div class="form-group">
+            <label class="form-label" for="login-clearance">Clearance Level</label>
+            <select id="login-clearance" class="form-input" style="cursor:pointer">
               <option value="L4" selected>Level 4 — Lead Director (Full Incident Containment)</option>
-              <option value="L3">Level 3 — Incident Responder (Active Triage &amp; Playbook)</option>
-              <option value="L2">Level 2 — Threat Auditor (Read-Only Audit Ledger)</option>
+              <option value="L3">Level 3 — Incident Responder (Active Triage)</option>
+              <option value="L2">Level 2 — Threat Auditor (Read-Only)</option>
             </select>
           </div>
 
-          <div class="auth-hardware-card">
-            <div>
-              <div class="auth-hw-text">Hardware Security Key (FIDO2 / CAC)</div>
-              <div class="auth-hw-sub">SIMULATED YUBIKEY 5 NFC · PROXIMITY CONFIRMED</div>
-            </div>
-            <input type="checkbox" id="chk-login-mfa" checked style="accent-color:var(--color-success);transform:scale(1.2);cursor:pointer">
+          <div class="checkbox-row">
+            <input type="checkbox" id="chk-login-mfa" checked>
+            <label for="chk-login-mfa">Simulate hardware security key (FIDO2)</label>
           </div>
 
-          <button type="submit" id="btn-login-submit" class="btn-terminal-submit">
-            <span>⚡</span>
-            <span id="btn-login-text">LOG IN &amp; DECRYPT TERMINAL</span>
+          <button type="submit" id="btn-login-submit" class="btn-submit">
+            <span id="btn-login-text">Sign In</span>
           </button>
         </form>
 
+        <div class="auth-switch-note">
+          Don't have an operator profile?
+          <a class="auth-switch-link" onclick="switchAuthTab('signup')">Create account</a>
+        </div>
+
       </div>
 
-      <!-- ── PANEL 2: SIGN UP / ENROLLMENT ──────────────────────────────────── -->
+      <!-- ── SIGN UP PANEL ──────────────────────────────────────────────────── -->
       <div id="panel-signup" class="auth-panel">
         
         <form id="form-signup" onsubmit="handleSignupSubmit(event)">
           
-          <div class="auth-form-row">
-            <div class="auth-form-group">
-              <label class="auth-label" for="signup-name">
-                <span>Full Name</span>
-              </label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-prefix">🎖️</span>
-                <input type="text" id="signup-name" class="auth-cyber-input" placeholder="e.g. Maya Thorne" required>
-              </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="signup-name">Full Name</label>
+              <input type="text" id="signup-name" class="form-input" placeholder="e.g. Maya Thorne" required>
             </div>
 
-            <div class="auth-form-group">
-              <label class="auth-label" for="signup-username">
-                <span>Operator Callsign</span>
-              </label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-prefix">👤</span>
-                <input type="text" id="signup-username" class="auth-cyber-input" placeholder="e.g. m_thorne" required autocomplete="username">
-              </div>
+            <div class="form-group">
+              <label class="form-label" for="signup-username">Callsign</label>
+              <input type="text" id="signup-username" class="form-input" placeholder="e.g. m_thorne" required autocomplete="username">
             </div>
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-label" for="signup-password">
-              <span>Security Passcode (Min. 4 characters)</span>
-            </label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-prefix">🔒</span>
-              <input type="password" id="signup-password" class="auth-cyber-input" placeholder="Create your defense passcode" required autocomplete="new-password">
-              <button type="button" class="auth-pwd-toggle" onclick="togglePasswordVisibility('signup-password')" title="Show/Hide passcode">👁️</button>
+          <div class="form-group">
+            <label class="form-label" for="signup-password">Passcode</label>
+            <div class="form-input-wrap">
+              <input type="password" id="signup-password" class="form-input" placeholder="Create a secure passcode" required autocomplete="new-password">
+              <button type="button" id="signup-pwd-btn" class="btn-pwd-text" onclick="togglePasswordVisibility('signup-password', 'signup-pwd-btn')">Show</button>
             </div>
+            <div class="form-hint">Minimum 4 characters</div>
           </div>
 
-          <div class="auth-form-row">
-            <div class="auth-form-group">
-              <label class="auth-label" for="signup-department">
-                <span>Operational CIRT Unit</span>
-              </label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-prefix">🏢</span>
-                <input type="text" id="signup-department" class="auth-cyber-input" value="CIRT Alpha Special Tactics" placeholder="e.g. CIRT Alpha">
-              </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="signup-department">CIRT Unit</label>
+              <input type="text" id="signup-department" class="form-input" value="CIRT Alpha Special Tactics" placeholder="e.g. CIRT Alpha">
             </div>
 
-            <div class="auth-form-group">
-              <label class="auth-label" for="signup-clearance">
-                <span>Requested Clearance</span>
-              </label>
-              <select id="signup-clearance" class="auth-cyber-input" style="padding-left:14px;cursor:pointer">
-                <option value="L4">Level 4 — Lead Director (Full Control)</option>
+            <div class="form-group">
+              <label class="form-label" for="signup-clearance">Requested Clearance</label>
+              <select id="signup-clearance" class="form-input" style="cursor:pointer">
+                <option value="L4">Level 4 — Lead Director</option>
                 <option value="L3" selected>Level 3 — Incident Responder</option>
                 <option value="L2">Level 2 — Threat Auditor</option>
               </select>
             </div>
           </div>
 
-          <div class="auth-hardware-card">
-            <div>
-              <div class="auth-hw-text">Enroll Simulated FIDO2 Security Token</div>
-              <div class="auth-hw-sub">PAIRS CRYPTOGRAPHIC KEY TO AUDIT LEDGER</div>
-            </div>
-            <input type="checkbox" id="chk-signup-mfa" checked style="accent-color:var(--color-success);transform:scale(1.2);cursor:pointer">
+          <div class="checkbox-row">
+            <input type="checkbox" id="chk-signup-mfa" checked>
+            <label for="chk-signup-mfa">Enroll simulated FIDO2 key</label>
           </div>
 
-          <button type="submit" id="btn-signup-submit" class="btn-terminal-submit">
-            <span>🛡️</span>
-            <span id="btn-signup-text">CREATE ACCOUNT &amp; GRANT CLEARANCE</span>
+          <button type="submit" id="btn-signup-submit" class="btn-submit">
+            <span id="btn-signup-text">Create Account</span>
           </button>
-
         </form>
+
+        <div class="auth-switch-note">
+          Already registered?
+          <a class="auth-switch-link" onclick="switchAuthTab('login')">Sign in</a>
+        </div>
 
       </div>
 
     </div>
   </main>
 
-  <!-- ── FOOTER AUDIT LEDGER ────────────────────────────────────────────────── -->
-  <footer class="auth-page-footer">
-    <div>ENCRYPTION: AES-256-GCM · AIR-GAP LOCALHOST ENCLAVE · ZERO CLOUD EXFILTRATION</div>
-    <div>OBSYRON XTM 2.0 · NIST SP 800-61 COMPLIANT FORENSIC WORKBENCH · TRACK C</div>
+  <!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
+  <footer class="auth-footer">
+    OBSYRON XTM 2.0 · NIST SP 800-61 COMPLIANT FORENSIC WORKBENCH
   </footer>
 
 </div>
@@ -819,12 +617,20 @@
   function updateThemeUI() {
     const isDark = document.body.classList.contains('dark-theme');
     const icon = document.getElementById('theme-icon');
-    if (icon) icon.textContent = isDark ? '🌙' : '☀️';
+    if (icon) icon.textContent = isDark ? 'Light' : 'Dark';
   }
 
-  function togglePasswordVisibility(inputId) {
+  function togglePasswordVisibility(inputId, btnId) {
     const pwd = document.getElementById(inputId);
-    if (pwd) pwd.type = pwd.type === 'password' ? 'text' : 'password';
+    const btn = document.getElementById(btnId);
+    if (!pwd) return;
+    if (pwd.type === 'password') {
+      pwd.type = 'text';
+      if (btn) btn.textContent = 'Hide';
+    } else {
+      pwd.type = 'password';
+      if (btn) btn.textContent = 'Show';
+    }
   }
 
   function switchAuthTab(tab) {
@@ -848,8 +654,8 @@
       tabSignup.setAttribute('aria-selected', 'true');
       panelLogin.classList.remove('active');
       panelSignup.classList.add('active');
-      title.textContent = 'Operator Registration';
-      subtitle.textContent = 'Enroll a new forensic investigator profile with defense clearance credentials.';
+      title.textContent = 'Create an account';
+      subtitle.textContent = 'Register a new operator profile with incident response clearance.';
     } else {
       tabSignup.classList.remove('active');
       tabSignup.setAttribute('aria-selected', 'false');
@@ -857,8 +663,8 @@
       tabLogin.setAttribute('aria-selected', 'true');
       panelSignup.classList.remove('active');
       panelLogin.classList.add('active');
-      title.textContent = 'Operator Authorization';
-      subtitle.textContent = 'Authenticate with your defense clearance credentials or select a tactical evaluation preset.';
+      title.textContent = 'Sign in to OBSYRON';
+      subtitle.textContent = 'Enter your operator credentials to access the platform.';
     }
   }
 
@@ -867,7 +673,7 @@
     document.getElementById('login-password').value = pwd;
     document.getElementById('login-clearance').value = lvl;
 
-    document.querySelectorAll('.quick-role-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.demo-chip').forEach(b => b.classList.remove('active'));
     if (btnElem) btnElem.classList.add('active');
   }
 
@@ -898,12 +704,12 @@
 
     if (!mfaChecked) {
       feedback.className = 'error';
-      feedback.textContent = '❌ Multi-Factor Authorization requirement failed: Hardware token not verified.';
+      feedback.textContent = 'Multi-factor verification required: Please verify hardware token.';
       return;
     }
 
     submitBtn.disabled = true;
-    submitText.textContent = 'VERIFYING SECURITY CLEARANCE...';
+    submitText.textContent = 'Verifying credentials...';
 
     try {
       const res = await apiFetch('/api/auth/login', {
@@ -926,17 +732,17 @@
       localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
 
       feedback.className = 'success';
-      feedback.textContent = `✓ ${data.message} Initializing SOC Workbench...`;
+      feedback.textContent = 'Authenticated successfully. Redirecting...';
 
       setTimeout(() => {
         window.location.href = '/?authorized=1';
-      }, 700);
+      }, 500);
 
     } catch (err) {
       feedback.className = 'error';
-      feedback.textContent = `❌ ${err.message}`;
+      feedback.textContent = err.message;
       submitBtn.disabled = false;
-      submitText.textContent = 'LOG IN & DECRYPT TERMINAL';
+      submitText.textContent = 'Sign In';
     }
   }
 
@@ -956,7 +762,7 @@
     feedback.style.display = 'none';
 
     submitBtn.disabled = true;
-    submitText.textContent = 'ENROLLING OPERATOR IN LEDGER...';
+    submitText.textContent = 'Registering operator...';
 
     try {
       const res = await apiFetch('/api/auth/signup', {
@@ -980,17 +786,17 @@
       localStorage.setItem('obsyron_operator', JSON.stringify(data.operator));
 
       feedback.className = 'success';
-      feedback.textContent = `✓ ${data.message} Launching Workbench...`;
+      feedback.textContent = 'Account created. Redirecting...';
 
       setTimeout(() => {
         window.location.href = '/?authorized=1';
-      }, 700);
+      }, 500);
 
     } catch (err) {
       feedback.className = 'error';
-      feedback.textContent = `❌ ${err.message}`;
+      feedback.textContent = err.message;
       submitBtn.disabled = false;
-      submitText.textContent = 'CREATE ACCOUNT & GRANT CLEARANCE';
+      submitText.textContent = 'Create Account';
     }
   }
 

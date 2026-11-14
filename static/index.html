@@ -703,10 +703,10 @@
     <!-- Modal Cyber Tab Switcher -->
     <div class="auth-tabs-nav" style="margin-bottom:16px">
       <button type="button" class="auth-tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">
-        <span>🔑 Log In</span>
+        <span>Sign In</span>
       </button>
       <button type="button" class="auth-tab-btn" id="modal-tab-signup" onclick="switchModalAuthTab('signup')">
-        <span>📝 Sign Up</span>
+        <span>Sign Up</span>
       </button>
     </div>
 
@@ -716,24 +716,21 @@
     <!-- Panel 1: Modal Log In -->
     <div id="modal-panel-login">
       <!-- 1-Click Role Selection -->
-      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent-cyan);font-weight:600;margin-bottom:6px">
-        ⚡ 1-CLICK TACTICAL PRESETS
+      <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--text-tertiary);font-weight:600;margin-bottom:6px">
+        DEMO PRESETS (CLICK TO PREFILL)
       </div>
       
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('analyst_lead', 'obsyron2026', 'L4')">
-          <span style="font-size:16px">🛡️</span>
-          <span style="font-size:11px;font-weight:700">Lead (L4)</span>
-          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Top Secret</span>
+          <span style="font-size:12px;font-weight:700">Lead (L4)</span>
+          <span style="font-size:9.5px;color:var(--color-critical);font-family:var(--font-mono)">Full Access</span>
         </button>
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('soc_tier2', 'obsyron2026', 'L3')">
-          <span style="font-size:16px">⚡</span>
-          <span style="font-size:11px;font-weight:700">Responder (L3)</span>
+          <span style="font-size:12px;font-weight:700">Responder (L3)</span>
           <span style="font-size:9.5px;color:var(--color-warning);font-family:var(--font-mono)">Incident Ops</span>
         </button>
         <button type="button" class="quick-role-btn modal-role-btn" onclick="quickSwitchRole('sec_auditor', 'obsyron2026', 'L2')">
-          <span style="font-size:16px">🔍</span>
-          <span style="font-size:11px;font-weight:700">Auditor (L2)</span>
+          <span style="font-size:12px;font-weight:700">Auditor (L2)</span>
           <span style="font-size:9.5px;color:var(--accent-cyan);font-family:var(--font-mono)">Read-Only</span>
         </button>
       </div>
@@ -743,16 +740,17 @@
         <div style="margin-bottom:10px">
           <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign</label>
           <input type="text" id="modal-input-username" class="cyber-input" style="padding-left:12px;font-size:12px" value="analyst_lead" required autocomplete="username">
+          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>analyst_lead</code></span>
         </div>
 
         <div style="margin-bottom:14px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Defense Passcode</label>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Passcode</label>
           <input type="password" id="modal-input-password" class="cyber-input" style="padding-left:12px;font-size:12px" value="obsyron2026" required autocomplete="current-password">
+          <span style="font-size:10.5px;color:var(--text-tertiary)">Hint: <code>obsyron2026</code></span>
         </div>
 
         <button type="submit" id="btn-modal-auth" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Log In to Terminal</span>
-          <span>⚡</span>
+          <span>Sign In</span>
         </button>
       </form>
     </div>
@@ -766,7 +764,7 @@
         </div>
 
         <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Operator Callsign (Username)</label>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:3px">Callsign</label>
           <input type="text" id="modal-signup-username" class="cyber-input" style="padding-left:12px;font-size:12px" placeholder="e.g. m_thorne" required autocomplete="username">
         </div>
 
@@ -785,8 +783,7 @@
         </div>
 
         <button type="submit" id="btn-modal-signup" class="btn-filigran-gradient" style="width:100%;padding:10px;font-size:12px">
-          <span>Create Account &amp; Authorize</span>
-          <span>🛡️</span>
+          <span>Create Account</span>
         </button>
       </form>
     </div>
