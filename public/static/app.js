@@ -1161,17 +1161,28 @@ function initAuth() {
   const navAuth = document.getElementById('nav-link-auth');
   if (navAuth) {
     navAuth.addEventListener('click', (e) => {
-      e.preventDefault();
-      openAuthModal();
+      const currentOp = localStorage.getItem('obsyron_operator');
+      if (currentOp) {
+        // If already authorized, show active operator clearance overview modal
+        e.preventDefault();
+        openAuthModal();
+      }
+      // If guest / not logged in, navigates directly to the full-screen /login portal!
     });
   }
 
   const mobileNavAuth = document.getElementById('mobile-nav-auth');
   if (mobileNavAuth) {
     mobileNavAuth.addEventListener('click', (e) => {
-      e.preventDefault();
-      closeMobileMenu();
-      openAuthModal();
+      const currentOp = localStorage.getItem('obsyron_operator');
+      if (currentOp) {
+        e.preventDefault();
+        closeMobileMenu();
+        openAuthModal();
+      } else {
+        closeMobileMenu();
+        // Navigates directly to the full-screen /login portal!
+      }
     });
   }
 
