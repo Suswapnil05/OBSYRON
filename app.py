@@ -13,8 +13,25 @@ from typing import Optional, Dict, Any, List
 
 from log_generator import generate_logs
 from ingestor import normalize_logs, parse_uploaded_file, get_timeline_snapshot
-from graph_engine import build_attack_graph, get_root_cause, get_blast_radius, get_graph_confidence
+from graph_engine import (
+    build_attack_graph,
+    get_root_cause,
+    get_blast_radius,
+    get_graph_confidence,
+    get_graph_deep_metrics,
+    simulate_what_if_containment
+)
 from reporter import generate_json_report, generate_csv_evidence_ledger, generate_markdown_report, generate_audio_script
+from stix_exporter import generate_stix_bundle
+from sigma_generator import generate_sigma_rules, serialize_sigma_to_yaml
+from containment_engine import (
+    get_recommended_containment_actions,
+    execute_containment_action,
+    rollback_containment_action,
+    list_containment_history
+)
+from merkle_tree import ForensicMerkleTree, verify_merkle_proof
+from scenario_manager import list_available_scenarios, get_scenario_metadata, load_scenario_telemetry
 
 app = FastAPI(
     title="OBSYRON",
@@ -553,6 +570,9 @@ async def graph_snapshot(timestamp: str = Query(..., description="ISO 8601 times
 @app.get("/evidence/{log_id}/")
 async def get_evidence(log_id: str):
     """Returns complete Evidence DNA record for clicked citation or graph entity."""
+    if log_id == "merkle":
+        return await get_merkle_tree()
+
     if not _cache.get("normalized_logs"):
         raw_logs = generate_logs()
         _cache["normalized_logs"] = normalize_logs(raw_logs)
@@ -798,6 +818,209 @@ async def simulation_reset():
     return JSONResponse({
         "success": True,
         "message": "Telemetry simulation cache purged. State reset to baseline zero."
+    })
+
+
+# ── OASIS STIX 2.1 Threat Intelligence Exporter ─────────────────────────────
+
+@app.get("/api/export/stix")
+@app.get("/export/stix")
+@app.post("/api/export/stix")
+@app.post("/export/stix")
+async def export_stix(investigation_id: Optional[str] = "OBS-INV-20261114-001"):
+    """Export reconstructed attack graph as valid OASIS STIX 2.1 Threat Intel Bundle."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    bundle = generate_stix_bundle(_cache["analysis_result"], investigation_id=investigation_id)
+    return JSONResponse(
+        content=bundle,
+        headers={"Content-Disposition": f"attachment; filename=obsyron-stix21-{investigation_id}.json"}
+    )
+
+
+# ── Sigma Detection Rules Engine ────────────────────────────────────────────
+
+@app.get("/api/export/sigma")
+@app.get("/export/sigma")
+@app.post("/api/export/sigma")
+@app.post("/export/sigma")
+async def export_sigma(format: str = Query("yaml"), investigation_id: Optional[str] = "OBS-INV-20261114-001"):
+    """Generate production-ready Sigma YAML detection rules for Splunk, Elastic, Sentinel, and CrowdStrike."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    rules = generate_sigma_rules(_cache["analysis_result"], investigation_id=investigation_id)
+    if format.lower() == "json":
+        return JSONResponse({"rules_count": len(rules), "rules": rules})
+    yaml_text = serialize_sigma_to_yaml(rules)
+    return PlainTextResponse(
+        content=yaml_text,
+        media_type="text/yaml",
+        headers={"Content-Disposition": f"attachment; filename=obsyron-sigma-{investigation_id}.yml"}
+    )
+
+
+# ── Active Containment & Remediation Engine ─────────────────────────────────
+
+class ContainmentExecuteRequest(BaseModel):
+    action_type: str  # "BLOCK_IP", "REVOKE_SESSION", "ISOLATE_HOST", "LOCK_SERVICE_ACCOUNT", "TERMINATE_PROCESS_FLOW"
+    target: str
+    operator_name: Optional[str] = "Cmdr. Maya Thorne (L4)"
+    simulation_mode: Optional[bool] = False
+    notes: Optional[str] = None
+
+
+@app.get("/api/containment/recommended")
+@app.get("/containment/recommended")
+async def get_containment_recommended():
+    """Retrieve prioritized incident containment playbook actions."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    actions = get_recommended_containment_actions(_cache["analysis_result"])
+    return JSONResponse({"actions_count": len(actions), "recommended_actions": actions})
+
+
+@app.post("/api/containment/execute")
+@app.post("/containment/execute")
+async def execute_containment(req: ContainmentExecuteRequest):
+    """Execute or simulate prioritized containment action with signed audit record."""
+    record = execute_containment_action(
+        action_type=req.action_type,
+        target=req.target,
+        operator_name=req.operator_name,
+        simulation_mode=req.simulation_mode or False,
+        notes=req.notes
+    )
+    return JSONResponse({"success": True, "action_record": record})
+
+
+@app.get("/api/containment/history")
+@app.get("/containment/history")
+async def get_containment_history():
+    """Get complete audit trail of executed containment and mitigation operations."""
+    history = list_containment_history()
+    return JSONResponse({"total_actions": len(history), "history": history})
+
+
+@app.post("/api/containment/rollback/{action_id}")
+@app.post("/containment/rollback/{action_id}")
+async def rollback_containment(action_id: str, operator_name: Optional[str] = "Cmdr. Maya Thorne (L4)"):
+    """Roll back a previously executed containment action."""
+    res = rollback_containment_action(action_id, operator_name=operator_name)
+    status_code = 200 if res.get("success") else 404
+    return JSONResponse(res, status_code=status_code)
+
+
+# ── Cryptographic Merkle Tree Evidence Ledger ───────────────────────────────
+
+@app.get("/api/merkle")
+@app.get("/merkle")
+@app.get("/api/evidence/merkle")
+@app.get("/evidence/merkle")
+async def get_merkle_tree():
+    """Generate SHA-256 Merkle Tree over all ingested logs for forensic tamper-evidence."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+    tree = ForensicMerkleTree(_cache["normalized_logs"])
+    return JSONResponse({
+        "merkle_root": tree.get_merkle_root(),
+        "total_leaves": len(tree.leaf_hashes),
+        "tree_depth": len(tree.tree_levels),
+        "tamper_evidence": "INTEGRITY_VERIFIED_IMMUTABLE",
+        "hash_algorithm": "SHA-256"
+    })
+
+
+@app.get("/api/merkle/verify/{log_id}")
+@app.get("/merkle/verify/{log_id}")
+@app.get("/api/evidence/merkle/verify/{log_id}")
+@app.get("/evidence/merkle/verify/{log_id}")
+async def verify_merkle_log(log_id: str):
+    """Cryptographically verify inclusion and authenticity of an audit log using Merkle proof."""
+    if not _cache.get("normalized_logs"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+    tree = ForensicMerkleTree(_cache["normalized_logs"])
+    proof = tree.get_proof(log_id)
+    if not proof:
+        raise HTTPException(status_code=404, detail=f"Log ID {log_id} not found in Merkle ledger.")
+    is_valid = verify_merkle_proof(proof["leaf_hash"], proof["proof_path"], proof["merkle_root"])
+    proof["is_cryptographically_valid"] = is_valid
+    return JSONResponse(proof)
+
+
+# ── Deep Graph Analytics & Centrality Metrics ───────────────────────────────
+
+@app.get("/api/graph/metrics")
+@app.get("/graph/metrics")
+async def get_graph_metrics_endpoint():
+    """Advanced graph theory topological metrics (Centrality, Pivots, Degrees, Shortest Paths)."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    graph_data = build_attack_graph(_cache["normalized_logs"])
+    G = graph_data["_graph"]
+    metrics = get_graph_deep_metrics(G)
+    return JSONResponse(metrics)
+
+
+# ── What-If Predictive Defense Simulation ───────────────────────────────────
+
+class WhatIfRequest(BaseModel):
+    isolated_nodes: List[str]
+
+
+@app.post("/api/simulation/what-if")
+@app.post("/simulation/what-if")
+async def simulation_what_if(req: WhatIfRequest):
+    """Predictive counter-measure simulator: evaluates risk reduction if nodes are quarantined."""
+    if not _cache.get("analysis_result"):
+        raw_logs = generate_logs()
+        _cache["normalized_logs"] = normalize_logs(raw_logs)
+        _cache["analysis_result"] = _run_full_analysis(_cache["normalized_logs"], len(raw_logs))
+    graph_data = build_attack_graph(_cache["normalized_logs"])
+    G = graph_data["_graph"]
+    sim_res = simulate_what_if_containment(G, req.isolated_nodes)
+    return JSONResponse(sim_res)
+
+
+# ── Scenario Catalog & Switcher ─────────────────────────────────────────────
+
+class ScenarioLoadRequest(BaseModel):
+    scenario_id: str
+
+
+@app.get("/api/scenarios")
+@app.get("/scenarios")
+async def get_scenarios():
+    """Retrieve catalog of pre-configured enterprise cyber investigation scenarios."""
+    return JSONResponse({"scenarios": list_available_scenarios()})
+
+
+@app.post("/api/scenarios/load")
+@app.post("/scenarios/load")
+async def load_scenario(req: ScenarioLoadRequest):
+    """Load a specific cyber scenario and reconstruct its dynamic attack graph."""
+    meta = get_scenario_metadata(req.scenario_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail=f"Scenario '{req.scenario_id}' not found in catalog.")
+    raw_logs = load_scenario_telemetry(req.scenario_id)
+    normalized = normalize_logs(raw_logs)
+    result = _run_full_analysis(normalized, len(raw_logs))
+    _cache["normalized_logs"] = normalized
+    _cache["analysis_result"] = result
+    _cache["current_scenario"] = meta
+    return JSONResponse({
+        "success": True,
+        "scenario": meta,
+        "analysis_result": result
     })
 
 
