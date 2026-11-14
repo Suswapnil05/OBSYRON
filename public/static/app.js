@@ -1680,6 +1680,9 @@ function applyReplayStep(index) {
   // Update Investigation Panel in real time!
   if (step) {
     showInvestigationPanel(step);
+    if (typeof activateAttackStage === 'function') {
+      activateAttackStage(step.step);
+    }
   }
 
   // Focus and highlight in Attack Story
@@ -5182,8 +5185,9 @@ async function executeSimulation(scenarioId) {
       activeCard.style.boxShadow = '0 0 16px rgba(6,182,212,0.3)';
     }
 
-    // Scroll to cockpit
+    // Scroll to cockpit & launch DYNAMIC live reconstruction progression!
     scrollToSection('cockpit');
+    startLiveDemoSimulationForScenario(scenarioId, data);
 
   } catch (err) {
     console.error('Simulation execution failed:', err);
@@ -5191,6 +5195,72 @@ async function executeSimulation(scenarioId) {
   } finally {
     showLoading(false);
   }
+}
+
+function startLiveDemoSimulationForScenario(scenarioId, data) {
+  const meta = data.scenario || {};
+  const xaiSteps = (data.analysis_result && data.analysis_result.xai_report) || [];
+  let stages = [];
+
+  if (xaiSteps.length > 0) {
+    const totalCount = data.events_count || (data.analysis_result ? data.analysis_result.raw_log_count : 200);
+    stages = xaiSteps.map((step, idx) => {
+      const frac = (idx + 1) / xaiSteps.length;
+      return {
+        stage: step.step || (idx + 1),
+        title: `Stage ${step.step || (idx + 1)}: ${step.title || 'Adversary Pivot'}`,
+        phaseName: (step.mitre_name || step.mitre || meta.title || 'ATTACK VECTOR').toUpperCase(),
+        tactic: `${step.mitre_name || 'Tactic'} (${step.mitre || meta.mitre_technique_id || 'T1059'})`,
+        entity: `${step.source || 'Attacker'} ➔ ${step.target || 'Target Asset'}`,
+        logs: Math.round(totalCount * frac),
+        signals: idx + 1,
+        blast: Math.min(idx + 1, (data.analysis_result.blast_radius ? data.analysis_result.blast_radius.count : 4) || 4),
+        conf: step.confidence || 0.92,
+        ticker: `[RECONSTRUCTION] ${step.narrative || step.suspicion_explanation || 'Chronological telemetry verified and Merkle sealed.'}`
+      };
+    });
+  } else {
+    stages = [
+      {
+        stage: 1,
+        title: `Stage 1: ${meta.title || 'Initial Attack Trigger'}`,
+        phaseName: "ATTACK TRIGGER & INGRESS",
+        tactic: `${meta.mitre_technique_name || 'Technique'} (${meta.mitre_technique_id || 'T1059'})`,
+        entity: (meta.target_assets || ['Target'])[0] || 'Target Asset',
+        logs: 45,
+        signals: 1,
+        blast: 1,
+        conf: 0.78,
+        ticker: `[SIM_INGEST] ${meta.description || 'Simulated attack initiated from controlled enclave.'}`
+      },
+      {
+        stage: 2,
+        title: "Stage 2: Telemetry Normalization & Skew Compensation",
+        phaseName: "EVENT RECONSTRUCTION",
+        tactic: "Clock Drift Alignment (±14s Δt)",
+        entity: "Sysmon Event ID 1 / Linux auth.log",
+        logs: 110,
+        signals: 2,
+        blast: 2,
+        conf: 0.88,
+        ticker: "[RECON_ENGINE] Out-of-order sequence inversion resolved; true chronological ordering restored without altering original evidence."
+      },
+      {
+        stage: 3,
+        title: "Stage 3: Dynamic MultiDiGraph Reconstruction & Evidence DNA",
+        phaseName: "GRAPH RECONSTRUCTION & MERKLE LEDGER",
+        tactic: "Multi-Signal Corroboration",
+        entity: "Forensic Merkle Root Sealed",
+        logs: data.events_count || 180,
+        signals: 3,
+        blast: 3,
+        conf: 0.96,
+        ticker: "[MERKLE_PROOF] Cryptographic SHA-256 evidence chain verified; zero-hallucination dynamic attack graph synthesized."
+      }
+    ];
+  }
+
+  startLiveDemoSimulation(stages);
 }
 
 function downloadLabScript(scenarioId, platform) {
@@ -5542,6 +5612,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initSimulationLab();
   runAnalysis(state.currentSettings);
 
+  // Auto-launch dynamic demo simulation so workbench springs to life immediately
+  setTimeout(() => {
+    startLiveDemoSimulation();
+  }, 1200);
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeForensicToolModal();
@@ -5649,13 +5724,17 @@ state.liveSim = {
   ]
 };
 
-function startLiveDemoSimulation() {
+function startLiveDemoSimulation(customStages) {
   const sim = state.liveSim;
 
-  if (sim.isRunning) {
-    toggleSimPause();
-    return;
+  if (customStages && customStages.length > 0) {
+    sim.stageData = customStages;
+    sim.totalStages = customStages.length;
   }
+
+  // Clear any existing active intervals
+  clearTimeout(sim.stepTimeout);
+  clearInterval(sim.timerInterval);
 
   scrollToSection('cockpit');
 
@@ -5676,10 +5755,9 @@ function startLiveDemoSimulation() {
     setGraphViewMode('attack_flow');
   }
 
-  updateLiveSimButtons(true, false);
+  updateLiveSimButtons(true, false, 1);
   executeSimStage(1);
 
-  clearInterval(sim.timerInterval);
   sim.timerInterval = setInterval(() => {
     if (!sim.isPaused) {
       sim.elapsedSeconds++;
@@ -5845,13 +5923,14 @@ function updateLiveSimButtons(isRunning, isPaused, stageNum = 1, isCompleted = f
   const railBtn = document.getElementById('btn-rail-live-sim');
   const railLabel = document.getElementById('rail-sim-label');
 
+  const total = (state.liveSim && state.liveSim.totalStages) || 6;
   if (isRunning) {
-    const statusText = isPaused ? `Paused (Stage ${stageNum}/6)` : `Simulating (Stage ${stageNum}/6)...`;
+    const statusText = isPaused ? `Paused (Stage ${stageNum}/${total})` : `Simulating (Stage ${stageNum}/${total})...`;
     [heroBtn, headerBtn, cockpitBtn, railBtn].forEach(b => {
       if (b) b.classList.add('sim-active');
     });
     if (heroLabel) heroLabel.textContent = statusText;
-    if (headerLabel) headerLabel.textContent = isPaused ? 'Resume Sim' : `Sim ${stageNum}/6`;
+    if (headerLabel) headerLabel.textContent = isPaused ? 'Resume Sim' : `Sim ${stageNum}/${total}`;
     if (cockpitLabel) cockpitLabel.textContent = statusText;
     if (railLabel) railLabel.textContent = statusText;
   } else if (isCompleted) {
@@ -5872,8 +5951,6 @@ function updateLiveSimButtons(isRunning, isPaused, stageNum = 1, isCompleted = f
     if (railLabel) railLabel.textContent = '▶ Run Live Attack Simulation';
   }
 }
-
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 16. ATTACK SIMULATION THEATER CONTROLLER
@@ -6519,5 +6596,34 @@ function applyAttackSimulationToCockpit() {
   scrollToSection('cockpit');
   if (typeof activateAttackStage === 'function') {
     activateAttackStage(state.liveSim.currentStage || 1);
+  }
+}
+
+// ── 16. AUTONOMOUS DYNAMIC LIVE STREAMING ──────────────────────────────────
+let liveStreamingInterval = null;
+function toggleLiveTelemetryStreaming() {
+  const btn = document.getElementById('btn-live-stream-toggle');
+  const label = document.getElementById('live-stream-toggle-label');
+  if (liveStreamingInterval) {
+    clearInterval(liveStreamingInterval);
+    liveStreamingInterval = null;
+    stopLiveDemoSimulation(false);
+    if (label) label.textContent = 'Dynamic Live Stream';
+    if (btn) {
+      btn.style.borderColor = '#10B981';
+      btn.style.color = '#10B981';
+    }
+  } else {
+    if (label) label.textContent = 'Streaming Live...';
+    if (btn) {
+      btn.style.borderColor = '#EF4444';
+      btn.style.color = '#EF4444';
+    }
+    startLiveDemoSimulation();
+    liveStreamingInterval = setInterval(() => {
+      if (!state.liveSim.isRunning) {
+        startLiveDemoSimulation();
+      }
+    }, 18000);
   }
 }
