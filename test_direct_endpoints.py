@@ -5,7 +5,12 @@ Tests FastAPI route handler functions directly in Python with full payload valid
 import os, sys, asyncio, json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from app import analyze, graph_snapshot, get_evidence, AnalyzeRequest
+from app import (
+    analyze, graph_snapshot, get_evidence, AnalyzeRequest,
+    health_check, list_investigations, get_investigation_report,
+    export_report, ExportRequest, get_audio_briefing,
+    auth_login, LoginRequest, simulation_reset
+)
 
 print("=" * 60)
 print("  OBSYRON DIRECT ENDPOINT VERIFICATION")
@@ -68,6 +73,64 @@ async def run_tests():
     print(f"  + Graph Confidence with Telemetry Gap: {drop_data['overall_confidence']*100:.1f}%")
     assert drop_data["overall_confidence"] < data["overall_confidence"]
     print("  ✓ PASS: Dropped telemetry triggers gap-bridging and updates graph confidence.")
+
+    # ── 5. Health Check & Operator Auth ─────────────────────────────────────
+    print("\n[TEST 5] Executing health_check() and auth_login()...")
+    res_health = await health_check()
+    assert res_health.status_code == 200
+    health_data = json.loads(res_health.body.decode("utf-8"))
+    assert health_data["status"] == "healthy"
+    print(f"  + Health status: {health_data['status']}, service: {health_data['service']}")
+
+    res_auth = await auth_login(LoginRequest(username="analyst_lead", password="obsyron2026"))
+    assert res_auth.status_code == 200
+    auth_data = json.loads(res_auth.body.decode("utf-8"))
+    assert auth_data["success"] is True
+    assert "token" in auth_data
+    print(f"  + Operator login: {auth_data['operator']['name']}, clearance: {auth_data['operator']['clearance']}")
+    print("  ✓ PASS: health_check() and operator authorization functioning.")
+
+    # ── 6. Forensic Reports & Multi-format Export ───────────────────────────
+    print("\n[TEST 6] Testing NIST Report & Multi-format Exports...")
+    res_inv = await list_investigations()
+    assert res_inv.status_code == 200
+    inv_data = json.loads(res_inv.body.decode("utf-8"))
+    assert len(inv_data["investigations"]) >= 1
+
+    res_rep = await get_investigation_report("OBS-INV-20261114-001")
+    assert res_rep.status_code == 200
+    rep_data = json.loads(res_rep.body.decode("utf-8"))
+    assert "executive_summary" in rep_data
+    assert "defensive_containment_plan" in rep_data
+    print(f"  + Investigation report generated: {rep_data['report_metadata']['investigation_id']}")
+
+    # JSON export
+    exp_json = await export_report(ExportRequest(format="json"))
+    assert exp_json.status_code == 200
+
+    # CSV export
+    exp_csv = await export_report(ExportRequest(format="csv"))
+    assert exp_csv.status_code == 200
+    assert "log_id,raw_timestamp,normalized_timestamp" in exp_csv.body.decode("utf-8")
+    print("  + CSV Evidence Ledger export verified.")
+
+    # Markdown export
+    exp_md = await export_report(ExportRequest(format="markdown"))
+    assert exp_md.status_code == 200
+    assert "# OBSYRON FORENSIC INCIDENT BRIEFING" in exp_md.body.decode("utf-8")
+    print("  + Markdown executive brief export verified.")
+
+    # Audio briefing
+    audio_res = await get_audio_briefing()
+    assert audio_res.status_code == 200
+    audio_data = json.loads(audio_res.body.decode("utf-8"))
+    assert len(audio_data["script"]) > 100
+    print(f"  + Audio debrief script synthesized ({len(audio_data['script'])} chars).")
+
+    # Simulation reset
+    res_reset = await simulation_reset()
+    assert res_reset.status_code == 200
+    print("  ✓ PASS: Full reporting, multi-format export, and audio brief verified.")
 
     print("\n" + "=" * 60)
     print("  ALL DIRECT ENDPOINT TESTS PASSED WITH 100% SUCCESS!")

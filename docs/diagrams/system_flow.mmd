@@ -1,0 +1,11 @@
+graph TD
+    A[Raw Enterprise Logs] --> B[Ingestor & Clock Skew Normalizer]
+    B --> C[Master Timeline Sorter]
+    C --> D[NetworkX MultiDiGraph]
+    D --> E[Betweenness Centrality]
+    D --> F[Root Cause Analysis]
+    D --> G[Blast Radius Calculation]
+    D --> H[Gap Bridging Engine]
+    E & F & G & H --> I[Evidence DNA Ledger]
+    I --> J[SOC Command Cockpit]
+    I --> K[NIST Report & Multi-Export]

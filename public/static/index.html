@@ -169,10 +169,23 @@
         <div class="cockpit-dot"></div>
         <span class="cockpit-title">DYNAMIC ATTACK GRAPH // INCIDENT WORKBENCH</span>
       </div>
-      <div class="cockpit-tags">
-        <span class="cockpit-tag">NETWORKX MULTIDIGRAPH</span>
-        <span class="cockpit-tag">CYTOSCAPE.JS DARK CANVAS</span>
-        <span class="cockpit-tag">ZERO HALLUCINATION XAI</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="cockpit-tags">
+          <span class="cockpit-tag">NETWORKX MULTIDIGRAPH</span>
+          <span class="cockpit-tag">CYTOSCAPE.JS DARK CANVAS</span>
+          <span class="cockpit-tag">ZERO HALLUCINATION XAI</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="header-action-btn" onclick="exportInvestigation('json')" title="Export NIST SP 800-61 JSON Incident Report" style="padding:6px 10px;font-size:10.5px">
+            📥 JSON Report
+          </button>
+          <button class="header-action-btn" onclick="exportInvestigation('csv')" title="Export Immutable Evidence CSV Ledger" style="padding:6px 10px;font-size:10.5px">
+            📊 Evidence CSV
+          </button>
+          <button class="header-action-btn" onclick="exportInvestigation('markdown')" title="Export Executive Incident Markdown Briefing" style="padding:6px 10px;font-size:10.5px">
+            📄 Markdown Brief
+          </button>
+        </div>
       </div>
     </div>
 
@@ -183,13 +196,28 @@
       <aside id="left-rail">
 
         <div class="rail-group">
-          <div class="rail-title">Telemetry Dataset</div>
+          <div class="rail-title">Telemetry Dataset &amp; Scenarios</div>
           <button class="rail-btn active" id="btn-builtin" onclick="selectDataset('builtin')">
             <span class="btn-dot" style="background:var(--accent-cyan)"></span>
             <span>Built-in APT Kill Chain</span>
           </button>
 
-          <div id="upload-dropzone" onclick="document.getElementById('file-input').click()">
+          <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-top:4px">
+            <button class="rail-btn scenario-btn" id="btn-scenario-normal_enterprise_traffic" onclick="loadScenario('normal_enterprise_traffic')" title="200 benign background events">
+              <span class="btn-dot" style="background:var(--accent-slate)"></span>
+              <span>Baseline Normal Traffic</span>
+            </button>
+            <button class="rail-btn scenario-btn" id="btn-scenario-credential_access_t1078" onclick="loadScenario('credential_access_t1078')" title="T1078 Valid Accounts anomaly">
+              <span class="btn-dot" style="background:var(--color-warning)"></span>
+              <span>T1078 Credential Access</span>
+            </button>
+            <button class="rail-btn scenario-btn" id="btn-scenario-dropped_telemetry_gap" onclick="loadScenario('dropped_telemetry_gap')" title="Telemetry gap triggering heuristic bridge">
+              <span class="btn-dot" style="background:var(--color-critical)"></span>
+              <span>Dropped Telemetry Gap</span>
+            </button>
+          </div>
+
+          <div id="upload-dropzone" onclick="document.getElementById('file-input').click()" style="margin-top:6px">
             <div style="font-size:11px;font-weight:600;color:var(--text-primary)">Upload Custom Telemetry</div>
             <div style="font-size:9.5px;color:var(--text-tertiary);margin-top:2px;font-family:var(--font-mono)">Drag &amp; drop .json / .csv</div>
           </div>
@@ -317,6 +345,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <button class="drawer-close-btn" onclick="copyCurrentEvidence()">Copy JSON</button>
+        <button class="drawer-close-btn" onclick="exportInvestigation('csv')">Export Full CSV</button>
         <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
       </div>
     </div>

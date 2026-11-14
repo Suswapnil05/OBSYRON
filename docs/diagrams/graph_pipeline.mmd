@@ -1,0 +1,7 @@
+flowchart TD
+    N[Normalized Logs] --> G[MultiDiGraph Assembly]
+    G --> BC["nx.betweenness_centrality() -> Pivot Scoring"]
+    G --> RC["nx.ancestors() -> Root Cause (Patient Zero)"]
+    G --> BR["nx.descendants() -> Blast Radius Scope"]
+    G --> GB["Temporal Gap Heuristic -> Inferred Edge"]
+    BC & RC & BR & GB --> RES["JSON API Response Payload"]

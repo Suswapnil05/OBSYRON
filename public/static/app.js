@@ -91,12 +91,29 @@ function updateThemeUI() {
   if (themeBtn) themeBtn.title = dark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
 }
 
-// ── 1. API INTEGRATION ─────────────────────────────────────────────────────
+// ── 1. API INTEGRATION & AUTOMATIC FAILOVER ────────────────────────────────
+
+async function apiFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    if (res.status === 404 && url.startsWith('/api/')) {
+      const fallbackUrl = url.replace('/api/', '/');
+      const res2 = await fetch(fallbackUrl, options);
+      return res2;
+    }
+    return res;
+  } catch (err) {
+    if (url.startsWith('/api/')) {
+      return await fetch(url.replace('/api/', '/'), options);
+    }
+    throw err;
+  }
+}
 
 async function runAnalysis(settings) {
   showLoading(true);
   try {
-    const res = await fetch('/api/analyze', {
+    const res = await apiFetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings || state.currentSettings),
@@ -119,7 +136,7 @@ async function fetchSnapshot(timestamp) {
   if (!state.analysisResult) return;
   showLoading(true);
   try {
-    const res = await fetch(`/api/graph/snapshot?timestamp=${encodeURIComponent(timestamp)}`);
+    const res = await apiFetch(`/api/graph/snapshot?timestamp=${encodeURIComponent(timestamp)}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     renderGraph(data);
@@ -134,7 +151,7 @@ async function fetchSnapshot(timestamp) {
 async function fetchEvidence(logId) {
   if (!logId) return;
   try {
-    const res = await fetch(`/api/evidence/${encodeURIComponent(logId)}`);
+    const res = await apiFetch(`/api/evidence/${encodeURIComponent(logId)}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     renderEvidenceDNA(data);
@@ -150,7 +167,7 @@ async function handleFileUpload(file) {
   form.append('file', file);
   showLoading(true);
   try {
-    const res = await fetch('/api/upload', {
+    const res = await apiFetch('/api/upload', {
       method: 'POST',
       body: form
     });
@@ -162,6 +179,40 @@ async function handleFileUpload(file) {
     renderAll(data);
   } catch (err) {
     alert('Log file upload failed: ' + err.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  a.remove();
+}
+
+async function exportInvestigation(format = 'json') {
+  try {
+    showLoading(true);
+    const res = await apiFetch('/api/reports/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format: format, investigation_id: 'OBS-INV-20261114-001' })
+    });
+    if (!res.ok) throw new Error(`Export failed with HTTP ${res.status}`);
+
+    const extMap = { 'json': 'json', 'csv': 'csv', 'markdown': 'md', 'md': 'md' };
+    const ext = extMap[format.toLowerCase()] || 'json';
+    const blob = await res.blob();
+    downloadBlob(blob, `obsyron-investigation-report-OBS-INV-20261114-001.${ext}`);
+  } catch (err) {
+    console.error('Report export failed:', err);
+    alert('Export error: ' + err.message);
   } finally {
     showLoading(false);
   }
@@ -878,8 +929,59 @@ function onToggleChange() {
 function selectDataset(type) {
   state.currentDataset = type;
   document.getElementById('btn-builtin').classList.toggle('active', type === 'builtin');
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
   if (type === 'builtin') {
     runAnalysis(state.currentSettings);
+  }
+}
+
+async function loadScenario(scenarioName) {
+  showLoading(true);
+  try {
+    document.getElementById('btn-builtin').classList.remove('active');
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    const targetBtn = document.getElementById(`btn-scenario-${scenarioName}`);
+    if (targetBtn) targetBtn.classList.add('active');
+
+    let scenarioLogs = null;
+    try {
+      const res = await fetch(`/sample-data/${scenarioName}.json`);
+      if (res.ok) {
+        scenarioLogs = await res.json();
+      }
+    } catch (e) {
+      console.warn('Direct sample-data fetch skipped:', e);
+    }
+
+    if (scenarioLogs) {
+      const blob = new Blob([JSON.stringify(scenarioLogs)], { type: 'application/json' });
+      const form = new FormData();
+      form.append('file', blob, `${scenarioName}.json`);
+      const res = await apiFetch('/api/upload', { method: 'POST', body: form });
+      if (res.ok) {
+        const data = await res.json();
+        state.analysisResult = data;
+        state.currentDataset = scenarioName;
+        renderAll(data);
+        return;
+      }
+    }
+
+    if (scenarioName === 'dropped_telemetry_gap') {
+      state.currentSettings.drop_telemetry = true;
+      const tog = document.getElementById('tog-drop');
+      if (tog) tog.checked = true;
+    } else {
+      state.currentSettings.drop_telemetry = false;
+      const tog = document.getElementById('tog-drop');
+      if (tog) tog.checked = false;
+    }
+    await runAnalysis(state.currentSettings);
+  } catch (err) {
+    console.error('Scenario load error:', err);
+    alert('Failed to load scenario: ' + err.message);
+  } finally {
+    showLoading(false);
   }
 }
 
@@ -1134,7 +1236,7 @@ async function submitAuthLogin(username, password, clearanceOverride) {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1197,7 +1299,7 @@ async function handleModalSignup(e) {
   if (btn) btn.disabled = true;
 
   try {
-    const res = await fetch('/api/auth/signup', {
+    const res = await apiFetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1248,7 +1350,7 @@ async function logoutOperator() {
   const token = localStorage.getItem('obsyron_auth_token');
   try {
     if (token) {
-      await fetch('/api/auth/logout', {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
