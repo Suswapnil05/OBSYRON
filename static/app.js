@@ -3327,3 +3327,192 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle: toggleMenu
   };
 })();
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OBSYRON PLATFORM ARCHITECTURE — FULLSCREEN POP-UP CONTROLLER (prefix "obs")
+// Pure vanilla JS, zero external libraries.
+// ═══════════════════════════════════════════════════════════════════════════
+(function() {
+  'use strict';
+
+  const trigger = document.getElementById('obs-nav-platform');
+  const modal = document.getElementById('obs-platform-modal');
+  if (!modal) return;
+
+  const scenes = modal.querySelectorAll('.obs-scene');
+  const items = modal.querySelectorAll('.obs-item, .obs-core-banner');
+  const tabBtns = modal.querySelectorAll('.obs-scene-tab-btn');
+  const accordions = modal.querySelectorAll('.obs-group-header');
+
+  let isOpen = false;
+  let activeSceneName = 'graph';
+  let defaultSceneTimeout = null;
+  let previousActiveElement = null;
+
+  function openPopup() {
+    if (isOpen) return;
+    isOpen = true;
+    previousActiveElement = document.activeElement;
+
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    modal.classList.add('obs-open');
+    modal.removeAttribute('aria-hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Focus close button or first interactive element
+    const firstFocusable = modal.querySelector('.obs-popup-close-btn, .obs-core-banner');
+    if (firstFocusable) {
+      setTimeout(() => firstFocusable.focus(), 80);
+    }
+  }
+
+  function closePopup() {
+    if (!isOpen) return;
+    isOpen = false;
+
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    } else if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+      previousActiveElement.focus();
+    }
+
+    modal.classList.remove('obs-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function togglePopup() {
+    if (isOpen) closePopup();
+    else openPopup();
+  }
+
+  if (trigger) {
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      togglePopup();
+    });
+  }
+
+  // Keyboard Navigation: Escape Key & Focus Trap inside Fullscreen Modal
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen) return;
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closePopup();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      const focusables = modal.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+
+      const firstElem = focusables[0];
+      const lastElem = focusables[focusables.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElem) {
+          e.preventDefault();
+          lastElem.focus();
+        }
+      } else {
+        if (document.activeElement === lastElem) {
+          e.preventDefault();
+          firstElem.focus();
+        }
+      }
+    }
+  });
+
+  // Scene Switching: Hover, Focus & Tab clicks
+  function switchPreviewScene(sceneKey) {
+    if (!sceneKey) return;
+    clearTimeout(defaultSceneTimeout);
+
+    const targetScene = document.getElementById('obs-scene-' + sceneKey);
+    if (!targetScene) return;
+
+    scenes.forEach(s => s.classList.remove('obs-active'));
+    targetScene.classList.add('obs-active');
+    activeSceneName = sceneKey;
+
+    tabBtns.forEach(btn => {
+      if (btn.getAttribute('data-scene') === sceneKey) {
+        btn.classList.add('obs-tab-active');
+      } else {
+        btn.classList.remove('obs-tab-active');
+      }
+    });
+  }
+
+  function resetToDefaultScene() {
+    defaultSceneTimeout = setTimeout(() => {
+      switchPreviewScene('graph');
+    }, 450);
+  }
+
+  items.forEach(item => {
+    const scene = item.getAttribute('data-obs-scene');
+    if (!scene) return;
+
+    item.addEventListener('mouseenter', () => switchPreviewScene(scene));
+    item.addEventListener('focus', () => switchPreviewScene(scene));
+    item.addEventListener('mouseleave', resetToDefaultScene);
+
+    item.addEventListener('click', () => {
+      setTimeout(closePopup, 120);
+    });
+  });
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scene = btn.getAttribute('data-scene');
+      if (scene) switchPreviewScene(scene);
+    });
+  });
+
+  // Mobile Accordion Logic
+  accordions.forEach(header => {
+    const group = header.closest('.obs-group');
+    if (!group) return;
+
+    function toggleAccordion() {
+      if (window.innerWidth > 1024) return;
+      const isCollapsed = group.classList.toggle('obs-collapsed');
+      header.setAttribute('aria-expanded', !isCollapsed);
+    }
+
+    header.addEventListener('click', toggleAccordion);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAccordion();
+      }
+    });
+  });
+
+  function initMobileAccordions() {
+    if (window.innerWidth <= 1024) {
+      const g2 = document.getElementById('obs-grp-threats');
+      const g4 = document.getElementById('obs-grp-response');
+      const g5 = document.getElementById('obs-grp-hub');
+      if (g2) g2.classList.add('obs-collapsed');
+      if (g4) g4.classList.add('obs-collapsed');
+      if (g5) g5.classList.add('obs-collapsed');
+    }
+  }
+  initMobileAccordions();
+  window.addEventListener('resize', initMobileAccordions);
+
+  // Expose Global Namespace
+  window.obsPlatformPopup = {
+    open: openPopup,
+    close: closePopup,
+    toggle: togglePopup
+  };
+  window.obsMegaMenu = window.obsPlatformPopup;
+})();

@@ -46,7 +46,7 @@
 
   <!-- Center Navigation -->
   <nav class="header-nav">
-    <button type="button" id="obs-nav-platform" class="nav-link obs-nav-platform-trigger" aria-expanded="false" aria-controls="obs-megamenu-panel" aria-haspopup="true">
+    <button type="button" id="obs-nav-platform" class="nav-link obs-nav-platform-trigger" aria-expanded="false" aria-controls="obs-platform-modal" aria-haspopup="dialog">
       <span>Platform</span>
       <svg class="obs-chevron-icon" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -84,453 +84,467 @@
   </div>
 </header>
 
-<!-- Backdrop Overlay -->
-<div id="obs-megamenu-overlay" class="obs-megamenu-overlay" aria-hidden="true"></div>
+<!-- =========================================================================
+     OBSYRON PLATFORM ARCHITECTURE — ENTIRE SCREEN POP-UP MODAL
+     ========================================================================= -->
+<div id="obs-platform-modal" class="obs-fullscreen-popup" role="dialog" aria-modal="true" aria-label="OBSYRON Platform Architecture &amp; Capabilities Suite" aria-hidden="true">
+  <div class="obs-popup-dialog">
 
-<!-- ═════════════════════════════════════════════════════════════════════════
-     OBSYRON MEGA-MENU PANEL
-     ═════════════════════════════════════════════════════════════════════════ -->
-<div id="obs-megamenu-panel" class="obs-megamenu-panel" role="region" aria-label="Platform Architecture and Investigation Suite" aria-hidden="true">
-  <div class="obs-megamenu-wrapper">
-
-    <!-- ── LEFT ZONE (~40%): LIVE PRODUCT ILLUSTRATION ─────────────────── -->
-    <aside class="obs-preview-zone" aria-label="Investigation Console Preview">
-      <div>
-        <div class="obs-preview-header">
-          <div class="obs-preview-title-wrap">
-            <div class="obs-preview-dot-stream"></div>
-            <span class="obs-preview-title">OBSYRON Incident Reconstruction</span>
-          </div>
-          <span class="obs-badge-illustrative">Illustrative preview</span>
+    <!-- Top Modal Header / App Bar -->
+    <header class="obs-popup-header">
+      <div class="obs-popup-brand">
+        <div class="obs-popup-icon-badge">
+          <img src="/static/icon.png" alt="OBSYRON" width="22" height="22" style="object-fit:contain">
         </div>
-
-        <div class="obs-preview-stage" id="obs-preview-stage">
-          
-          <!-- Scene 1: Graph Reconstruction (Default) -->
-          <div class="obs-scene obs-active" id="obs-scene-graph" data-scene="graph">
-            <div class="obs-preview-logstream">
-              <div class="obs-log-line"><span class="obs-log-ts">[04:12:08]</span> <span class="obs-log-warn">Auth 4624</span> Identity: m_thorne &rarr; WS-09</div>
-              <div class="obs-log-line"><span class="obs-log-ts">[04:12:19]</span> <span class="obs-log-alert">Sysmon 1</span> Process: powershell.exe -enc...</div>
-              <div class="obs-log-line"><span class="obs-log-ts">[04:12:35]</span> <span class="obs-log-alert">C2 Beacon</span> 192.168.1.105 &rarr; 185.220.101.5</div>
-              <div class="obs-log-line"><span class="obs-log-ts">[04:12:44]</span> <span class="obs-log-info">Bridge Infer</span> Lateral pivot to DC-01 (62%)</div>
-            </div>
-
-            <!-- Dynamic SVG Multigraph Mock -->
-            <svg class="obs-preview-svg-canvas" viewBox="0 0 360 160">
-              <defs>
-                <filter id="obsGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-                <marker id="obsArrow" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 1 L 8 5 L 0 9 z" fill="#38BDF8" />
-                </marker>
-                <marker id="obsArrowRed" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 1 L 8 5 L 0 9 z" fill="#EF4444" />
-                </marker>
-              </defs>
-
-              <!-- Edges -->
-              <path d="M 40 80 Q 90 40 140 50" stroke="#38BDF8" stroke-width="1.8" fill="none" class="obs-edge-stream" marker-end="url(#obsArrow)"/>
-              <path d="M 140 50 L 220 50" stroke="#EF4444" stroke-width="1.8" fill="none" class="obs-edge-stream" marker-end="url(#obsArrowRed)"/>
-              <path d="M 140 50 Q 180 120 230 110" stroke="#F59E0B" stroke-width="1.6" stroke-dasharray="4 3" fill="none" marker-end="url(#obsArrow)"/>
-              <path d="M 220 50 L 310 75" stroke="#A855F7" stroke-width="1.8" fill="none" class="obs-edge-stream" marker-end="url(#obsArrow)"/>
-
-              <!-- Node 1: Identity -->
-              <circle cx="40" cy="80" r="14" fill="#0C1B33" stroke="#38BDF8" stroke-width="2" filter="url(#obsGlow)"/>
-              <circle cx="40" cy="80" r="6" fill="#38BDF8"/>
-              <text x="40" y="106" fill="#94A3B8" font-size="9" font-family="monospace" text-anchor="middle">m_thorne</text>
-
-              <!-- Node 2: Compromised Host -->
-              <circle cx="140" cy="50" r="14" fill="#2A1215" stroke="#EF4444" stroke-width="2" filter="url(#obsGlow)"/>
-              <circle cx="140" cy="50" r="6" fill="#EF4444"/>
-              <circle cx="140" cy="50" r="6" stroke="#EF4444" stroke-width="1.5" fill="none" class="obs-node-pulse"/>
-              <text x="140" y="30" fill="#EF4444" font-size="9" font-family="monospace" font-weight="700" text-anchor="middle">WS-09 (PZ)</text>
-
-              <!-- Node 3: Malicious Execution -->
-              <rect x="206" y="38" width="28" height="24" rx="4" fill="#1C182E" stroke="#A855F7" stroke-width="2"/>
-              <text x="220" y="53" fill="#C084FC" font-size="8" font-family="monospace" text-anchor="middle">powershell</text>
-
-              <!-- Node 4: Gap-Bridge Lateral Server -->
-              <circle cx="230" cy="110" r="13" fill="#1A180E" stroke="#F59E0B" stroke-width="1.8"/>
-              <text x="230" y="114" fill="#F59E0B" font-size="8" font-family="monospace" text-anchor="middle">DC-01</text>
-              <text x="230" y="132" fill="#64748B" font-size="8" font-family="monospace" text-anchor="middle">Bridge 62%</text>
-
-              <!-- Node 5: External C2 -->
-              <circle cx="310" cy="75" r="13" fill="#240D26" stroke="#EC4899" stroke-width="2" filter="url(#obsGlow)"/>
-              <text x="310" y="79" fill="#F472B6" font-size="8" font-family="monospace" text-anchor="middle">C2</text>
-              <text x="310" y="98" fill="#EC4899" font-size="8" font-family="monospace" text-anchor="middle">185.220.x</text>
-            </svg>
-
-            <!-- Risk HUD -->
-            <div class="obs-preview-hud">
-              <div class="obs-hud-card">
-                <div class="obs-hud-val" style="color:#EF4444">88 / 100</div>
-                <div class="obs-hud-label">Critical Risk</div>
-              </div>
-              <div class="obs-hud-card">
-                <div class="obs-hud-val">3 Assets</div>
-                <div class="obs-hud-label">Blast Scope</div>
-              </div>
-              <div class="obs-hud-card">
-                <div class="obs-hud-val" style="color:#38BDF8">T1059.001</div>
-                <div class="obs-hud-label">MITRE Technique</div>
-              </div>
-            </div>
+        <div class="obs-popup-title-group">
+          <div class="obs-popup-title-row">
+            <h2 class="obs-popup-heading">OBSYRON PLATFORM ARCHITECTURE</h2>
+            <span class="obs-badge-version">v2.0 SUITE</span>
           </div>
-
-          <!-- Scene 2: Evidence & Context Logs -->
-          <div class="obs-scene" id="obs-scene-logs" data-scene="logs">
-            <div style="font-size:11px;font-weight:700;color:#38BDF8;margin-bottom:8px;font-family:monospace">
-              MULTI-SOURCE TELEMETRY NORMALIZATION
-            </div>
-            <div class="obs-preview-logstream" style="flex:1">
-              <div class="obs-log-line"><span class="obs-log-ts">AUTH</span> Kerberos TGT Issued &rarr; SVC_BACKUP (ID 4768)</div>
-              <div class="obs-log-line"><span class="obs-log-ts">SYSLOG</span> auditd execve: /bin/bash -c "curl -s http://..."</div>
-              <div class="obs-log-line"><span class="obs-log-ts">NETFLOW</span> 10.0.4.12 &rarr; 443 TCP SYN [Skew Corr: -12.4s]</div>
-              <div class="obs-log-line"><span class="obs-log-ts">EMAIL</span> SPF/DKIM Pass · High Phish Risk Score (0.91)</div>
-              <div class="obs-log-line"><span class="obs-log-ts">MERKLE</span> Event Root: sha256:7f83b1657ff1... Validated</div>
-            </div>
-            <div class="obs-card-advisory-box">
-              <div class="obs-advisory-title">Clock-Drift Skew Compensation</div>
-              <div class="obs-advisory-note">Reconciles packet drift across asynchronous host timestamps into a single chronological timeline.</div>
-            </div>
-          </div>
-
-          <!-- Scene 3: Threat Landscape -->
-          <div class="obs-scene" id="obs-scene-threats" data-scene="threats">
-            <div style="font-size:11px;font-weight:700;color:#F59E0B;margin-bottom:8px;font-family:monospace">
-              THREAT INTELLIGENCE &amp; ANOMALY RADAR
-            </div>
-            <div class="obs-card-advisory-box" style="border-color:rgba(239,68,68,0.3)">
-              <div class="obs-advisory-title" style="color:#EF4444">
-                <span>STIX 2.1 Threat Indicator Match</span>
-                <span style="font-size:9px">APT29 / CozyBear</span>
-              </div>
-              <div class="obs-advisory-note">Known C2 beacon pattern matched with high confidence against raw NetFlow egress records.</div>
-            </div>
-            <div class="obs-preview-logstream">
-              <div class="obs-log-line"><span class="obs-log-warn">SIGMA</span> proc_creation_win_powershell_susp_download</div>
-              <div class="obs-log-line"><span class="obs-log-alert">ANOMALY</span> Z-Score +3.82: Unusual weekend logon volume</div>
-              <div class="obs-log-line"><span class="obs-log-info">TAXONOMY</span> MITRE T1078.002: Valid Accounts (Domain)</div>
-            </div>
-          </div>
-
-          <!-- Scene 4: Detection & Response (Advisory) -->
-          <div class="obs-scene" id="obs-scene-response" data-scene="response">
-            <div style="font-size:11px;font-weight:700;color:#10B981;margin-bottom:8px;font-family:monospace">
-              RECOMMENDED ADVISORY RESPONSE ACTIONS
-            </div>
-            <div class="obs-card-advisory-box">
-              <div class="obs-advisory-title">
-                <span>1. Quarantine Host [WS-09]</span>
-                <span class="obs-badge-advisory">Advisory</span>
-              </div>
-              <div class="obs-advisory-note">Operator action: Isolate workstation network interface to halt lateral expansion.</div>
-            </div>
-            <div class="obs-card-advisory-box">
-              <div class="obs-advisory-title">
-                <span>2. Revoke Credentials [m_thorne]</span>
-                <span class="obs-badge-advisory">Advisory</span>
-              </div>
-              <div class="obs-advisory-note">Operator action: Invalidate active Kerberos tickets and trigger forced credential reset.</div>
-            </div>
-            <div style="font-size:10px;color:#94A3B8;font-family:monospace;margin-top:6px">
-              * Human operator authorization required. Actions are advisory guidance.
-            </div>
-          </div>
-
-          <!-- Scene 5: OBSYRON Hub -->
-          <div class="obs-scene" id="obs-scene-hub" data-scene="hub">
-            <div style="font-size:11px;font-weight:700;color:#A855F7;margin-bottom:8px;font-family:monospace">
-              OBSYRON INVESTIGATION HUB &amp; ARTIFACTS
-            </div>
-            <div class="obs-preview-logstream">
-              <div class="obs-log-line"><span class="obs-log-info">REPORT</span> INC-2026-03 Executive Forensics (.md / .stix)</div>
-              <div class="obs-log-line"><span class="obs-log-info">LEDGER</span> Cryptographic Audit Trail: NIST SP 800-86</div>
-              <div class="obs-log-line"><span class="obs-log-warn">PLANNED</span> SIEM / EDR Connector Ecosystem (Phase 3)</div>
-              <div class="obs-log-line"><span class="obs-log-info">HISTORY</span> 12 Previous Incident Graph Snapshots Saved</div>
-            </div>
-          </div>
-
-          <!-- Scene 6: Core Architecture -->
-          <div class="obs-scene" id="obs-scene-core" data-scene="core">
-            <div style="font-size:11px;font-weight:700;color:#38BDF8;margin-bottom:8px;font-family:monospace">
-              CENTRAL INTELLIGENCE &amp; ORCHESTRATION
-            </div>
-            <div class="obs-card-advisory-box">
-              <div class="obs-advisory-title">Unified Investigation Pipeline</div>
-              <div class="obs-advisory-note">Ingestion Engine &rarr; Chronological Correlator &rarr; MultiDiGraph Reconstruction &rarr; Explainability Ledger.</div>
-            </div>
-            <div class="obs-preview-hud">
-              <div class="obs-hud-card"><div class="obs-hud-val">&lt; 12ms</div><div class="obs-hud-label">Graph Build</div></div>
-              <div class="obs-hud-card"><div class="obs-hud-val">100%</div><div class="obs-hud-label">Air-Gapped</div></div>
-              <div class="obs-hud-card"><div class="obs-hud-val">STIX 2.1</div><div class="obs-hud-label">Taxonomy</div></div>
-            </div>
-          </div>
-
+          <span class="obs-popup-sub">Autonomous Graph Reconstruction, Multi-Stream Log Telemetry &amp; Decision Support</span>
         </div>
       </div>
 
-      <div class="obs-preview-footer">
-        <span>NetworkX MultiDiGraph</span>
-        <span>Localhost Zero-Cloud Privacy</span>
+      <div class="obs-popup-header-actions">
+        <!-- Live Correlation Engine Online Status -->
+        <div class="obs-popup-status-pill">
+          <span class="obs-status-dot"></span>
+          <span>CORRELATION ENGINE ACTIVE</span>
+        </div>
+
+        <!-- ESC Key Hint -->
+        <span class="obs-esc-pill" title="Press Escape to close">ESC</span>
+
+        <!-- Close Button -->
+        <button type="button" class="obs-popup-close-btn" id="obs-popup-close" onclick="window.obsPlatformPopup && window.obsPlatformPopup.close()" aria-label="Close platform popup window">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>Close [Esc]</span>
+        </button>
       </div>
-    </aside>
+    </header>
 
-    <!-- ── RIGHT ZONE (~60%): CONTENT COLUMNS ─────────────────────────── -->
-    <div class="obs-content-zone" aria-label="Platform Architecture Navigation">
+    <!-- Main Panoramic Content Area -->
+    <div class="obs-popup-body">
+      <div class="obs-popup-body-inner">
 
-      <!-- Top Highlighted Entry: OBSYRON CORE -->
-      <a href="/#capabilities" class="obs-core-banner" data-obs-scene="core" id="obs-item-core">
-        <div class="obs-core-info">
-          <div class="obs-core-badge-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-          </div>
-          <div class="obs-core-titles">
-            <h3>OBSYRON CORE — Central Intelligence and Orchestration Layer</h3>
-            <p>Unified pipeline orchestrating log ingestion, multigraph reconstruction, and zero-hallucination XAI.</p>
-          </div>
-        </div>
-        <div class="obs-core-link-cta">
-          <span>View platform architecture</span>
-          <span>&rarr;</span>
-        </div>
-      </a>
+        <!-- Left Zone (~42%): Live Interactive Investigation Console -->
+        <aside class="obs-preview-zone" aria-label="Investigation Console Preview">
+          <div>
+            <div class="obs-preview-header">
+              <div class="obs-preview-title-wrap">
+                <div class="obs-preview-dot-stream"></div>
+                <span class="obs-preview-title">OBSYRON Incident Reconstruction</span>
+              </div>
+              <span class="obs-badge-illustrative">Illustrative preview</span>
+            </div>
 
-      <!-- 5 Content Groups Grid -->
-      <div class="obs-groups-grid">
+            <!-- Scene Quick Tabs -->
+            <div class="obs-scene-tabs" role="tablist" aria-label="Preview scenes">
+              <button type="button" class="obs-scene-tab-btn obs-tab-active" data-scene="graph">Attack Graph</button>
+              <button type="button" class="obs-scene-tab-btn" data-scene="logs">Evidence Logs</button>
+              <button type="button" class="obs-scene-tab-btn" data-scene="threats">Threat Intel</button>
+              <button type="button" class="obs-scene-tab-btn" data-scene="response">Response Advisory</button>
+              <button type="button" class="obs-scene-tab-btn" data-scene="hub">Hub Ecosystem</button>
+            </div>
 
-        <!-- 1. Evidence & Contextual Data -->
-        <div class="obs-group" id="obs-grp-evidence">
-          <div class="obs-group-header" tabindex="0" role="button" aria-expanded="true">
-            <span>1. Evidence &amp; Contextual Data</span>
-            <svg class="obs-accordion-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          </div>
-          <div class="obs-group-items">
-            <a href="/#cockpit" class="obs-item" data-obs-scene="logs">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Authentication Logs</span>
-                <span class="obs-item-desc">Kerberos, OAuth, and LDAP logon telemetry tracking identity pivots.</span>
-              </div>
-            </a>
-
-            <a href="/#cockpit" class="obs-item" data-obs-scene="logs">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Windows/Linux System Logs</span>
-                <span class="obs-item-desc">Sysmon Event ID 1/3 and Linux auditd command execution chains.</span>
-              </div>
-            </a>
-
-            <a href="/#cockpit" class="obs-item" data-obs-scene="logs">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Network Logs</span>
-                <span class="obs-item-desc">Flow telemetry, DNS lookups, and firewall perimeter connection logs.</span>
-              </div>
-            </a>
-
-            <a href="/#cockpit" class="obs-item" data-obs-scene="logs">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Email Security Data</span>
-                <span class="obs-item-desc">Phishing indicators, header analysis, and malicious attachment triage.</span>
-              </div>
-            </a>
-          </div>
-        </div>
-
-        <!-- 2. Threat Landscape -->
-        <div class="obs-group" id="obs-grp-threats">
-          <div class="obs-group-header" tabindex="0" role="button" aria-expanded="true">
-            <span>2. Threat Landscape</span>
-            <svg class="obs-accordion-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          </div>
-          <div class="obs-group-items">
-            <a href="/#mitre-alliances" class="obs-item" data-obs-scene="threats">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Threat Intelligence</span>
-                <span class="obs-item-desc">STIX 2.1 indicators, known adversary C2 IOCs, and Sigma signatures.</span>
-              </div>
-            </a>
-
-            <a href="/#separate-signal-noise" class="obs-item" data-obs-scene="threats">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><activity><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></activity></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Anomaly Detection</span>
-                <span class="obs-item-desc">Statistical deviation scoring across process spawns and logon spikes.</span>
-              </div>
-            </a>
-          </div>
-        </div>
-
-        <!-- 3. Investigation & Analysis -->
-        <div class="obs-group" id="obs-grp-investigation">
-          <div class="obs-group-header" tabindex="0" role="button" aria-expanded="true">
-            <span>3. Investigation &amp; Analysis</span>
-            <svg class="obs-accordion-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          </div>
-          <div class="obs-group-items">
-            <a href="/#cockpit" class="obs-item" data-obs-scene="graph">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Attack Graph Reconstruction</span>
-                <span class="obs-item-desc">Directed MultiDiGraph modeling causal event chains &amp; pivot nodes.</span>
-              </div>
-            </a>
-
-            <a href="/#capabilities" class="obs-item" data-obs-scene="graph">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">AI Investigation &amp; Root-Cause</span>
-                <span class="obs-item-desc">Zero-hallucination audit citations isolating Patient Zero &amp; blast radius.</span>
-              </div>
-            </a>
-          </div>
-        </div>
-
-        <!-- 4. Detection & Response -->
-        <div class="obs-group" id="obs-grp-response">
-          <div class="obs-group-header" tabindex="0" role="button" aria-expanded="true">
-            <span>4. Detection &amp; Response</span>
-            <svg class="obs-accordion-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          </div>
-          <div class="obs-group-items">
-            <a href="/#separate-signal-noise" class="obs-item" data-obs-scene="response">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Risk Assessment</span>
-                <span class="obs-item-desc">Dynamic criticality scoring based on asset value and lateral depth.</span>
-              </div>
-            </a>
-
-            <a href="/#cockpit" class="obs-item" data-obs-scene="graph">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Incident Investigation</span>
-                <span class="obs-item-desc">Timeline scrubbing with clock-drift skew compensation (&Delta;t &plusmn;20s).</span>
-              </div>
-            </a>
-
-            <a href="/#cockpit" class="obs-item" data-obs-scene="response">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              </div>
-              <div class="obs-item-content">
-                <div class="obs-item-title-row">
-                  <span class="obs-item-name">Recommended Response Actions</span>
-                  <span class="obs-badge-advisory">Advisory</span>
+            <div class="obs-preview-stage" id="obs-preview-stage">
+              
+              <!-- Scene 1: Graph Reconstruction (Default) -->
+              <div class="obs-scene obs-active" id="obs-scene-graph" data-scene="graph">
+                <div class="obs-preview-logstream">
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:12:08]</span> <span class="obs-log-warn">Auth 4624</span> Identity: m_thorne &rarr; WS-09</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:12:19]</span> <span class="obs-log-alert">Sysmon 1</span> Process: powershell.exe -enc...</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:12:35]</span> <span class="obs-log-alert">C2 Beacon</span> 192.168.1.105 &rarr; 185.220.101.5</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:12:44]</span> <span class="obs-log-info">Bridge Infer</span> Lateral pivot to DC-01 (62%)</div>
                 </div>
-                <span class="obs-item-desc">Prescriptive containment playbooks for SOC operator guidance.</span>
-              </div>
-            </a>
 
-            <a href="/#cockpit" class="obs-item" data-obs-scene="response">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Evidence-Based Reporting</span>
-                <span class="obs-item-desc">Cryptographically verifiable executive markdown &amp; STIX incident reports.</span>
-              </div>
-            </a>
-          </div>
-        </div>
+                <!-- Dynamic SVG Multigraph Mock -->
+                <svg class="obs-preview-svg-canvas" viewBox="0 0 360 160">
+                  <defs>
+                    <filter id="obsGlow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <marker id="obsArrow" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#38BDF8" />
+                    </marker>
+                    <marker id="obsArrowRed" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#EF4444" />
+                    </marker>
+                  </defs>
 
-        <!-- 5. OBSYRON Hub -->
-        <div class="obs-group" id="obs-grp-hub">
-          <div class="obs-group-header" tabindex="0" role="button" aria-expanded="true">
-            <span>5. OBSYRON Hub</span>
-            <svg class="obs-accordion-chevron" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-          </div>
-          <div class="obs-group-items">
-            <a href="/#separate-signal-noise" class="obs-item" data-obs-scene="hub">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Security Dashboards</span>
-                <span class="obs-item-desc">High-level threat KPIs, attack vector distribution, and triage MTTR.</span>
-              </div>
-            </a>
+                  <path d="M 45 80 L 130 40" stroke="#38BDF8" stroke-width="2" marker-end="url(#obsArrow)" class="obs-edge-stream" />
+                  <path d="M 45 80 L 130 120" stroke="#38BDF8" stroke-width="2" marker-end="url(#obsArrow)" class="obs-edge-stream" />
+                  <path d="M 130 40 L 225 80" stroke="#EF4444" stroke-width="2" marker-end="url(#obsArrowRed)" stroke-dasharray="4,4" />
+                  <path d="M 130 120 L 225 80" stroke="#38BDF8" stroke-width="2" marker-end="url(#obsArrow)" />
+                  <path d="M 225 80 L 315 80" stroke="#EF4444" stroke-width="2.5" marker-end="url(#obsArrowRed)" class="obs-edge-stream" />
 
-            <a href="/#cockpit" class="obs-item" data-obs-scene="hub">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Investigation Reports</span>
-                <span class="obs-item-desc">Structured forensic summaries linked to raw syslog audit hashes.</span>
-              </div>
-            </a>
+                  <g transform="translate(45,80)">
+                    <circle r="14" fill="#0E2346" stroke="#38BDF8" stroke-width="1.8" />
+                    <circle r="5" fill="#38BDF8" class="obs-node-pulse" />
+                    <text y="24" font-size="8.5" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">User: m_thorne</text>
+                  </g>
 
-            <a href="/#mitre-alliances" class="obs-item" data-obs-scene="hub">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Detection Rules</span>
-                <span class="obs-item-desc">Community Sigma rules mapped to ATT&amp;CK enterprise matrix.</span>
-              </div>
-            </a>
+                  <g transform="translate(130,40)">
+                    <rect x="-14" y="-12" width="28" height="24" rx="4" fill="#0E2346" stroke="#38BDF8" stroke-width="1.8" />
+                    <circle r="4" fill="#38BDF8" />
+                    <text y="22" font-size="8.5" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">WS-09</text>
+                  </g>
 
-            <a href="/#cockpit" class="obs-item" data-obs-scene="hub">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-              </div>
-              <div class="obs-item-content">
-                <span class="obs-item-name">Investigation History</span>
-                <span class="obs-item-desc">Replay past attack graphs with deterministic snapshot restoration.</span>
-              </div>
-            </a>
+                  <g transform="translate(130,120)">
+                    <rect x="-14" y="-12" width="28" height="24" rx="4" fill="#0E2346" stroke="#38BDF8" stroke-width="1.8" />
+                    <circle r="4" fill="#38BDF8" />
+                    <text y="22" font-size="8.5" fill="#94A3B8" text-anchor="middle" font-family="'JetBrains Mono', monospace">Mail Exchange</text>
+                  </g>
 
-            <a href="/#capabilities" class="obs-item" data-obs-scene="hub">
-              <div class="obs-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  <g transform="translate(225,80)">
+                    <polygon points="0,-16 16,0 0,16 -16,0" fill="#2E1018" stroke="#EF4444" stroke-width="2" filter="url(#obsGlow)" />
+                    <circle r="4" fill="#EF4444" class="obs-node-pulse" />
+                    <text y="26" font-size="8.5" fill="#FCA5A5" font-weight="600" text-anchor="middle" font-family="'JetBrains Mono', monospace">T1059.001</text>
+                  </g>
+
+                  <g transform="translate(315,80)">
+                    <circle r="15" fill="#2E1018" stroke="#EF4444" stroke-width="2.2" />
+                    <circle r="6" fill="#EF4444" class="obs-node-pulse" />
+                    <text y="26" font-size="8.5" fill="#FCA5A5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', monospace">DC-01 (Target)</text>
+                  </g>
+                </svg>
               </div>
-              <div class="obs-item-content">
-                <div class="obs-item-title-row">
-                  <span class="obs-item-name">Integrations</span>
-                  <span class="obs-badge-planned">Planned</span>
+
+              <!-- Scene 2: Evidence Logs Scene -->
+              <div class="obs-scene" id="obs-scene-logs" data-scene="logs">
+                <div class="obs-preview-logstream">
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:13:01]</span> <span class="obs-log-info">Ingest</span> WinEventLog:Security :: ID 4625 Failed Logon</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:13:03]</span> <span class="obs-log-info">Ingest</span> Linux /var/log/secure :: PAM sshd session opened</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:13:07]</span> <span class="obs-log-warn">Ingest</span> Suricata alert: ET DNS Query to .cc domain</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[04:13:12]</span> <span class="obs-log-alert">Ingest</span> SEG Hook: Spear-phishing attachment detected</div>
                 </div>
-                <span class="obs-item-desc">External EDR, SIEM, and SOAR ecosystem connectors (Roadmap).</span>
+                <div style="background:rgba(51,120,255,0.08);border:1px dashed rgba(51,120,255,0.3);border-radius:6px;padding:12px;margin-top:14px">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#38BDF8;font-weight:600;margin-bottom:6px">MULTI-STREAM LOG INGESTION PIPELINE</div>
+                  <div style="font-size:11px;color:var(--text-secondary);line-height:1.4">Normalizing Windows Event Logs, Linux Auditd, Zeek Network flows, and Email metadata into unified graph-ready entities with SHA-256 evidence hashing.</div>
+                </div>
               </div>
-            </a>
+
+              <!-- Scene 3: Threat Landscape Scene -->
+              <div class="obs-scene" id="obs-scene-threats" data-scene="threats">
+                <div class="obs-preview-logstream">
+                  <div class="obs-log-line"><span class="obs-log-ts">[Feed]</span> <span class="obs-log-alert">STIX 2.1</span> C2 Indicator matched: 185.220.101.5</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Feed]</span> <span class="obs-log-warn">AlienVault</span> IP flagged in Cobalt Strike infrastructure</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Model]</span> <span class="obs-log-info">Anomaly</span> Volume spike: 320% above 30-day baseline</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+                  <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:8px">
+                    <div style="font-size:9px;color:#FCA5A5;font-family:'JetBrains Mono',monospace">THREAT INTELLIGENCE</div>
+                    <div style="font-size:12px;font-weight:700;color:#EF4444;margin-top:2px">STIX / TAXII Correlated</div>
+                  </div>
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px">
+                    <div style="font-size:9px;color:#FCD34D;font-family:'JetBrains Mono',monospace">ANOMALY DETECTION</div>
+                    <div style="font-size:12px;font-weight:700;color:#F59E0B;margin-top:2px">Deviation Z-Score +3.4</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Scene 4: Detection & Response Scene -->
+              <div class="obs-scene" id="obs-scene-response" data-scene="response">
+                <div class="obs-preview-logstream">
+                  <div class="obs-log-line"><span class="obs-log-ts">[Advisory]</span> <span class="obs-log-warn">Action 1</span> Isolate host WS-09 via EDR agent</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Advisory]</span> <span class="obs-log-warn">Action 2</span> Revoke Kerberos ticket for m_thorne</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Advisory]</span> <span class="obs-log-info">Action 3</span> Block egress IP 185.220.101.5 on perimeter</div>
+                </div>
+                <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);border-radius:6px;padding:10px;margin-top:10px">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <span class="obs-badge-advisory">ADVISORY PLAYBOOK</span>
+                    <span style="font-size:11px;font-weight:600;color:#F59E0B">Human-in-the-Loop Safeguard</span>
+                  </div>
+                  <div style="font-size:10.5px;color:var(--text-secondary);line-height:1.4">All suggested containment actions are advisory and require human confirmation before execution.</div>
+                </div>
+              </div>
+
+              <!-- Scene 5: OBSYRON Hub Scene -->
+              <div class="obs-scene" id="obs-scene-hub" data-scene="hub">
+                <div class="obs-preview-logstream">
+                  <div class="obs-log-line"><span class="obs-log-ts">[Hub]</span> <span class="obs-log-info">Sigma Rules</span> 48 active correlation signatures</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Hub]</span> <span class="obs-log-info">Ledger</span> SHA-256 verifiable investigation audit chain</div>
+                  <div class="obs-log-line"><span class="obs-log-ts">[Hub]</span> <span class="obs-log-warn">Integrations</span> Connectors planned for SIEM/EDR ecosystem</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px">
+                  <div style="background:rgba(51,120,255,0.08);border:1px solid rgba(51,120,255,0.25);border-radius:6px;padding:8px">
+                    <div style="font-size:9px;color:#93C5FD;font-family:'JetBrains Mono',monospace">INVESTIGATION REPORTS</div>
+                    <div style="font-size:12px;font-weight:700;color:#38BDF8;margin-top:2px">Court-Admissible</div>
+                  </div>
+                  <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:6px;padding:8px">
+                    <div style="font-size:9px;color:#D8B4FE;font-family:'JetBrains Mono',monospace">API INTEGRATIONS</div>
+                    <div style="font-size:12px;font-weight:700;color:#C084FC;margin-top:2px">Roadmap (Planned)</div>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- end obs-preview-stage -->
           </div>
-        </div>
 
-      </div><!-- end obs-groups-grid -->
+          <!-- Live Settlement Telemetry -->
+          <div class="obs-preview-telemetry">
+            <div class="obs-telem-box">
+              <div class="obs-telem-lbl">Risk Settlement</div>
+              <div class="obs-telem-val obs-critical">88 / 100</div>
+            </div>
+            <div class="obs-telem-box">
+              <div class="obs-telem-lbl">Graph Nodes</div>
+              <div class="obs-telem-val">5 Entities</div>
+            </div>
+            <div class="obs-telem-box">
+              <div class="obs-telem-lbl">Engine Latency</div>
+              <div class="obs-telem-val">&lt; 12 ms</div>
+            </div>
+            <div class="obs-telem-box">
+              <div class="obs-telem-lbl">Blast Radius</div>
+              <div class="obs-telem-val">3 Subnets</div>
+            </div>
+          </div>
+        </aside>
 
-    </div><!-- end obs-content-zone -->
+        <!-- Right Zone (~58%): Grouped Architecture Content -->
+        <div class="obs-content-zone">
 
-  </div><!-- end obs-megamenu-wrapper -->
-</div><!-- end obs-megamenu-panel -->
+          <!-- Top Highlighted Core Layer -->
+          <a href="/#capabilities" class="obs-core-banner" data-obs-scene="graph">
+            <div class="obs-core-banner-left">
+              <span class="obs-core-pill">CORE</span>
+              <div>
+                <div class="obs-core-title">OBSYRON CORE &mdash; Central Intelligence and Orchestration Layer</div>
+                <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">Autonomous event normalization, MultiDiGraph correlation, and root-cause inference.</div>
+              </div>
+            </div>
+            <div class="obs-core-link">
+              <span>Explore in page</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- 5 Content Groups -->
+          <div class="obs-groups-grid">
+
+            <!-- Group 1: Evidence & Contextual Data -->
+            <div class="obs-group" id="obs-grp-evidence">
+              <div class="obs-group-header" role="button" tabindex="0" aria-expanded="true">
+                <span>1. Evidence &amp; Contextual Data</span>
+                <svg class="obs-accordion-chevron" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="obs-group-items">
+                <a href="/#capabilities" class="obs-item" data-obs-scene="logs">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Authentication Logs</span></div>
+                    <span class="obs-item-desc">Kerberos, Active Directory Event 4624/4625, SSH and OAuth logins.</span>
+                  </div>
+                </a>
+                <a href="/#capabilities" class="obs-item" data-obs-scene="logs">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Windows/Linux System Logs</span></div>
+                    <span class="obs-item-desc">Sysmon process tracking, auditd execution, daemon activity, and bash history.</span>
+                  </div>
+                </a>
+                <a href="/#capabilities" class="obs-item" data-obs-scene="logs">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Network Logs</span></div>
+                    <span class="obs-item-desc">Zeek/Suricata telemetry, firewall connections, DNS lookups, and proxy flows.</span>
+                  </div>
+                </a>
+                <a href="/#capabilities" class="obs-item" data-obs-scene="logs">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Email Security Data</span></div>
+                    <span class="obs-item-desc">Inbound/outbound mail flow, SPF/DKIM validation, and attachment fingerprints.</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <!-- Group 2: Threat Landscape -->
+            <div class="obs-group" id="obs-grp-threats">
+              <div class="obs-group-header" role="button" tabindex="0" aria-expanded="true">
+                <span>2. Threat Landscape</span>
+                <svg class="obs-accordion-chevron" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="obs-group-items">
+                <a href="/#mitre-alliances" class="obs-item" data-obs-scene="threats">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Threat Intelligence</span></div>
+                    <span class="obs-item-desc">Automated matching against STIX 2.1 feeds and known malicious IOCs.</span>
+                  </div>
+                </a>
+                <a href="/#separate-signal-noise" class="obs-item" data-obs-scene="threats">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Anomaly Detection</span></div>
+                    <span class="obs-item-desc">Statistical deviation flagging and baseline outlier identification.</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <!-- Group 3: Investigation & Analysis -->
+            <div class="obs-group" id="obs-grp-investigation">
+              <div class="obs-group-header" role="button" tabindex="0" aria-expanded="true">
+                <span>3. Investigation &amp; Analysis</span>
+                <svg class="obs-accordion-chevron" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="obs-group-items">
+                <a href="/#cockpit" class="obs-item" data-obs-scene="graph">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="18" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="15.5" y2="16.5"></line></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Attack Graph Reconstruction</span></div>
+                    <span class="obs-item-desc">Deterministic directed graph tracing causal paths and lateral pivots.</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="graph">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">AI Investigation &amp; Root-Cause Analysis</span></div>
+                    <span class="obs-item-desc">Hypothesis generation, forensic timeline synthesis, and patient-zero isolation.</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <!-- Group 4: Detection & Response -->
+            <div class="obs-group" id="obs-grp-response">
+              <div class="obs-group-header" role="button" tabindex="0" aria-expanded="true">
+                <span>4. Detection &amp; Response</span>
+                <svg class="obs-accordion-chevron" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="obs-group-items">
+                <a href="/#separate-signal-noise" class="obs-item" data-obs-scene="response">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Risk Assessment</span></div>
+                    <span class="obs-item-desc">Context-aware severity calculation factoring asset criticality and exposure.</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="response">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Incident Investigation</span></div>
+                    <span class="obs-item-desc">Step-by-step forensic progression with blast radius boundary estimation.</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="response">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row">
+                      <span class="obs-item-name">Recommended Response Actions</span>
+                      <span class="obs-badge-advisory">Advisory</span>
+                    </div>
+                    <span class="obs-item-desc">Human-reviewed containment playbooks (never executes without operator confirmation).</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="response">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Evidence-Based Reporting</span></div>
+                    <span class="obs-item-desc">Structured executive and technical summaries backed by cryptographic hashes.</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <!-- Group 5: OBSYRON Hub -->
+            <div class="obs-group" id="obs-grp-hub" style="grid-column: span 2;">
+              <div class="obs-group-header" role="button" tabindex="0" aria-expanded="true">
+                <span>5. OBSYRON Hub</span>
+                <svg class="obs-accordion-chevron" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="obs-group-items" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px">
+                <a href="/#cockpit" class="obs-item" data-obs-scene="hub">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Security Dashboards</span></div>
+                    <span class="obs-item-desc">Real-time telemetry, kill-chain breakdown, and exposure overview.</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="hub">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Investigation Reports</span></div>
+                    <span class="obs-item-desc">Comprehensive exportable incident dossiers and findings.</span>
+                  </div>
+                </a>
+                <a href="/#mitre-alliances" class="obs-item" data-obs-scene="hub">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Detection Rules</span></div>
+                    <span class="obs-item-desc">Sigma and MITRE ATT&amp;CK v14 aligned rule repository.</span>
+                  </div>
+                </a>
+                <a href="/#cockpit" class="obs-item" data-obs-scene="hub">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row"><span class="obs-item-name">Investigation History</span></div>
+                    <span class="obs-item-desc">Replay past attack graphs with deterministic snapshot restoration.</span>
+                  </div>
+                </a>
+                <a href="/#capabilities" class="obs-item" data-obs-scene="hub">
+                  <div class="obs-item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  </div>
+                  <div class="obs-item-content">
+                    <div class="obs-item-title-row">
+                      <span class="obs-item-name">Integrations</span>
+                      <span class="obs-badge-planned">Planned</span>
+                    </div>
+                    <span class="obs-item-desc">External EDR, SIEM, and SOAR ecosystem connectors (Roadmap).</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+          </div><!-- end obs-groups-grid -->
+
+        </div><!-- end obs-content-zone -->
+
+      </div><!-- end obs-popup-body-inner -->
+    </div><!-- end obs-popup-body -->
+
+  </div><!-- end obs-popup-dialog -->
+</div><!-- end obs-platform-modal -->
 
 
 <!-- ── MOBILE NAVIGATION DRAWER & BACKDROP ─────────────────────────────── -->
@@ -550,7 +564,7 @@
   </div>
 
   <nav class="mobile-drawer-nav">
-    <button type="button" class="mobile-nav-link obs-mobile-platform-trigger" onclick="closeMobileMenu(); window.obsMegaMenu && window.obsMegaMenu.open();" style="text-align:left;background:none;border:none;cursor:pointer;width:100%;font-family:inherit;">
+    <button type="button" class="mobile-nav-link obs-mobile-platform-trigger" onclick="closeMobileMenu(); window.obsPlatformPopup && window.obsPlatformPopup.open();" style="text-align:left;background:none;border:none;cursor:pointer;width:100%;font-family:inherit;">
       <span class="mobile-nav-icon">🛡️</span>
       <div class="mobile-nav-text">
         <span class="mobile-nav-title">Platform Architecture Suite</span>
