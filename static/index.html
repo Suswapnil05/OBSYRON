@@ -711,73 +711,208 @@
 <!-- ── "A TOOLBOX OF CAPABILITIES" (FILIGRAN-STYLE FEATURE GRID) ─────────── -->
 <section class="section-wrapper" id="capabilities">
   <div class="section-header">
-    <span class="section-badge">// PLATFORM CAPABILITIES</span>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+      <span class="section-badge">// PLATFORM CAPABILITIES</span>
+      <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE FASTAPI ENGINE</span>
+    </div>
     <h2 class="section-title">A Toolbox of Forensic Capabilities</h2>
     <p class="section-desc">
-      Stop attackers in their tracks. Whether it's autonomous graph reconstruction, clock-drift reconciliation, or gap-bridged lateral inferences, OBSYRON provides an end-to-end investigative suite.
+      Stop attackers in their tracks. Whether it's autonomous graph reconstruction, clock-drift reconciliation, cryptographic Merkle proofs, or Sigma/STIX intelligence generation, OBSYRON provides an actionable end-to-end investigative suite with real backend microservices.
     </p>
   </div>
 
   <div class="capabilities-grid">
-    <div class="capability-card">
-      <div class="cap-icon-box">
-        <svg viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
-        </svg>
+    <!-- Tool 1: Clock Skew Correlator -->
+    <div class="capability-card" id="card-tool-clock-skew">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
       </div>
       <h3 class="cap-title">Chaos Ingestor &amp; Clock Skew Correlator</h3>
       <p class="cap-desc">
         Reconciles out-of-order syslog/firewall packets and neutralizes host clock drifts (&Delta;t &in; [&plusmn;5s, &plusmn;20s]) into a master chronological timeline.
       </p>
-      <span class="cap-tag">MASTER TIMELINE SYNC</span>
+      <div class="cap-footer">
+        <span class="cap-tag">MASTER TIMELINE SYNC</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('clock-skew')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
     </div>
 
-    <div class="capability-card">
-      <div class="cap-icon-box">
-        <svg viewBox="0 0 24 24">
-          <circle cx="18" cy="5" r="3"></circle>
-          <circle cx="6" cy="12" r="3"></circle>
-          <circle cx="18" cy="19" r="3"></circle>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-        </svg>
+    <!-- Tool 2: MultiDiGraph Engine -->
+    <div class="capability-card" id="card-tool-multidigraph">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
       </div>
       <h3 class="cap-title">Dynamic MultiDiGraph Engine</h3>
       <p class="cap-desc">
         NetworkX-powered directed multigraph modeling parallel multi-entity interactions across Identities, Endpoints, Services, and External Endpoints with betweenness centrality pivot scoring.
       </p>
-      <span class="cap-tag">GRAPH TOPOLOGY &amp; PIVOTS</span>
+      <div class="cap-footer">
+        <span class="cap-tag">GRAPH TOPOLOGY &amp; PIVOTS</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('multidigraph')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
     </div>
 
-    <div class="capability-card">
-      <div class="cap-icon-box">
-        <svg viewBox="0 0 24 24">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-        </svg>
+    <!-- Tool 3: Gap-Bridging Heuristic -->
+    <div class="capability-card" id="card-tool-gap-bridge">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
       </div>
       <h3 class="cap-title">Uncertainty &amp; Gap-Bridging Heuristic</h3>
       <p class="cap-desc">
         Recovers disconnected attack paths when intermediate logs are lost or suppressed, synthesizing penalized-confidence lateral movement bridges (58%–65%).
       </p>
-      <span class="cap-tag">GAP-BRIDGED INFERENCE</span>
+      <div class="cap-footer">
+        <span class="cap-tag">GAP-BRIDGED INFERENCE</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('gap-bridge')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
     </div>
 
-    <div class="capability-card">
-      <div class="cap-icon-box">
-        <svg viewBox="0 0 24 24">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
+    <!-- Tool 4: Cryptographic Merkle Ledger -->
+    <div class="capability-card" id="card-tool-merkle-proof">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
       </div>
-      <h3 class="cap-title">Zero-Hallucination Explainability Ledger</h3>
+      <h3 class="cap-title">Zero-Hallucination Merkle Ledger</h3>
       <p class="cap-desc">
-        Cryptographically verifiable provenance where every finding is linked to immutable raw audit logs. Click any citation to inspect raw timestamps, payload hashes, and skew corrections.
+        Cryptographically verifiable provenance where every finding is linked to immutable raw audit logs. Validates SHA-256 Merkle root inclusion proofs for court-admissible forensic evidence.
       </p>
-      <span class="cap-tag">AUDIT PROVENANCE LEDGER</span>
+      <div class="cap-footer">
+        <span class="cap-tag">SHA-256 AUDIT LEDGER</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('merkle-proof')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
+    </div>
+
+    <!-- Tool 5: Sigma Detection Rules -->
+    <div class="capability-card" id="card-tool-sigma-gen">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
+      </div>
+      <h3 class="cap-title">Sigma SIEM Rule Generator</h3>
+      <p class="cap-desc">
+        Compiles reconstructed attack patterns and MITRE ATT&amp;CK techniques directly into vendor-agnostic YAML Sigma detection rules for Splunk, Elastic, Sentinel, and CrowdStrike.
+      </p>
+      <div class="cap-footer">
+        <span class="cap-tag">AUTOMATED SIEM DETECTION</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('sigma-gen')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
+    </div>
+
+    <!-- Tool 6: OASIS STIX 2.1 Threat Intel Exporter -->
+    <div class="capability-card" id="card-tool-stix-bundle">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
+      </div>
+      <h3 class="cap-title">OASIS STIX 2.1 Threat Intel Exporter</h3>
+      <p class="cap-desc">
+        Serializes multi-hop attack graphs into standard OASIS STIX 2.1 cyber threat bundles containing Attack Patterns, Observed Data, Identity records, and SDO relationships.
+      </p>
+      <div class="cap-footer">
+        <span class="cap-tag">STIX 2.1 CTI SHARING</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('stix-bundle')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
+    </div>
+
+    <!-- Tool 7: Predictive Containment Simulator -->
+    <div class="capability-card" id="card-tool-containment-sim">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="22" y1="12" x2="18" y2="12"></line>
+            <line x1="6" y1="12" x2="2" y2="12"></line>
+            <line x1="12" y1="6" x2="12" y2="2"></line>
+            <line x1="12" y1="22" x2="12" y2="18"></line>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
+      </div>
+      <h3 class="cap-title">Predictive Containment &amp; Quarantine Simulator</h3>
+      <p class="cap-desc">
+        Simulates targeted host isolation and credential revocations. Computes quantitative blast-radius reduction percentages and residual risk before executing firewall containment.
+      </p>
+      <div class="cap-footer">
+        <span class="cap-tag">WHAT-IF REMEDIATION</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('containment-sim')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
+    </div>
+
+    <!-- Tool 8: Deception Intelligence Correlator -->
+    <div class="capability-card" id="card-tool-deception-traps">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="cap-icon-box">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2l7.5 4.5v9L12 20l-7.5-4.5v-9L12 2z"></path>
+            <circle cx="12" cy="11" r="3"></circle>
+          </svg>
+        </div>
+        <span class="cap-status-chip"><span class="pulse-dot"></span> LIVE BACKEND API</span>
+      </div>
+      <h3 class="cap-title">Deception Intelligence &amp; Canary Correlator</h3>
+      <p class="cap-desc">
+        Ingests Cowrie SSH honeypot traps and OpenCanary decoys. Correlates unauthorized decoy probe telemetry with Patient Zero to uncover attacker recon hours before detonation.
+      </p>
+      <div class="cap-footer">
+        <span class="cap-tag">HONEYPOT CORRELATION</span>
+        <button type="button" class="cap-tool-btn" onclick="openForensicTool('deception-traps')">
+          <span class="btn-icon">⚡</span> Run Tool
+        </button>
+      </div>
     </div>
   </div>
 </section>
@@ -1430,6 +1565,80 @@
     </div>
   </div>
 </div>
+
+<!-- ── FORENSIC TOOL RUNNER MODAL ──────────────────────────────────────── -->
+<div id="modal-forensic-tool" class="auth-modal-overlay" onclick="handleForensicModalOverlayClick(event)" style="display:none">
+  <div class="auth-modal-card forensic-modal-card" style="max-width:960px;width:95vw;padding:26px;max-height:92vh;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-subtle);padding-bottom:14px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="ft-modal-icon-badge" class="cap-icon-box" style="margin-bottom:0;width:38px;height:38px">
+          <span id="ft-modal-icon" style="font-size:18px">⚡</span>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <h3 id="ft-modal-title" style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Forensic Tool Execution Suite</h3>
+            <span id="ft-modal-endpoint-pill" class="chip-blue" style="font-size:10px;font-family:var(--font-mono)">POST /api/tools/clock-skew-correlator</span>
+          </div>
+          <p id="ft-modal-desc" style="margin:3px 0 0 0;font-size:11.5px;color:var(--text-secondary)">
+            Execute deep mathematical algorithms directly on current telemetry.
+          </p>
+        </div>
+      </div>
+      <button type="button" class="auth-modal-close" onclick="closeForensicToolModal()">&times;</button>
+    </div>
+
+    <!-- Tool Selector Nav Tabs -->
+    <div class="ft-tabs-scroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;border-bottom:1px solid var(--border-subtle)">
+      <button type="button" class="ft-tab-btn active" id="ft-tab-clock-skew" onclick="switchForensicTool('clock-skew')">⏱️ Clock Skew</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-multidigraph" onclick="switchForensicTool('multidigraph')">🌐 MultiDiGraph</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-gap-bridge" onclick="switchForensicTool('gap-bridge')">⚡ Gap-Bridge</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-merkle-proof" onclick="switchForensicTool('merkle-proof')">📜 Merkle Proof</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-sigma-gen" onclick="switchForensicTool('sigma-gen')">🛡️ Sigma Rules</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-stix-bundle" onclick="switchForensicTool('stix-bundle')">📦 STIX 2.1</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-containment-sim" onclick="switchForensicTool('containment-sim')">🎯 Containment</button>
+      <button type="button" class="ft-tab-btn" id="ft-tab-deception-traps" onclick="switchForensicTool('deception-traps')">🍯 Deception</button>
+    </div>
+
+    <!-- Parameter Config Bar -->
+    <div id="ft-param-container" style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:12px 16px;margin-bottom:14px">
+      <!-- Injected by switchForensicTool() in app.js -->
+    </div>
+
+    <!-- Actions & Status Bar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button type="button" id="btn-run-forensic-tool" class="btn-filigran-gradient" onclick="executeActiveForensicTool()" style="padding:9px 20px;font-size:12px;display:flex;align-items:center;gap:8px">
+          <span id="ft-run-spinner">⚡</span>
+          <span id="ft-run-label">Execute Tool</span>
+        </button>
+        <span id="ft-status-tag" style="display:none;font-size:11px;font-family:var(--font-mono);padding:4px 10px;border-radius:4px"></span>
+        <span id="ft-latency-tag" style="font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)"></span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="header-action-btn" onclick="copyForensicToolOutput()" title="Copy Formatted Output">
+          📋 Copy Output
+        </button>
+        <button type="button" class="header-action-btn" onclick="downloadForensicToolOutput()" title="Download Output File">
+          ⬇️ Download
+        </button>
+      </div>
+    </div>
+
+    <!-- Metrics Cards Strip -->
+    <div id="ft-metrics-strip" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;margin-bottom:14px">
+      <!-- Dynamic metric cards injected here -->
+    </div>
+
+    <!-- Result Output Console -->
+    <div style="flex:1;min-height:220px;background:#050811;border:1px solid var(--border-default);border-radius:8px;position:relative;display:flex;flex-direction:column;overflow:hidden">
+      <div style="background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);padding:6px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span id="ft-console-label" style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);letter-spacing:0.05em">LIVE FORENSIC RESULT BUFFER</span>
+        <span id="ft-console-type" style="font-size:10px;font-family:var(--font-mono);color:var(--accent-cyan)">JSON</span>
+      </div>
+      <div style="flex:1;overflow:auto;padding:12px 16px">
+        <pre id="ft-output-pre" style="margin:0;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:#a5d6ff;white-space:pre-wrap;word-break:break-all">// Click 'Execute Tool' to stream live telemetry output from the backend...</pre>
+      </div>
     </div>
   </div>
 </div>
