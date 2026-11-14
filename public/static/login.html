@@ -556,8 +556,27 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="signup-department">CIRT Unit</label>
-              <input type="text" id="signup-department" class="form-input" value="CIRT Alpha Special Tactics" placeholder="e.g. CIRT Alpha">
+              <label class="form-label" for="signup-job-title">Job Title</label>
+              <select id="signup-job-title" class="form-input" style="cursor:pointer" required>
+                <option value="" disabled selected>Please Select</option>
+                <option value="CEO">CEO</option>
+                <option value="CISO/CSO/CIO">CISO/CSO/CIO</option>
+                <option value="C-level">C-level</option>
+                <option value="General Manager/Vice President">General Manager/Vice President</option>
+                <option value="Director/Head of Cybersecurity">Director/Head of Cybersecurity</option>
+                <option value="Cybersecurity Team Lead">Cybersecurity Team Lead</option>
+                <option value="Application Security Specialist">Application Security Specialist</option>
+                <option value="Cloud Security Specialist">Cloud Security Specialist</option>
+                <option value="Cybersecurity Architect">Cybersecurity Architect</option>
+                <option value="Cybersecurity Engineer">Cybersecurity Engineer</option>
+                <option value="Digital Forensics and Incident Response Specialist">Digital Forensics and Incident Response Specialist</option>
+                <option value="Governance, Risk, and Compliance Specialist">Governance, Risk, and Compliance Specialist</option>
+                <option value="Identity and Access Management Specialist">Identity and Access Management Specialist</option>
+                <option value="Penetration Tester">Penetration Tester</option>
+                <option value="Security Operations Center (SOC) Analyst">Security Operations Center (SOC) Analyst</option>
+                <option value="Threat Intelligence Analyst">Threat Intelligence Analyst</option>
+                <option value="Vulnerability Analyst">Vulnerability Analyst</option>
+              </select>
             </div>
 
             <div class="form-group">
@@ -751,7 +770,8 @@
     const name = document.getElementById('signup-name').value.trim();
     const username = document.getElementById('signup-username').value.trim();
     const password = document.getElementById('signup-password').value.trim();
-    const department = document.getElementById('signup-department').value.trim();
+    const jobTitleElem = document.getElementById('signup-job-title');
+    const jobTitle = jobTitleElem ? jobTitleElem.value : '';
     const clearance = document.getElementById('signup-clearance').value;
 
     const feedback = document.getElementById('auth-feedback');
@@ -760,6 +780,12 @@
 
     feedback.className = '';
     feedback.style.display = 'none';
+
+    if (!jobTitle || jobTitle === 'Please Select') {
+      feedback.className = 'error';
+      feedback.textContent = 'Please select your Job Title.';
+      return;
+    }
 
     submitBtn.disabled = true;
     submitText.textContent = 'Registering operator...';
@@ -772,7 +798,8 @@
           name: name,
           username: username,
           password: password,
-          department: department,
+          role: jobTitle,
+          department: jobTitle,
           clearance: clearance
         })
       });
