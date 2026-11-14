@@ -2607,3 +2607,191 @@ document.addEventListener('DOMContentLoaded', () => {
   initDatabaseStatus();
   runAnalysis(state.currentSettings);
 });
+
+
+(function() {
+  'use strict';
+
+  // Elements
+  const trigger = document.getElementById('obs-nav-platform');
+  const panel = document.getElementById('obs-megamenu-panel');
+  const overlay = document.getElementById('obs-megamenu-overlay');
+  if (!trigger || !panel) return;
+
+  const previewStage = document.getElementById('obs-preview-stage');
+  const scenes = panel.querySelectorAll('.obs-scene');
+  const items = panel.querySelectorAll('.obs-item, .obs-core-banner');
+  const accordions = panel.querySelectorAll('.obs-group-header');
+
+  let isOpen = false;
+  let activeSceneName = 'graph';
+  let defaultSceneTimeout = null;
+
+  // 1. Toggle Mega-Menu Function
+  function openMenu() {
+    isOpen = true;
+    trigger.setAttribute('aria-expanded', 'true');
+    panel.classList.add('obs-open');
+    panel.removeAttribute('aria-hidden');
+    if (overlay) {
+      overlay.classList.add('obs-open');
+      overlay.removeAttribute('aria-hidden');
+    }
+    document.body.style.overflow = window.innerWidth <= 1024 ? 'hidden' : '';
+
+    // Focus first link or banner inside mega menu
+    const firstFocusable = panel.querySelector('.obs-core-banner, .obs-item');
+    if (firstFocusable) {
+      setTimeout(() => firstFocusable.focus(), 80);
+    }
+  }
+
+  function closeMenu() {
+    isOpen = false;
+    trigger.setAttribute('aria-expanded', 'false');
+    panel.classList.remove('obs-open');
+    panel.setAttribute('aria-hidden', 'true');
+    if (overlay) {
+      overlay.classList.remove('obs-open');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = '';
+    // Return focus to trigger button
+    trigger.focus();
+  }
+
+  function toggleMenu() {
+    if (isOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  }
+
+  // Event Listeners for Open/Close
+  trigger.addEventListener('click', (e) => {
+    e.preventDefault();
+    toggleMenu();
+  });
+
+  if (overlay) {
+    overlay.addEventListener('click', closeMenu);
+  }
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!isOpen) return;
+    if (!panel.contains(e.target) && !trigger.contains(e.target)) {
+      closeMenu();
+    }
+  });
+
+  // 2. Keyboard Navigation: Escape, Focus Trap & Roving Focus
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen) return;
+
+    // Esc closes menu
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMenu();
+      return;
+    }
+
+    // Focus trap inside open menu
+    if (e.key === 'Tab') {
+      const focusables = panel.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+
+      const firstElem = focusables[0];
+      const lastElem = focusables[focusables.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElem || document.activeElement === trigger) {
+          e.preventDefault();
+          lastElem.focus();
+        }
+      } else {
+        if (document.activeElement === lastElem) {
+          e.preventDefault();
+          firstElem.focus();
+        }
+      }
+    }
+  });
+
+  // 3. Live Preview Scene Switching (Hover & Focus)
+  function switchPreviewScene(sceneKey) {
+    if (!sceneKey || sceneKey === activeSceneName) return;
+    clearTimeout(defaultSceneTimeout);
+
+    const targetScene = document.getElementById(`obs-scene-${sceneKey}`);
+    if (!targetScene) return;
+
+    scenes.forEach(s => s.classList.remove('obs-active'));
+    targetScene.classList.add('obs-active');
+    activeSceneName = sceneKey;
+  }
+
+  function resetToDefaultScene() {
+    defaultSceneTimeout = setTimeout(() => {
+      switchPreviewScene('graph');
+    }, 400);
+  }
+
+  items.forEach(item => {
+    const scene = item.getAttribute('data-obs-scene');
+    if (!scene) return;
+
+    item.addEventListener('mouseenter', () => switchPreviewScene(scene));
+    item.addEventListener('focus', () => switchPreviewScene(scene));
+    item.addEventListener('mouseleave', resetToDefaultScene);
+
+    // Clicking an item closes the mega-menu cleanly
+    item.addEventListener('click', () => {
+      setTimeout(closeMenu, 120);
+    });
+  });
+
+  // 4. Mobile Accordion Toggle
+  accordions.forEach(header => {
+    const group = header.closest('.obs-group');
+    if (!group) return;
+
+    function toggleAccordion() {
+      if (window.innerWidth > 1024) return; // Only accordion on mobile/tablet
+      const isCollapsed = group.classList.toggle('obs-collapsed');
+      header.setAttribute('aria-expanded', !isCollapsed);
+    }
+
+    header.addEventListener('click', toggleAccordion);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAccordion();
+      }
+    });
+  });
+
+  // Start with groups 2, 4, 5 collapsed on mobile for a neat view
+  function initMobileAccordions() {
+    if (window.innerWidth <= 1024) {
+      const g2 = document.getElementById('obs-grp-threats');
+      const g4 = document.getElementById('obs-grp-response');
+      const g5 = document.getElementById('obs-grp-hub');
+      if (g2) g2.classList.add('obs-collapsed');
+      if (g4) g4.classList.add('obs-collapsed');
+      if (g5) g5.classList.add('obs-collapsed');
+    }
+  }
+  initMobileAccordions();
+  window.addEventListener('resize', initMobileAccordions);
+
+  // Expose clean namespace
+  window.obsMegaMenu = {
+    open: openMenu,
+    close: closeMenu,
+    toggle: toggleMenu
+  };
+})();
