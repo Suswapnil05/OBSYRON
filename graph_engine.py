@@ -288,6 +288,101 @@ def get_graph_confidence(G: nx.MultiDiGraph) -> float:
     return round(sum(confidences) / len(confidences), 4)
 
 
+def get_graph_deep_metrics(G: nx.MultiDiGraph) -> Dict[str, Any]:
+    """
+    Computes rigorous graph theory metrics across the reconstructed attack topology:
+    Betweenness centrality (pivot score), closeness centrality, in/out degree,
+    shortest path distance from Patient Zero, graph density, and connectivity.
+    """
+    simple_di = nx.DiGraph(G)
+    
+    # 1. Centrality measures
+    try:
+        betweenness = nx.betweenness_centrality(simple_di, normalized=True)
+    except Exception:
+        betweenness = {n: 0.0 for n in simple_di.nodes()}
+
+    try:
+        closeness = nx.closeness_centrality(simple_di)
+    except Exception:
+        closeness = {n: 0.0 for n in simple_di.nodes()}
+
+    # Top pivot hosts by betweenness
+    sorted_pivots = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)
+    pivots_list = [{"node": k, "score": round(v, 4), "entity_type": G.nodes[k].get("entity_type", "DEVICE")} for k, v in sorted_pivots[:5]]
+
+    # 2. In / Out Degree
+    in_degrees = dict(simple_di.in_degree())
+    out_degrees = dict(simple_di.out_degree())
+
+    # 3. Patient Zero Shortest Paths
+    root_cause = get_root_cause(G)
+    pz = root_cause.get("entity", "185.220.101.47")
+    shortest_paths = {}
+    if pz in simple_di:
+        for target in simple_di.nodes():
+            if target != pz and nx.has_path(simple_di, pz, target):
+                path = nx.shortest_path(simple_di, pz, target)
+                shortest_paths[target] = {
+                    "hop_count": len(path) - 1,
+                    "path": path
+                }
+
+    # 4. Topology overview
+    density = nx.density(simple_di) if len(simple_di) > 1 else 0.0
+    is_dag = nx.is_directed_acyclic_graph(simple_di)
+
+    return {
+        "node_count": G.number_of_nodes(),
+        "edge_count": G.number_of_edges(),
+        "density": round(density, 4),
+        "is_dag": is_dag,
+        "patient_zero": pz,
+        "pivot_hosts_ranked": pivots_list,
+        "closeness_centrality": {k: round(v, 4) for k, v in list(closeness.items())[:8]},
+        "in_degrees": {k: v for k, v in sorted(in_degrees.items(), key=lambda x: x[1], reverse=True)[:8]},
+        "out_degrees": {k: v for k, v in sorted(out_degrees.items(), key=lambda x: x[1], reverse=True)[:8]},
+        "shortest_paths_from_patient_zero": shortest_paths
+    }
+
+
+def simulate_what_if_containment(G: nx.MultiDiGraph, isolated_nodes: List[str]) -> Dict[str, Any]:
+    """
+    Predictive "What-If" defense simulator:
+    Evaluates defensive impact of quarantining or isolating specified nodes.
+    Calculates prevented attack paths, saved assets, and risk reduction factor.
+    """
+    root_cause = get_root_cause(G)
+    pz = root_cause.get("entity", "185.220.101.47")
+    baseline_blast = get_blast_radius(G, pz)
+    baseline_affected = set(baseline_blast.get("affected_nodes", []))
+
+    # Create mutated graph with isolated nodes severed
+    G_mutated = G.copy()
+    for node in isolated_nodes:
+        if node in G_mutated:
+            G_mutated.remove_node(node)
+
+    # Re-evaluate blast radius in mutated state
+    new_affected = set()
+    if pz in G_mutated:
+        new_blast = get_blast_radius(G_mutated, pz)
+        new_affected = set(new_blast.get("affected_nodes", []))
+
+    saved_assets = sorted(list(baseline_affected - new_affected - set(isolated_nodes)))
+    risk_reduction_pct = round(((len(baseline_affected) - len(new_affected)) / max(len(baseline_affected), 1)) * 100, 1)
+
+    return {
+        "isolated_nodes": isolated_nodes,
+        "baseline_compromised_count": len(baseline_affected),
+        "post_containment_compromised_count": len(new_affected),
+        "saved_assets": saved_assets,
+        "saved_assets_count": len(saved_assets),
+        "risk_reduction_percentage": min(max(risk_reduction_pct, 0.0), 100.0),
+        "containment_effectiveness": "CRITICAL_CONTAINMENT_ACHIEVED" if risk_reduction_pct > 60 else "PARTIAL_MITIGATION"
+    }
+
+
 if __name__ == "__main__":
     from log_generator import generate_logs
     from ingestor import normalize_logs

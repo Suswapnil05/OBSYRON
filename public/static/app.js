@@ -275,13 +275,13 @@ async function exportInvestigation(format = 'json') {
 // ── 2. UNIFIED RENDER DISPATCHER ───────────────────────────────────────────
 
 function renderAll(data) {
-  renderKPIs(data);
-  renderGraph(data);
-  renderXAI(data);
-  renderPlaybook(data);
-  renderMatrix(data);
-  initTimelineSlider(data);
-  renderQuickActions(data);
+  try { renderKPIs(data); } catch (e) { console.error('Error in renderKPIs:', e); }
+  try { renderGraph(data); } catch (e) { console.error('Error in renderGraph:', e); }
+  try { renderXAI(data); } catch (e) { console.error('Error in renderXAI:', e); }
+  try { renderPlaybook(data); } catch (e) { console.error('Error in renderPlaybook:', e); }
+  try { renderMatrix(data); } catch (e) { console.error('Error in renderMatrix:', e); }
+  try { initTimelineSlider(data); } catch (e) { console.error('Error in initTimelineSlider:', e); }
+  try { renderQuickActions(data); } catch (e) { console.error('Error in renderQuickActions:', e); }
 }
 
 // ── 3. TOP KPI STRIP ───────────────────────────────────────────────────────
@@ -533,10 +533,13 @@ function renderGraph(data) {
 
   // Layout configuration
   const rootId = (data.initial_access && data.initial_access.entity) || '185.220.101.47';
+  const hasRoot = elements.some(e => e.group === 'nodes' && e.data.id === rootId);
+  const rootSelector = hasRoot ? `[id = "${rootId}"]` : undefined;
+
   let layoutOpts = {
     name: 'breadthfirst',
     directed: true,
-    roots: elements.filter(e => e.group === 'nodes' && (e.data.id === rootId || e.data.entity_type === 'AUTH_ENDPOINT')).map(e => e.data.id),
+    roots: rootSelector,
     padding: 35,
     spacingFactor: 1.35,
     avoidOverlap: true,
@@ -571,122 +574,148 @@ function renderGraph(data) {
     };
   }
 
-  state.cy = cytoscape({
-    container,
-    elements,
-    layout: layoutOpts,
-    style: [
-      {
-        selector: 'node',
-        style: {
-          'background-color': 'data(bg)',
-          'border-color': 'data(color)',
-          'border-width': 2.0,
-          'label': 'data(label)',
-          'text-valign': 'center',
-          'text-halign': 'center',
-          'color': nodeTextColor,
-          'font-size': 9.5,
-          'font-weight': 600,
-          'font-family': 'JetBrains Mono, monospace',
-          'text-wrap': 'wrap',
-          'width': 130,
-          'height': 52,
-          'shape': 'roundrectangle',
-          'text-max-width': 122,
-          'transition-property': 'background-color, border-color, opacity, border-width',
-          'transition-duration': '0.2s',
-          'cursor': 'pointer'
-        }
-      },
-      {
-        selector: 'node[entity_type = "USER"]',
-        style: { shape: 'roundrectangle', width: 125, height: 50 }
-      },
-      {
-        selector: 'node[entity_type = "SERVICE"]',
-        style: { shape: 'roundrectangle', width: 130, height: 50 }
-      },
-      {
-        selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-        style: { shape: 'hexagon', width: 135, height: 54 }
-      },
-      {
-        selector: 'node[?is_malicious]',
-        style: {
-          'border-width': 2.6,
-        }
-      },
-      {
-        selector: 'node[id = "185.220.101.47"]',
-        style: {
-          'border-color': '#EF4444',
-          'border-width': 3.0,
-        }
-      },
-      {
-        selector: 'node[id = "wkst-04-dev"]',
-        style: {
-          'border-color': '#38BDF8',
-          'border-width': 2.8,
-        }
-      },
-      {
-        selector: 'edge',
-        style: {
-          'width': 2.2,
-          'line-color': edgeLineColor,
-          'target-arrow-color': edgeLineColor,
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
-          'label': 'data(label)',
-          'font-size': 8.5,
-          'font-weight': 600,
-          'font-family': 'JetBrains Mono, monospace',
-          'color': edgeTextColor,
-          'text-background-color': edgeTextBg,
-          'text-background-opacity': 0.95,
-          'text-background-padding': 3,
-          'text-wrap': 'wrap',
-          'text-max-width': 105,
-          'edge-text-rotation': 'autorotate',
-          'arrow-scale': 1.15,
-          'cursor': 'pointer'
-        }
-      },
-      {
-        selector: 'edge[?is_threat]',
-        style: {
-          'line-color': edgeCriticalColor,
-          'target-arrow-color': edgeCriticalColor,
-          'width': 2.6,
-          'color': dark ? '#FCA5A5' : '#991B1B',
-        }
-      },
-      {
-        selector: 'edge[?is_inferred]',
-        style: {
-          'line-color': edgeInferredColor,
-          'target-arrow-color': edgeInferredColor,
-          'line-style': 'dashed',
-          'line-dash-pattern': [6, 4],
-          'width': 2.4,
-          'color': dark ? '#FCD34D' : '#92400E',
-        }
-      },
-      {
-        selector: 'node:selected',
-        style: {
-          'border-width': 3.6,
-          'border-color': selectBorderColor
-        }
-      },
-      { selector: '.dimmed', style: { 'opacity': 0.12 } },
-      { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-      { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 3.2, 'opacity': 1 } },
-      { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 3.2, 'opacity': 1 } },
-    ]
-  });
+  const cyStyle = [
+    {
+      selector: 'node',
+      style: {
+        'background-color': 'data(bg)',
+        'border-color': 'data(color)',
+        'border-width': 2.0,
+        'label': 'data(label)',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'color': nodeTextColor,
+        'font-size': 9.5,
+        'font-weight': 600,
+        'font-family': 'JetBrains Mono, monospace',
+        'text-wrap': 'wrap',
+        'width': 130,
+        'height': 52,
+        'shape': 'roundrectangle',
+        'text-max-width': 122,
+        'transition-property': 'background-color, border-color, opacity, border-width',
+        'transition-duration': '0.2s',
+        'cursor': 'pointer'
+      }
+    },
+    {
+      selector: 'node[entity_type = "USER"]',
+      style: { shape: 'roundrectangle', width: 125, height: 50 }
+    },
+    {
+      selector: 'node[entity_type = "SERVICE"]',
+      style: { shape: 'roundrectangle', width: 130, height: 50 }
+    },
+    {
+      selector: 'node[entity_type = "AUTH_ENDPOINT"]',
+      style: { shape: 'hexagon', width: 135, height: 54 }
+    },
+    {
+      selector: 'node[?is_malicious]',
+      style: {
+        'border-width': 2.6,
+      }
+    },
+    {
+      selector: 'node[id = "185.220.101.47"]',
+      style: {
+        'border-color': '#EF4444',
+        'border-width': 3.0,
+      }
+    },
+    {
+      selector: 'node[id = "wkst-04-dev"]',
+      style: {
+        'border-color': '#38BDF8',
+        'border-width': 2.8,
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 2.2,
+        'line-color': edgeLineColor,
+        'target-arrow-color': edgeLineColor,
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        'label': 'data(label)',
+        'font-size': 8.5,
+        'font-weight': 600,
+        'font-family': 'JetBrains Mono, monospace',
+        'color': edgeTextColor,
+        'text-background-color': edgeTextBg,
+        'text-background-opacity': 0.95,
+        'text-background-padding': 3,
+        'text-wrap': 'wrap',
+        'text-max-width': 105,
+        'edge-text-rotation': 'autorotate',
+        'arrow-scale': 1.15,
+        'cursor': 'pointer'
+      }
+    },
+    {
+      selector: 'edge[?is_threat]',
+      style: {
+        'line-color': edgeCriticalColor,
+        'target-arrow-color': edgeCriticalColor,
+        'width': 2.6,
+        'color': dark ? '#FCA5A5' : '#991B1B',
+      }
+    },
+    {
+      selector: 'edge[?is_inferred]',
+      style: {
+        'line-color': edgeInferredColor,
+        'target-arrow-color': edgeInferredColor,
+        'line-style': 'dashed',
+        'line-dash-pattern': [6, 4],
+        'width': 2.4,
+        'color': dark ? '#FCD34D' : '#92400E',
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-width': 3.6,
+        'border-color': selectBorderColor
+      }
+    },
+    { selector: '.dimmed', style: { 'opacity': 0.12 } },
+    { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
+    { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 3.2, 'opacity': 1 } },
+    { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 3.2, 'opacity': 1 } },
+  ];
+
+  let cyInstance = null;
+  try {
+    cyInstance = cytoscape({
+      container,
+      elements,
+      layout: layoutOpts,
+      style: cyStyle
+    });
+  } catch (cyErr) {
+    console.warn('Primary Cytoscape layout failed, falling back:', cyErr);
+    try {
+      cyInstance = cytoscape({
+        container,
+        elements,
+        layout: { name: 'breadthfirst', directed: true, padding: 35, animate: false },
+        style: cyStyle
+      });
+    } catch (fallbackErr) {
+      console.warn('Breadthfirst fallback failed, using grid layout:', fallbackErr);
+      cyInstance = cytoscape({
+        container,
+        elements,
+        layout: { name: 'grid', padding: 35 },
+        style: cyStyle
+      });
+    }
+  }
+
+  if (!cyInstance) return;
+  state.cy = cyInstance;
 
   // Node Click -> Smooth Zoom/Center + Evidence DNA + Blast Radius Highlight
   state.cy.on('tap', 'node', function(evt) {
@@ -794,10 +823,11 @@ function changeGraphLayout(name) {
 
   if (name === 'breadthfirst') {
     const rootId = (state.analysisResult && state.analysisResult.initial_access && state.analysisResult.initial_access.entity) || '185.220.101.47';
+    const rootNodes = cy.nodes(`[id = "${rootId}"]`);
     opts = {
       name: 'breadthfirst',
       directed: true,
-      roots: cy.nodes(`[id = "${rootId}"]`).length > 0 ? `[id = "${rootId}"]` : undefined,
+      roots: rootNodes.length > 0 ? rootNodes : undefined,
       padding: 40,
       spacingFactor: 1.35,
       avoidOverlap: true,
@@ -835,7 +865,17 @@ function changeGraphLayout(name) {
     };
   }
 
-  cy.layout(opts).run();
+  try {
+    const layout = cy.layout(opts);
+    layout.run();
+  } catch (err) {
+    console.warn('Layout execution failed, falling back:', err);
+    try {
+      cy.layout({ name: 'breadthfirst', directed: true, padding: 35 }).run();
+    } catch (e) {
+      console.error('All layouts failed:', e);
+    }
+  }
 }
 
 function onGraphSearch(query) {
