@@ -22,3 +22,9 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Environment & Secrets
+.env
+.env.local
+*.env
+!.env.example
+

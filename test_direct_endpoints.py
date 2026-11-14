@@ -9,7 +9,8 @@ from app import (
     analyze, graph_snapshot, get_evidence, AnalyzeRequest,
     health_check, list_investigations, get_investigation_report,
     export_report, ExportRequest, get_audio_briefing,
-    auth_login, LoginRequest, simulation_reset
+    auth_login, LoginRequest, simulation_reset,
+    get_database_status, update_database_config, DatabaseConfigRequest
 )
 
 print("=" * 60)
@@ -131,6 +132,18 @@ async def run_tests():
     res_reset = await simulation_reset()
     assert res_reset.status_code == 200
     print("  ✓ PASS: Full reporting, multi-format export, and audio brief verified.")
+
+    # ── 7. Supabase Database Integration ────────────────────────────────────
+    print("\n[TEST 7] Testing Supabase PostgreSQL Integration...")
+    db_res = await get_database_status()
+    assert db_res.status_code == 200
+    db_data = json.loads(db_res.body.decode("utf-8"))
+    print(f"  + Database URL: {db_data['url']}")
+    print(f"  + Project Ref: {db_data['project_ref']}")
+    print(f"  + Connection Status: {db_data['message']}")
+    assert db_data["project_ref"] == "ugkekxiwvgsitzqduzxq"
+    assert db_data["connected"] == True
+    print("  ✓ PASS: Supabase database connection probe and endpoint verified.")
 
     print("\n" + "=" * 60)
     print("  ALL DIRECT ENDPOINT TESTS PASSED WITH 100% SUCCESS!")
