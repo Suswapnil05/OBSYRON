@@ -8,3 +8,4 @@ Security events naturally represent directed interactions between entities (user
 - **Root Cause Traversal:** Backward DAG search identifying in-degree zero entities and ancestral ingress nodes via `nx.ancestors()`.
 - **Blast Radius Reachability:** Forward path traversal via `nx.descendants()` computing the complete closure of reachable downstream assets.
 - **Gap Bridging:** Heuristic interpolation of missing intermediate kill chain steps with penalized confidence scoring.
+

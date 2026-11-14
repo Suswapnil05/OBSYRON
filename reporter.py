@@ -265,3 +265,4 @@ def generate_audio_script(analysis_result: Dict[str, Any]) -> str:
         "Detailed evidence DNA citations and full forensic logs are available in the investigation ledger. Ready for operator action."
     ]
     return " ".join(lines)
+

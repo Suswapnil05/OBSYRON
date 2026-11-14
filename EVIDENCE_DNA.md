@@ -67,3 +67,4 @@ When telemetry is dropped due to network partitioning or log evasion, OBSYRON sy
 - **Slide-out Evidence Drawer:** Accessible from any node click, edge selection, or narrative citation badge.
 - **Copy JSON:** Exports single evidence record to system clipboard.
 - **Export Full CSV:** Downloads RFC 4180 compliant CSV ledger containing every verified event and skew offset.
+

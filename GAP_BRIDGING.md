@@ -48,3 +48,4 @@ To ensure intellectual honesty and avoid analyst deception:
 - The confidence score is discounted by $34\%$ (from $0.95$ to $0.61$).
 - Inferred edges render as dashed amber vectors (`leg-line-dash`) with warning callouts in the UI.
 - The overall graph corroboration score drops from $95.1\%$ to $88.9\%$, signaling to the SOC team that telemetry gaps exist in the sensor grid.
+

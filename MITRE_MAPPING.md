@@ -55,3 +55,4 @@ OBSYRON maps all observed and inferred enterprise signals to the **MITRE ATT&CK 
 - **Evidence Citation:** `LOG-APT-006`
 - **Observed Activity:** Continuous 30-second heartbeat beaconing from `db-prod-01` to `185.220.101.47` over TCP:4444.
 - **Defensive Significance:** Confirms active remote interactive control across the database server.
+

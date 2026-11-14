@@ -57,3 +57,4 @@ OBSYRON visually communicates confidence to prevent operator complacency:
 - **Edges with $C(e) \ge 0.90$:** Solid critical red lines (`#EF4444`, 2.5px width).
 - **Edges with $C(e) < 0.70$ (Inferred):** Dashed amber lines (`#F59E0B`, `[6, 4]` dash pattern, 2px width) labeled with an explicit `⚠️ INFERRED_LATERAL_BRIDGE (59%)` tag.
 - **KPI Card:** Dynamic color coding transitions from Cyan (`CORROBORATED`, 94%+) to Amber (`UNCERTAINTY DETECTED`, <90%).
+

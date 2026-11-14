@@ -36,3 +36,4 @@
 - **Lucide Contributors:** *Lucide — Beautiful & consistent icons.*  
   [https://lucide.dev/](https://lucide.dev/)
 - **Filigran Community:** *Open-source Cyber Threat Intelligence (OpenCTI) and eXtended Threat Management (XTM) visual design language inspiration.*
+

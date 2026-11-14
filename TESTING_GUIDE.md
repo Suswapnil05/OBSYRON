@@ -78,3 +78,4 @@ python test_obsyron.py
 5. **Chaos Controls:** Toggle `Drop Telemetry (Gap Bridge)`. Verify dashed amber inferred edge appears and graph confidence score drops.
 6. **Report Exports:** Click `📥 JSON Report`, `📊 Evidence CSV`, or `📄 Markdown Brief` in the top bar. Verify real files download to disk.
 7. **Operator Portal:** Navigate to `/login`. Log in with username `analyst_lead` and passcode `obsyron2026`. Verify Level 4 clearance badge displays.
+

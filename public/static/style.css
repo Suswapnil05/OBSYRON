@@ -1468,6 +1468,63 @@ input:checked + .slider::before {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.08);
 }
+.tool-btn.active {
+  background: var(--accent-cyan);
+  color: #00020C !important;
+  font-weight: 700;
+}
+
+.graph-search-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.graph-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 3px 4px;
+  width: 120px;
+  transition: width 0.2s ease;
+}
+.graph-search-input:focus {
+  width: 145px;
+  border-color: var(--accent-cyan);
+}
+.clear-search-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.clear-search-btn:hover {
+  color: var(--color-critical);
+}
+
+.tool-select {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+.tool-select:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+}
 
 #cy {
   flex: 1;
@@ -1566,16 +1623,25 @@ input:checked + .slider::before {
 }
 
 /* XAI Cards */
-.xai-card {
+.xai-card,
+.xai-step-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
-.xai-card:hover {
-  border-color: var(--border-default);
+.xai-card:hover,
+.xai-step-card:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.xai-step-card.inferred-step {
+  border-left: 3px solid var(--color-warning);
 }
 .xai-header {
   display: flex;

@@ -19,3 +19,4 @@ graph TD
 3. **Application API (`app.py`):** Exposes dual-bound REST endpoints with Vercel path normalizer middleware.
 4. **Evidence DNA:** Provides cryptographic citation tracking linking each claim to an exact raw event.
 5. **Interactive UI (`static/` & `public/`):** Renders the single-viewport SOC command center with Cytoscape.js, time-travel player, and Web Speech audio debrief.
+

@@ -6,3 +6,4 @@
 4. **NIST SP 800-61 Rev 2.** (2012). *Computer Security Incident Handling Guide.*
 5. **OASIS STIX 2.1.** (2021). *Structured Threat Information Expression Version 2.1.*
 6. **MITRE ATT&CK.** (2023). *Enterprise Matrix v14.*
+

@@ -176,3 +176,4 @@ Returns structured audio debrief script for voice synthesis.
 
 ### `POST /api/simulation/reset` (and `/simulation/reset`)
 Purges memory cache and restores baseline zero state.
+

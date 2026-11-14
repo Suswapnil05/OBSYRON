@@ -15,6 +15,9 @@ const state = {
     drop_rate: 0.15
   },
   currentDataset: 'builtin',
+  graphViewMode: 'threat', // 'threat' = clean simple kill chain (default), 'all' = full network
+  graphLayoutName: 'breadthfirst',
+  searchQuery: '',
   sliderTimeout: null,
   isPlayingTimeline: false,
   timelineInterval: null,
@@ -318,16 +321,59 @@ function renderKPIs(data) {
   }
 }
 
-// ── 4. CYTOSCAPE ATTACK GRAPH ──────────────────────────────────────────────
+// ── 4. CYTOSCAPE ATTACK GRAPH (SIMPLIFIED & USER RESPONSIVE) ───────────────
 
 function entityBadge(type) {
   const map = {
-    USER: '[USER]',
-    DEVICE: '[DEVICE]',
-    SERVICE: '[SERVICE]',
-    AUTH_ENDPOINT: '[EXT_IP]'
+    USER: '👤 [USER]',
+    DEVICE: '💻 [DEVICE]',
+    SERVICE: '⚙️ [SERVICE]',
+    AUTH_ENDPOINT: '🌐 [EXT_IP]'
   };
-  return map[type] || '[NODE]';
+  return map[type] || '⬡ [NODE]';
+}
+
+function formatNodeLabel(n) {
+  const id = n.id;
+  if (id === '185.220.101.47') return '🌐 185.220.101.47\n[EXT] TOR Ingress / C2';
+  if (id === 'emp_rohan') return '👤 emp_rohan\n[USER] Compromised Identity';
+  if (id === 'wkst-04-dev') return '💻 wkst-04-dev\n[PIVOT] Dev Workstation';
+  if (id === 'svc_ci_deploy') return '🔑 svc_ci_deploy\n[SERVICE] Abused Token';
+  if (id === 'db-prod-01') return '🗄️ db-prod-01\n[TARGET] Production DB';
+  if (id === 'dc-01') return '🏛️ dc-01\n[INFRA] Active Directory';
+
+  const iconMap = { USER: '👤', DEVICE: '💻', SERVICE: '⚙️', AUTH_ENDPOINT: '🌐' };
+  const icon = iconMap[n.entity_type] || '⬡';
+  return `${icon} ${n.label || id}\n[${n.entity_type || 'ASSET'}]`;
+}
+
+function formatEdgeLabel(e) {
+  const confVal = Math.round((e.confidence || 0.75) * 100);
+  if (e.is_inferred) {
+    return `③ [INFERRED] Priv Esc\n${confVal}% [T1558] ⚠️`;
+  }
+  const action = (e.action || '').toUpperCase();
+  const mitre = e.mitre_tag || '';
+
+  if (mitre === 'T1078' || action === 'AUTH_ANOMALY') {
+    return `① Ingress Auth\n${confVal}% [T1078]`;
+  }
+  if (mitre === 'T1087' || action === 'RECON_ENUM') {
+    return `② AD Discovery\n${confVal}% [T1087]`;
+  }
+  if (mitre === 'T1558' || action === 'PRIV_ESC') {
+    return `③ Priv Escalation\n${confVal}% [T1558]`;
+  }
+  if (mitre === 'T1021' || action === 'LATERAL_MOVE') {
+    return `④ Lateral SMB\n${confVal}% [T1021]`;
+  }
+  if (action === 'DATA_EXFIL') {
+    return `⑤ Exfiltration\n${confVal}% [T1048]`;
+  }
+  if (action === 'C2_BEACON') {
+    return `⑥ C2 Callback\n${confVal}% [T1048]`;
+  }
+  return `${e.action || 'TRAFFIC'}\n${confVal}%`;
 }
 
 function entityFillColor(type, isMalicious) {
@@ -344,17 +390,16 @@ function entityFillColor(type, isMalicious) {
     }
     return '#0D1224';
   } else {
-    // Light Mode Fills (clean pastel tints with great readability)
     if (isMalicious) {
       const mal = {
-        USER: '#E0F2FE',       // Soft Sky Tint
-        DEVICE: '#F3E8FF',     // Soft Violet Tint
-        SERVICE: '#FEF3C7',    // Soft Amber Tint
-        AUTH_ENDPOINT: '#FEE2E2' // Soft Crimson Tint
+        USER: '#E0F2FE',
+        DEVICE: '#F3E8FF',
+        SERVICE: '#FEF3C7',
+        AUTH_ENDPOINT: '#FEE2E2'
       };
       return mal[type] || '#FEE2E2';
     }
-    return '#F8FAFC';          // Neutral Light Slate
+    return '#F8FAFC';
   }
 }
 
@@ -381,6 +426,7 @@ function entityStrokeColor(type) {
 
 function renderGraph(data) {
   const container = document.getElementById('cy');
+  if (!container) return;
   const dark = isDarkMode();
 
   const nodeTextColor = dark ? '#FFFFFF' : '#0F172A';
@@ -393,40 +439,74 @@ function renderGraph(data) {
   const ancestorColor = dark ? '#38BDF8' : '#0284C7';
   const descendantColor = dark ? '#EF4444' : '#DC2626';
 
-  const elements = [];
-  const nodeSet = new Set();
+  // 1. Identify Threat-Relevant Edges
+  const allEdges = data.edges || [];
+  const threatEdges = allEdges.filter(e => {
+    return Boolean(e.is_inferred) ||
+      (e.mitre_tag && e.mitre_tag.length > 0) ||
+      e.severity === 'CRITICAL' ||
+      e.severity === 'HIGH';
+  });
 
+  // 2. Identify Threat-Relevant Nodes
+  const threatNodeIds = new Set();
+  threatEdges.forEach(e => {
+    threatNodeIds.add(e.source);
+    threatNodeIds.add(e.target);
+  });
+  if (data.initial_access && data.initial_access.entity) {
+    threatNodeIds.add(data.initial_access.entity);
+  }
   (data.nodes || []).forEach(n => {
-    nodeSet.add(n.id);
+    if (n.is_malicious) threatNodeIds.add(n.id);
+  });
+
+  // 3. Filter Nodes based on state.graphViewMode ('threat' vs 'all')
+  const nodesToRender = (state.graphViewMode === 'threat' && threatNodeIds.size > 0)
+    ? (data.nodes || []).filter(n => threatNodeIds.has(n.id))
+    : (data.nodes || []);
+
+  const nodeSet = new Set(nodesToRender.map(n => n.id));
+
+  // 4. Filter Edges
+  let edgesToRender = [];
+  if (state.graphViewMode === 'threat') {
+    edgesToRender = threatEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+  } else {
+    edgesToRender = allEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+  }
+
+  const elements = [];
+
+  // Add Nodes
+  nodesToRender.forEach(n => {
+    const isThreatNode = threatNodeIds.has(n.id) || n.is_malicious;
     elements.push({
       group: 'nodes',
       data: {
         id: n.id,
-        label: `${entityBadge(n.entity_type)}\n${n.label}`,
+        label: formatNodeLabel(n),
         entity_type: n.entity_type,
-        is_malicious: n.is_malicious,
+        is_malicious: isThreatNode,
         centrality: n.centrality,
         log_ids: n.log_ids || [],
         mitre_tags: n.mitre_tags || [],
-        color: entityStrokeColor(n.entity_type),
-        bg: entityFillColor(n.entity_type, n.is_malicious),
+        color: isThreatNode ? (n.id === '185.220.101.47' ? '#EF4444' : entityStrokeColor(n.entity_type)) : (dark ? '#475569' : '#94A3B8'),
+        bg: entityFillColor(n.entity_type, isThreatNode),
       }
     });
   });
 
-  (data.edges || []).forEach((e, i) => {
-    if (!nodeSet.has(e.source) || !nodeSet.has(e.target)) return;
-    if (!e.mitre_tag && !e.is_inferred && e.severity !== 'CRITICAL' && e.severity !== 'HIGH') {
-      return;
-    }
-    const confVal = Math.round((e.confidence || 0.75) * 100);
+  // Add Edges
+  edgesToRender.forEach((e, i) => {
+    const isThreatEdge = e.is_inferred || (e.mitre_tag && e.mitre_tag.length > 0) || e.severity === 'CRITICAL' || e.severity === 'HIGH';
     elements.push({
       group: 'edges',
       data: {
         id: e.id || `edge-${i}`,
         source: e.source,
         target: e.target,
-        label: `${e.action}\n${confVal}%`,
+        label: formatEdgeLabel(e),
         is_inferred: Boolean(e.is_inferred),
         confidence: e.confidence,
         mitre_tag: e.mitre_tag,
@@ -434,6 +514,7 @@ function renderGraph(data) {
         severity: e.severity,
         raw_payload: e.raw_payload,
         normalized_timestamp: e.normalized_timestamp,
+        is_threat: isThreatEdge
       }
     });
   });
@@ -450,25 +531,57 @@ function renderGraph(data) {
     return;
   }
 
+  // Layout configuration
+  const rootId = (data.initial_access && data.initial_access.entity) || '185.220.101.47';
+  let layoutOpts = {
+    name: 'breadthfirst',
+    directed: true,
+    roots: elements.filter(e => e.group === 'nodes' && (e.data.id === rootId || e.data.entity_type === 'AUTH_ENDPOINT')).map(e => e.data.id),
+    padding: 35,
+    spacingFactor: 1.35,
+    avoidOverlap: true,
+    maximal: true,
+    animate: false
+  };
+
+  if (state.graphLayoutName === 'concentric') {
+    layoutOpts = {
+      name: 'concentric',
+      concentric: function(node) {
+        return (node.data('centrality') || 0) * 100 + (node.data('is_malicious') ? 50 : 0);
+      },
+      levelWidth: function() { return 25; },
+      padding: 35,
+      animate: false
+    };
+  } else if (state.graphLayoutName === 'cose') {
+    layoutOpts = {
+      name: 'cose',
+      animate: false,
+      padding: 35,
+      componentSpacing: 60,
+      nodeRepulsion: 6000,
+      idealEdgeLength: 100
+    };
+  } else if (state.graphLayoutName === 'circle') {
+    layoutOpts = {
+      name: 'circle',
+      padding: 35,
+      animate: false
+    };
+  }
+
   state.cy = cytoscape({
     container,
     elements,
-    layout: {
-      name: 'breadthfirst',
-      directed: true,
-      roots: elements.filter(e => e.group === 'nodes' && (e.data.id === '185.220.101.47' || e.data.entity_type === 'AUTH_ENDPOINT')).map(e => e.data.id),
-      padding: 30,
-      spacingFactor: 1.4,
-      avoidOverlap: true,
-      animate: false
-    },
+    layout: layoutOpts,
     style: [
       {
         selector: 'node',
         style: {
           'background-color': 'data(bg)',
           'border-color': 'data(color)',
-          'border-width': 1.8,
+          'border-width': 2.0,
           'label': 'data(label)',
           'text-valign': 'center',
           'text-halign': 'center',
@@ -477,30 +590,45 @@ function renderGraph(data) {
           'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
           'text-wrap': 'wrap',
-          'width': 105,
+          'width': 130,
           'height': 52,
           'shape': 'roundrectangle',
-          'text-max-width': 98,
-          'transition-property': 'background-color, border-color, opacity',
-          'transition-duration': '0.15s'
+          'text-max-width': 122,
+          'transition-property': 'background-color, border-color, opacity, border-width',
+          'transition-duration': '0.2s',
+          'cursor': 'pointer'
         }
       },
       {
         selector: 'node[entity_type = "USER"]',
-        style: { shape: 'roundrectangle', width: 95, height: 50 }
+        style: { shape: 'roundrectangle', width: 125, height: 50 }
       },
       {
         selector: 'node[entity_type = "SERVICE"]',
-        style: { shape: 'diamond', width: 108, height: 60 }
+        style: { shape: 'roundrectangle', width: 130, height: 50 }
       },
       {
         selector: 'node[entity_type = "AUTH_ENDPOINT"]',
-        style: { shape: 'hexagon', width: 100, height: 54 }
+        style: { shape: 'hexagon', width: 135, height: 54 }
       },
       {
         selector: 'node[?is_malicious]',
         style: {
-          'border-width': 2.4,
+          'border-width': 2.6,
+        }
+      },
+      {
+        selector: 'node[id = "185.220.101.47"]',
+        style: {
+          'border-color': '#EF4444',
+          'border-width': 3.0,
+        }
+      },
+      {
+        selector: 'node[id = "wkst-04-dev"]',
+        style: {
+          'border-color': '#38BDF8',
+          'border-width': 2.8,
         }
       },
       {
@@ -512,7 +640,7 @@ function renderGraph(data) {
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'label': 'data(label)',
-          'font-size': 8,
+          'font-size': 8.5,
           'font-weight': 600,
           'font-family': 'JetBrains Mono, monospace',
           'color': edgeTextColor,
@@ -520,17 +648,18 @@ function renderGraph(data) {
           'text-background-opacity': 0.95,
           'text-background-padding': 3,
           'text-wrap': 'wrap',
-          'text-max-width': 85,
+          'text-max-width': 105,
           'edge-text-rotation': 'autorotate',
-          'arrow-scale': 1.15
+          'arrow-scale': 1.15,
+          'cursor': 'pointer'
         }
       },
       {
-        selector: 'edge[severity = "CRITICAL"], edge[!is_inferred][confidence >= 0.85]',
+        selector: 'edge[?is_threat]',
         style: {
           'line-color': edgeCriticalColor,
           'target-arrow-color': edgeCriticalColor,
-          'width': 2.5,
+          'width': 2.6,
           'color': dark ? '#FCA5A5' : '#991B1B',
         }
       },
@@ -541,33 +670,54 @@ function renderGraph(data) {
           'target-arrow-color': edgeInferredColor,
           'line-style': 'dashed',
           'line-dash-pattern': [6, 4],
-          'width': 2.2,
+          'width': 2.4,
           'color': dark ? '#FCD34D' : '#92400E',
         }
       },
-      { selector: 'node:selected', style: { 'border-width': 3, 'border-color': selectBorderColor } },
-      { selector: '.dimmed', style: { 'opacity': 0.16 } },
+      {
+        selector: 'node:selected',
+        style: {
+          'border-width': 3.6,
+          'border-color': selectBorderColor
+        }
+      },
+      { selector: '.dimmed', style: { 'opacity': 0.12 } },
       { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 999 } },
-      { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 2.8, 'opacity': 1 } },
-      { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 2.8, 'opacity': 1 } },
+      { selector: '.ancestor-highlight', style: { 'border-color': ancestorColor, 'border-width': 3.2, 'opacity': 1 } },
+      { selector: '.descendant-highlight', style: { 'border-color': descendantColor, 'border-width': 3.2, 'opacity': 1 } },
     ]
   });
 
-  // Node Click -> Evidence DNA + Blast Radius Highlight
+  // Node Click -> Smooth Zoom/Center + Evidence DNA + Blast Radius Highlight
   state.cy.on('tap', 'node', function(evt) {
     const node = evt.target;
     const logIds = node.data('log_ids') || [];
     const chosenId = logIds.find(id => id.startsWith('LOG-APT') || id.startsWith('UPLOAD')) || logIds[0];
     if (chosenId) fetchEvidence(chosenId);
     highlightBlastRadius(node);
+
+    // Smooth responsive camera center
+    state.cy.animate({
+      center: { eles: node },
+      zoom: Math.max(state.cy.zoom(), 1.15)
+    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
-  // Edge Click -> Evidence DNA
+  // Edge Click -> Smooth Center + Evidence DNA
   state.cy.on('tap', 'edge', function(evt) {
     const edge = evt.target;
     const logIds = edge.data('log_ids') || [];
     const firstId = logIds[0];
     if (firstId) fetchEvidence(firstId);
+
+    state.cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
+    edge.removeClass('dimmed').addClass('highlighted');
+    edge.source().removeClass('dimmed').addClass('highlighted ancestor-highlight');
+    edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
+
+    state.cy.animate({
+      center: { eles: edge }
+    }, { duration: 300, easing: 'ease-in-out-cubic' });
   });
 
   // Hover Tooltip
@@ -589,7 +739,7 @@ function renderGraph(data) {
   // Background Tap -> Reset Dimming & Close Drawer
   state.cy.on('tap', function(evt) {
     if (evt.target === state.cy) {
-      state.cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
+      resetGraphFocus();
       closeDrawer();
     }
   });
@@ -597,13 +747,15 @@ function renderGraph(data) {
   setTimeout(() => {
     if (state.cy) {
       state.cy.resize();
-      state.cy.fit(null, 30);
+      state.cy.fit(null, 35);
     }
   }, 100);
 }
 
 window.addEventListener('resize', () => {
-  if (state.cy) state.cy.resize();
+  if (state.cy) {
+    state.cy.resize();
+  }
 });
 
 function highlightBlastRadius(node) {
@@ -611,31 +763,171 @@ function highlightBlastRadius(node) {
   const cy = state.cy;
   cy.elements().addClass('dimmed');
   node.removeClass('dimmed').addClass('highlighted');
-  
+
   // Upstream root cause path in Sky Blue
   node.predecessors().removeClass('dimmed').addClass('highlighted ancestor-highlight');
-  
+
   // Downstream blast radius path in Crimson
   node.successors().removeClass('dimmed').addClass('highlighted descendant-highlight');
-  
+
   node.connectedEdges().removeClass('dimmed').addClass('highlighted');
+}
+
+// ── USER-RESPONSIVE INTERACTIVE GRAPH CONTROLS ─────────────────────────────
+
+function setGraphViewMode(mode) {
+  state.graphViewMode = mode;
+  const btnThreat = document.getElementById('btn-view-threat');
+  const btnAll = document.getElementById('btn-view-all');
+  if (btnThreat) btnThreat.classList.toggle('active', mode === 'threat');
+  if (btnAll) btnAll.classList.toggle('active', mode === 'all');
+  if (state.analysisResult) {
+    renderGraph(state.analysisResult);
+  }
+}
+
+function changeGraphLayout(name) {
+  state.graphLayoutName = name;
+  if (!state.cy) return;
+  const cy = state.cy;
+  let opts = { name: name, animate: true, animationDuration: 400 };
+
+  if (name === 'breadthfirst') {
+    const rootId = (state.analysisResult && state.analysisResult.initial_access && state.analysisResult.initial_access.entity) || '185.220.101.47';
+    opts = {
+      name: 'breadthfirst',
+      directed: true,
+      roots: cy.nodes(`[id = "${rootId}"]`).length > 0 ? `[id = "${rootId}"]` : undefined,
+      padding: 40,
+      spacingFactor: 1.35,
+      avoidOverlap: true,
+      maximal: true,
+      animate: true,
+      animationDuration: 400
+    };
+  } else if (name === 'concentric') {
+    opts = {
+      name: 'concentric',
+      concentric: function(node) {
+        return (node.data('centrality') || 0) * 100 + (node.data('is_malicious') ? 50 : 0);
+      },
+      levelWidth: function() { return 25; },
+      padding: 40,
+      animate: true,
+      animationDuration: 400
+    };
+  } else if (name === 'cose') {
+    opts = {
+      name: 'cose',
+      animate: true,
+      animationDuration: 500,
+      padding: 40,
+      componentSpacing: 60,
+      nodeRepulsion: 6000,
+      idealEdgeLength: 100
+    };
+  } else if (name === 'circle') {
+    opts = {
+      name: 'circle',
+      padding: 40,
+      animate: true,
+      animationDuration: 400
+    };
+  }
+
+  cy.layout(opts).run();
+}
+
+function onGraphSearch(query) {
+  if (!state.cy) return;
+  const cy = state.cy;
+  const q = (query || '').trim().toLowerCase();
+  if (!q) {
+    resetGraphFocus();
+    return;
+  }
+
+  const matchedNodes = cy.nodes().filter(n => {
+    const label = (n.data('label') || '').toLowerCase();
+    const id = n.data('id').toLowerCase();
+    const type = (n.data('entity_type') || '').toLowerCase();
+    return id.includes(q) || label.includes(q) || type.includes(q);
+  });
+
+  if (matchedNodes.length > 0) {
+    cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
+    matchedNodes.removeClass('dimmed').addClass('highlighted descendant-highlight');
+    matchedNodes.connectedEdges().removeClass('dimmed').addClass('highlighted');
+    cy.animate({
+      center: { eles: matchedNodes[0] },
+      zoom: 1.3
+    }, { duration: 300 });
+  }
+}
+
+function clearGraphSearch() {
+  const input = document.getElementById('graph-search');
+  if (input) input.value = '';
+  resetGraphFocus();
+}
+
+function resetGraphFocus() {
+  if (!state.cy) return;
+  state.cy.elements().removeClass('dimmed highlighted ancestor-highlight descendant-highlight');
+  state.cy.animate({
+    fit: { padding: 40 }
+  }, { duration: 350 });
+}
+
+function focusAttackStep(stepNum) {
+  if (!state.cy) return;
+  const stepMap = {
+    1: { mitre: 'T1078', action: 'AUTH_ANOMALY', src: '185.220.101.47', tgt: 'emp_rohan' },
+    2: { mitre: 'T1087', action: 'RECON_ENUM', src: 'emp_rohan', tgt: 'wkst-04-dev' },
+    3: { mitre: 'T1558', action: 'PRIV_ESC', src: 'wkst-04-dev', tgt: 'svc_ci_deploy' },
+    4: { mitre: 'T1021', action: 'LATERAL_MOVE', src: 'svc_ci_deploy', tgt: 'db-prod-01' },
+    5: { mitre: 'T1048', action: 'DATA_EXFIL', src: 'db-prod-01', tgt: '185.220.101.47' },
+    6: { mitre: 'T1048', action: 'C2_BEACON', src: 'db-prod-01', tgt: '185.220.101.47' },
+  };
+
+  const targetInfo = stepMap[stepNum];
+  if (!targetInfo) return;
+
+  const cy = state.cy;
+  let matchEdge = cy.edges().filter(e => {
+    const d = e.data();
+    return (d.mitre_tag === targetInfo.mitre) || (d.action === targetInfo.action) ||
+      (d.source === targetInfo.src && d.target === targetInfo.tgt);
+  });
+
+  if (matchEdge.length === 0 && stepNum === 3) {
+    matchEdge = cy.edges().filter(e => e.data('is_inferred'));
+  }
+
+  if (matchEdge.length > 0) {
+    cy.elements().addClass('dimmed').removeClass('highlighted ancestor-highlight descendant-highlight');
+    const edge = matchEdge[0];
+    edge.removeClass('dimmed').addClass('highlighted');
+    edge.source().removeClass('dimmed').addClass('highlighted ancestor-highlight');
+    edge.target().removeClass('dimmed').addClass('highlighted descendant-highlight');
+
+    cy.animate({
+      center: { eles: edge },
+      zoom: Math.max(cy.zoom(), 1.25)
+    }, { duration: 400, easing: 'ease-in-out-cubic' });
+
+    const logIds = edge.data('log_ids') || [];
+    if (logIds[0]) fetchEvidence(logIds[0]);
+  }
 }
 
 // Canvas Toolbar Helpers
 function zoomIn() { if (state.cy) state.cy.zoom(state.cy.zoom() * 1.25); }
 function zoomOut() { if (state.cy) state.cy.zoom(state.cy.zoom() * 0.8); }
-function fitGraph() { if (state.cy) state.cy.fit(null, 30); }
+function fitGraph() { if (state.cy) state.cy.fit(null, 35); }
 function reLayoutGraph() {
   if (!state.cy) return;
-  state.cy.layout({
-    name: 'breadthfirst',
-    directed: true,
-    padding: 30,
-    spacingFactor: 1.4,
-    avoidOverlap: true,
-    animate: true,
-    animationDuration: 300
-  }).run();
+  changeGraphLayout(state.graphLayoutName || 'breadthfirst');
 }
 
 // ── 5. TIME-TRAVEL INVESTIGATION & SCRUBBER PLAYER ─────────────────────────
@@ -743,12 +1035,13 @@ function renderXAI(data) {
     ).join('');
 
     return `
-      <div class="xai-step-card ${step.is_inferred ? 'inferred-step' : ''}">
+      <div class="xai-step-card ${step.is_inferred ? 'inferred-step' : ''}" onclick="focusAttackStep(${step.step})" style="cursor:pointer" title="Click to isolate Stage ${step.step} on the attack graph">
         <div class="xai-card-top">
           <span class="step-pill">STAGE ${step.step}</span>
           <span class="step-heading">${step.title}</span>
           <span class="mitre-tag">${step.mitre}</span>
           ${step.is_inferred ? '<span class="inferred-tag">INFERRED BRIDGE</span>' : ''}
+          <span style="margin-left:auto;font-size:9px;color:var(--accent-cyan);font-family:var(--font-mono);font-weight:600">🎯 Locate</span>
         </div>
         <div style="font-size:9.5px;color:var(--text-tertiary);margin-bottom:6px;font-family:var(--font-mono)">${step.mitre_name || ''}</div>
         <p class="xai-desc">${step.narrative}</p>
