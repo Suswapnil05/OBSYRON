@@ -9,3 +9,4 @@
 | `404 Not Found` | Evidence DNA not found | Requesting `log_id` not present in active telemetry | Check evidence ID against active ledger |
 | `422 Unprocessable` | Pydantic validation failure | Invalid JSON field types in request payload | Ensure payload matches Pydantic schema |
 | `500 Server Error` | Unexpected backend error | Corrupted log format or parsing failure | Inspect server log output |
+

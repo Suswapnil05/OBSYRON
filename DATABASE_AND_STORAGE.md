@@ -64,3 +64,4 @@ Tokens are generated using Python's cryptographically secure `secrets.token_hex(
 While OBSYRON operates out-of-the-box with zero database configuration, local file outputs are generated into the following directories:
 - `sample-data/`: Pre-staged synthetic investigation datasets.
 - Export Downloads: Streamed directly to client browsers with RFC 6266 `Content-Disposition: attachment` headers.
+

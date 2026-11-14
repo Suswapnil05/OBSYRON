@@ -51,3 +51,4 @@
 - **Clearance Tiers:** Level 4 (Top Secret / SCI), Level 3 (Secret / OpSec), Level 2 (Confidential).
 - **Pre-Configured Call-signs:** Quick 1-click access for Lead Directors, Incident Responders, and Compliance Auditors.
 - **Dynamic Enrollment:** Operator signup portal generating cryptographic session tokens (`OBSYRON-SEC-...`) and session audit logs.
+

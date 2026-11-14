@@ -101,3 +101,4 @@ OBSYRON models the enterprise network as a directed multigraph $G = (V, E)$ wher
   - **L3 (Senior Incident Responder):** Graph reconstruction, containment execution, chaos simulation.
   - **L2 (Threat Auditor):** Read-only graph analysis, MITRE technique audit, evidence verification.
 - **Immutable Provenance:** Investigation findings reference cryptographic SHA-256 digests and audit IDs minted at session initialization.
+

@@ -28,3 +28,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and adhe
 - **Vercel Serverless Routing 404:** Implemented `vercel_path_normalizer` middleware reading `x-matched-path` headers and dual-bound all routes (`/api/...` and `/...`).
 - **Client-Side Fallback:** Added `apiFetch()` helper in `app.js` and `login.html` providing automatic failover between `/api/` and root endpoints.
 - **Static Asset Serving:** Mirrored static files to `public/` for direct Edge CDN delivery, preventing `FileNotFoundError` inside serverless Lambdas.
+

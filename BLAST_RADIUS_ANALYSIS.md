@@ -54,3 +54,4 @@ Based on the blast radius traversal, OBSYRON synthesizes a prioritized containme
 2. **P0 (Critical):** Kerberos ticket invalidation & credential rotation for `svc_ci_deploy`.
 3. **P1 (High):** Border firewall block and TCP session tear-down for `185.220.101.47:4444`.
 4. **P1 (High):** Read-only lock and snapshot preservation for `db-prod-01`.
+

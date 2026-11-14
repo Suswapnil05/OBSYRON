@@ -66,3 +66,4 @@ flowchart LR
    - **Local-First:** Runs 100% locally via `python app.py` on `http://localhost:8000`, ensuring classified enterprise logs never leave the internal network.
    - **Cloud Serverless:** Fully compatible with Vercel Serverless Functions (`api/index.py`) and Edge CDN delivery (`public/`), requiring no persistent cloud database.
 4. **NIST SP 800-61 Rev 2 Alignment:** Reconstructed incidents map directly to Incident Handling steps (Preparation, Detection & Analysis, Containment, Eradication & Recovery, Post-Incident Activity).
+

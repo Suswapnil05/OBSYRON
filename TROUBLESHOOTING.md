@@ -45,3 +45,4 @@
 ### Issue 5: Custom Uploaded CSV Fails Parsing
 - **Cause:** Inconsistent header naming or missing mandatory columns.
 - **Solution:** Ensure your CSV contains at least `source`, `target`, and `raw_timestamp` (or `timestamp`). OBSYRON's `parse_uploaded_file()` will automatically supply default values for optional columns (`protocol`, `port`, `severity`).
+

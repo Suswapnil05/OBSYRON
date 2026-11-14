@@ -54,3 +54,4 @@ When an operator drags the timeline slider:
 2. The engine filters the normalized event list.
 3. NetworkX rebuilds the graph up to time $T$.
 4. Cytoscape.js updates the canvas, allowing the investigator to observe the attack unfolding in real time.
+

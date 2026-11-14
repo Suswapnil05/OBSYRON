@@ -60,3 +60,4 @@ Every log ingested into the Evidence DNA ledger is assigned:
 - Verified MITRE ATT&CK technique tags.
 
 Any attempt to forge or alter records invalidates the graph's internal causality check, which requires that child nodes have normalized timestamps greater than or equal to their parent causal triggers.
+

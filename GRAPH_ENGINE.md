@@ -52,3 +52,4 @@ The graph structure is converted into a Cytoscape JSON payload:
 ```
 
 The frontend uses Cytoscape's concentric layout, positioning critical pivot nodes centrally with peripheral assets arranged in outer rings.
+

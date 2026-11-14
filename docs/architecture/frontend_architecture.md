@@ -13,3 +13,4 @@ The frontend interface is engineered as a single-viewport SOC Command Center adh
 - **Center Canvas:** Hardware-accelerated Cytoscape.js attack graph with interactive zoom, pan, fit, and node/edge selection.
 - **Right Panel:** Tabbed interface for Explainable AI (XAI) narrative, Containment Playbook, and Pivot Centrality matrix.
 - **Bottom Slide-out Drawer:** Immutable Evidence DNA ledger inspector with 1-click JSON and CSV export actions.
+

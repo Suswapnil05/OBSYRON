@@ -52,3 +52,4 @@ OBSYRON provides 6 pre-configured synthetic scenario datasets located in `sample
 - **`severity` (string):** `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`.
 - **`is_malicious` (boolean):** Ground-truth label for evaluation.
 - **`raw_payload` (string):** JSON-encoded raw event dictionary.
+
